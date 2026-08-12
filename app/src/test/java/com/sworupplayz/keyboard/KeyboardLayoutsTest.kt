@@ -39,6 +39,19 @@ class KeyboardLayoutsTest {
         assertTrue(KeyboardLayouts.symbols(KeyboardLanguage.NEPALI).flatten().any {
             it.action == KeyAction.LETTERS && it.label == "कखग"
         })
+        assertTrue(KeyboardLayouts.symbols(KeyboardLanguage.ROMAN).flatten().any {
+            it.action == KeyAction.LETTERS && it.label == "Roman"
+        })
+    }
+
+    @Test
+    fun languageModeCyclesThroughEnglishNepaliAndRoman() {
+        assertEquals(KeyboardLanguage.NEPALI, KeyboardLanguage.ENGLISH.next())
+        assertEquals(KeyboardLanguage.ROMAN, KeyboardLanguage.NEPALI.next())
+        assertEquals(KeyboardLanguage.ENGLISH, KeyboardLanguage.ROMAN.next())
+        assertTrue(KeyboardLayouts.english(false, KeyboardLanguage.ROMAN).flatten().any {
+            it.action == KeyAction.LANGUAGE && it.label == "EN"
+        })
     }
 
     private fun textOutputs(rows: List<List<KeySpec>>): Set<String> = rows.flatten()

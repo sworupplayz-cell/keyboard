@@ -21,7 +21,10 @@ data class KeySpec(
 )
 
 object KeyboardLayouts {
-    fun english(shifted: Boolean): List<List<KeySpec>> {
+    fun english(
+        shifted: Boolean,
+        language: KeyboardLanguage = KeyboardLanguage.ENGLISH
+    ): List<List<KeySpec>> {
         fun letters(value: String): List<KeySpec> = value.map { character ->
             val text = if (shifted) character.uppercaseChar().toString() else character.toString()
             KeySpec(label = text, output = text)
@@ -35,9 +38,9 @@ object KeyboardLayouts {
                 KeySpec("⌫", KeyAction.BACKSPACE, width = 1.4f),
             listOf(
                 KeySpec("?123", KeyAction.SYMBOLS, width = 1.4f),
-                KeySpec("ने", KeyAction.LANGUAGE),
+                KeySpec(language.nextModeLabel(), KeyAction.LANGUAGE, width = 1.5f),
                 KeySpec(","),
-                KeySpec("space", KeyAction.SPACE, output = " ", width = 3.8f),
+                KeySpec("space", KeyAction.SPACE, output = " ", width = 3.3f),
                 KeySpec("."),
                 KeySpec("↵", KeyAction.ENTER, width = 1.4f)
             )
@@ -50,10 +53,10 @@ object KeyboardLayouts {
         listOf("_", "/", "\\", ":", ";", "\"", "'", "!", "?").map(::KeySpec) +
             KeySpec("⌫", KeyAction.BACKSPACE, width = 1.2f),
         listOf(
-            KeySpec(if (language == KeyboardLanguage.ENGLISH) "ABC" else "कखग", KeyAction.LETTERS, width = 1.5f),
-            KeySpec(if (language == KeyboardLanguage.ENGLISH) "ने" else "EN", KeyAction.LANGUAGE),
+            KeySpec(language.lettersLabel(), KeyAction.LETTERS, width = 1.5f),
+            KeySpec(language.nextModeLabel(), KeyAction.LANGUAGE, width = 1.5f),
             KeySpec(","),
-            KeySpec("space", KeyAction.SPACE, output = " ", width = 3.8f),
+            KeySpec("space", KeyAction.SPACE, output = " ", width = 3.3f),
             KeySpec("."),
             KeySpec("↵", KeyAction.ENTER, width = 1.4f)
         )
@@ -79,15 +82,34 @@ object KeyboardLayouts {
 
     private fun nepaliControls(toggleLabel: String, toggleAction: KeyAction): List<KeySpec> = listOf(
         KeySpec("?१२३", KeyAction.SYMBOLS, width = 1.35f),
-        KeySpec("EN", KeyAction.LANGUAGE),
+        KeySpec(KeyboardLanguage.NEPALI.nextModeLabel(), KeyAction.LANGUAGE, width = 1.5f),
         KeySpec(toggleLabel, toggleAction, width = 1.5f),
-        KeySpec("खाली", KeyAction.SPACE, output = " ", width = 3.2f),
+        KeySpec("खाली", KeyAction.SPACE, output = " ", width = 2.7f),
         KeySpec("।"),
         KeySpec("↵", KeyAction.ENTER, width = 1.35f)
     )
+
+    private fun KeyboardLanguage.lettersLabel(): String = when (this) {
+        KeyboardLanguage.NEPALI -> "कखग"
+        KeyboardLanguage.ENGLISH -> "ABC"
+        KeyboardLanguage.ROMAN -> "Roman"
+    }
 }
 
 enum class KeyboardLanguage {
     ENGLISH,
-    NEPALI
+    NEPALI,
+    ROMAN;
+
+    fun next(): KeyboardLanguage = when (this) {
+        ENGLISH -> NEPALI
+        NEPALI -> ROMAN
+        ROMAN -> ENGLISH
+    }
+
+    fun nextModeLabel(): String = when (this) {
+        ENGLISH -> "नेपाली"
+        NEPALI -> "Roman"
+        ROMAN -> "EN"
+    }
 }

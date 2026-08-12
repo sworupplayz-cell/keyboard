@@ -18,6 +18,7 @@ import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.InputMethodSubtype
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.TextView
 
 class KeyboardService : InputMethodService() {
     private enum class LayoutMode {
@@ -27,6 +28,13 @@ class KeyboardService : InputMethodService() {
     }
 
     private lateinit var keyboardRoot: LinearLayout
+    private var suggestionRow: LinearLayout? = null
+    private val romanConverter: RomanNepaliConverter by lazy {
+        resources.openRawResource(R.raw.roman_nepali_dictionary).bufferedReader().use {
+            RomanNepaliConverter.from(it)
+        }
+    }
+    private val romanComposer: RomanInputComposer by lazy { RomanInputComposer(romanConverter) }
     private var language = KeyboardLanguage.ENGLISH
     private var layoutMode = LayoutMode.LETTERS
     private var shifted = false
@@ -52,6 +60,10 @@ class KeyboardService : InputMethodService() {
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         readPreferences()
+        if (romanComposer.currentWord.isNotEmpty()) {
+            currentInputConnection?.finishComposingText()
+            romanComposer.reset()
+        }
         shifted = false
         if (::keyboardRoot.isInitialized) {
             applyWindowAppearance()
@@ -61,10 +73,23 @@ class KeyboardService : InputMethodService() {
 
     override fun onCurrentInputMethodSubtypeChanged(newSubtype: InputMethodSubtype?) {
         super.onCurrentInputMethodSubtypeChanged(newSubtype)
+        if (romanComposer.currentWord.isNotEmpty()) {
+            currentInputConnection?.finishComposingText()
+            romanComposer.reset()
+        }
         updateLanguageFromSubtype(newSubtype)
         shifted = false
         layoutMode = LayoutMode.LETTERS
         if (::keyboardRoot.isInitialized) renderKeyboard()
+    }
+
+    override fun onFinishInput() {
+        if (romanComposer.currentWord.isNotEmpty()) {
+            currentInputConnection?.finishComposingText()
+            romanComposer.reset()
+        }
+        suggestionRow = null
+        super.onFinishInput()
     }
 
     override fun onEvaluateFullscreenMode(): Boolean = false
@@ -88,7 +113,8 @@ class KeyboardService : InputMethodService() {
     private fun renderKeyboard() {
         val rows = when {
             layoutMode == LayoutMode.SYMBOLS -> KeyboardLayouts.symbols(language)
-            language == KeyboardLanguage.ENGLISH -> KeyboardLayouts.english(shifted)
+            language == KeyboardLanguage.ENGLISH || language == KeyboardLanguage.ROMAN ->
+                KeyboardLayouts.english(shifted, language)
             layoutMode == LayoutMode.VOWELS -> KeyboardLayouts.nepaliVowels()
             else -> KeyboardLayouts.nepaliConsonants()
         }
@@ -96,6 +122,10 @@ class KeyboardService : InputMethodService() {
         val colors = keyboardColors()
         keyboardRoot.setBackgroundColor(colors.background)
         keyboardRoot.removeAllViews()
+        suggestionRow = null
+        if (language == KeyboardLanguage.ROMAN && layoutMode == LayoutMode.LETTERS) {
+            addSuggestionRow(colors)
+        }
 
         rows.forEach { keys ->
             val row = LinearLayout(this).apply {
@@ -107,6 +137,71 @@ class KeyboardService : InputMethodService() {
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(keyHeightDp))
             )
             keys.forEach { key -> row.addView(createKeyButton(key, colors)) }
+        }
+    }
+
+    private fun addSuggestionRow(colors: KeyboardColors) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(2), dp(1), dp(2), dp(1))
+        }
+        suggestionRow = row
+        keyboardRoot.addView(
+            row,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(38))
+        )
+        updateSuggestionRow(colors)
+    }
+
+    private fun updateSuggestionRow(colors: KeyboardColors = keyboardColors()) {
+        val row = suggestionRow ?: return
+        row.removeAllViews()
+        val suggestions = romanConverter.suggestions(romanComposer.currentWord)
+        if (suggestions.isEmpty()) {
+            row.addView(TextView(this).apply {
+                text = if (romanComposer.currentWord.isEmpty()) {
+                    getString(R.string.roman_suggestion_hint)
+                } else {
+                    romanComposer.currentWord
+                }
+                gravity = Gravity.CENTER
+                textSize = 14f
+                setTextColor(colors.text)
+                alpha = 0.7f
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+            return
+        }
+
+        suggestions.forEach { suggestion ->
+            row.addView(Button(this).apply {
+                text = suggestion
+                contentDescription = suggestion
+                isAllCaps = false
+                includeFontPadding = false
+                gravity = Gravity.CENTER
+                textSize = 16f
+                minWidth = 0
+                minimumWidth = 0
+                minHeight = 0
+                minimumHeight = 0
+                setPadding(dp(2), 0, dp(2), 0)
+                setTextColor(colors.text)
+                isSoundEffectsEnabled = false
+                isHapticFeedbackEnabled = false
+                stateListAnimator = null
+                background = roundedBackground(colors.key)
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    1f
+                ).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
+                setOnClickListener {
+                    giveFeedback(KeyAction.TEXT)
+                    applyRomanEdit(romanComposer.acceptSuggestion(suggestion))
+                    updateSuggestionRow(colors)
+                }
+            })
         }
     }
 
@@ -156,15 +251,44 @@ class KeyboardService : InputMethodService() {
 
     private fun handleKey(key: KeySpec) {
         when (key.action) {
-            KeyAction.TEXT -> commitText(key.output)
-            KeyAction.SPACE -> commitText(" ")
-            KeyAction.BACKSPACE -> deleteOneCharacter()
-            KeyAction.ENTER -> sendEnter()
+            KeyAction.TEXT -> {
+                if (language == KeyboardLanguage.ROMAN && layoutMode == LayoutMode.LETTERS) {
+                    handleRomanText(key.output)
+                } else {
+                    commitText(key.output)
+                }
+            }
+            KeyAction.SPACE -> {
+                if (language == KeyboardLanguage.ROMAN) {
+                    applyRomanEdit(romanComposer.finishWord(" "))
+                    updateSuggestionRow()
+                } else {
+                    commitText(" ")
+                }
+            }
+            KeyAction.BACKSPACE -> {
+                if (language == KeyboardLanguage.ROMAN) {
+                    applyRomanEdit(romanComposer.backspace())
+                    updateSuggestionRow()
+                } else {
+                    deleteOneCharacter()
+                }
+            }
+            KeyAction.ENTER -> {
+                if (language == KeyboardLanguage.ROMAN) {
+                    applyRomanEdit(romanComposer.finishWord())
+                    updateSuggestionRow()
+                }
+                sendEnter()
+            }
             KeyAction.SHIFT -> {
                 shifted = !shifted
                 renderKeyboard()
             }
             KeyAction.SYMBOLS -> {
+                if (language == KeyboardLanguage.ROMAN) {
+                    applyRomanEdit(romanComposer.finishWord())
+                }
                 shifted = false
                 layoutMode = LayoutMode.SYMBOLS
                 renderKeyboard()
@@ -174,12 +298,11 @@ class KeyboardService : InputMethodService() {
                 renderKeyboard()
             }
             KeyAction.LANGUAGE -> {
-                shifted = false
-                language = if (language == KeyboardLanguage.ENGLISH) {
-                    KeyboardLanguage.NEPALI
-                } else {
-                    KeyboardLanguage.ENGLISH
+                if (language == KeyboardLanguage.ROMAN) {
+                    applyRomanEdit(romanComposer.finishWord())
                 }
+                shifted = false
+                language = language.next()
                 layoutMode = LayoutMode.LETTERS
                 renderKeyboard()
             }
@@ -191,6 +314,35 @@ class KeyboardService : InputMethodService() {
                 layoutMode = LayoutMode.LETTERS
                 renderKeyboard()
             }
+        }
+    }
+
+    private fun handleRomanText(text: String) {
+        val edit = if (text.all(Char::isLetter)) {
+            romanComposer.type(text)
+        } else {
+            romanComposer.finishWord(text)
+        }
+        applyRomanEdit(edit)
+        if (shifted && text.firstOrNull()?.isLetter() == true) {
+            shifted = false
+            renderKeyboard()
+        } else {
+            updateSuggestionRow()
+        }
+    }
+
+    private fun applyRomanEdit(edit: RomanEdit) {
+        val connection = currentInputConnection ?: return
+        when (edit) {
+            is RomanEdit.SetComposing -> connection.setComposingText(edit.text, 1)
+            is RomanEdit.Commit -> connection.commitText(edit.text, 1)
+            RomanEdit.ClearComposing -> {
+                connection.setComposingText("", 1)
+                connection.finishComposingText()
+            }
+            RomanEdit.DeletePrevious -> deleteOneCharacter()
+            RomanEdit.NoOp -> Unit
         }
     }
 

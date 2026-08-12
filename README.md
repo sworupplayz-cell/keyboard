@@ -1,16 +1,21 @@
-# Simple Nepali Keyboard — Phase 1
+# Simple Nepali Keyboard — Phase 2
 
-A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It provides English QWERTY, Nepali Devanagari, a small symbol layout, and only local settings. It is a system keyboard, not an in-app keyboard simulation.
+A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-## Phase 1 features
+## Features
 
 - English lowercase and one-shot uppercase Shift
 - Backspace, space, enter/editor action, punctuation, numbers, and symbols
 - Nepali consonants, independent vowels, vowel signs, conjunct shortcuts, marks, and Devanagari digits
-- English/Nepali switch on the keyboard (long-press the language key to move to the next system IME)
+- Roman mode with an English QWERTY layout and offline Nepali conversion
+- A compact suggestion row for the current Roman word
+- Mode cycle: **EN → नेपाली → Roman → EN**
+- Long-press the mode key to move to the next system keyboard
 - Optional key sound and vibration
 - Light or dark keyboard appearance
-- No internet permission, account, cloud service, text collection, autocorrect, or suggestion engine
+- No internet permission, account, cloud service, text collection, handwriting, AI, or sentence prediction
+
+The Roman dictionary is the tab-separated file at `app/src/main/res/raw/roman_nepali_dictionary.tsv`. Known words convert when a suggestion is tapped or when space/punctuation is entered. Unknown words remain in their original Roman spelling. A small rule-based transliterator provides optional suggestions without automatically replacing unknown text.
 
 ## Build
 
@@ -30,4 +35,4 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 4. Select **Simple Nepali Keyboard**.
 5. Open a text field in another app and type normally.
 
-The IME service is declared in `AndroidManifest.xml` with the `android.permission.BIND_INPUT_METHOD` permission and `android.view.InputMethod` intent. Its English and Nepali subtypes are declared in `res/xml/method.xml`.
+The IME service is declared in `AndroidManifest.xml` with the `android.permission.BIND_INPUT_METHOD` permission and `android.view.InputMethod` intent. Its English and Nepali system subtypes are declared in `res/xml/method.xml`; Roman is a local mode inside the IME.

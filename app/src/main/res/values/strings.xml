@@ -13,5 +13,6 @@
     <string name="sound_setting">Key sound</string>
     <string name="vibration_setting">Key vibration</string>
     <string name="dark_setting">Dark appearance</string>
-    <string name="privacy_note">This keyboard works locally. Phase 1 has no internet permission, accounts, cloud features, or text collection.</string>
+    <string name="roman_suggestion_hint">Roman → नेपाली</string>
+    <string name="privacy_note">This keyboard works locally. It has no internet permission, accounts, cloud features, or text collection.</string>
 </resources>
