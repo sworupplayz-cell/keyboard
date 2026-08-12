@@ -51,13 +51,36 @@ class KeyboardService : InputMethodService() {
             .getString(KeyboardPreferences.KEY_LEARNED_ROMAN, null)
         LearnedRomanWords.fromSerialized(serialized)
     }
+    private val learnedEnglishWords: LearnedWordStore by lazy {
+        val serialized = getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+            .getString(KeyboardPreferences.KEY_LEARNED_ENGLISH, null)
+        LearnedWordStore.fromSerialized(serialized)
+    }
+    private val learnedNepaliWords: LearnedWordStore by lazy {
+        val serialized = getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+            .getString(KeyboardPreferences.KEY_LEARNED_NEPALI, null)
+        LearnedWordStore.fromSerialized(serialized)
+    }
+    private val englishSuggester: LocalWordSuggester by lazy {
+        resources.openRawResource(R.raw.english_vocabulary).bufferedReader().use {
+            LocalWordSuggester.fromWords(VocabularyLoader.english(it))
+        }
+    }
+    private val nepaliSuggester: LocalWordSuggester by lazy {
+        resources.openRawResource(R.raw.roman_nepali_dictionary).bufferedReader().use {
+            LocalWordSuggester.fromWords(VocabularyLoader.nepaliFromRomanDictionary(it))
+        }
+    }
+    private val directTypingState = DirectTypingState()
     private val romanConverter: RomanNepaliConverter by lazy {
         resources.openRawResource(R.raw.roman_nepali_dictionary).bufferedReader().use {
             RomanNepaliConverter.from(it)
         }
     }
     private val romanComposerDelegate = lazy {
-        RomanInputComposer(romanConverter, learnedRomanWords::lookup)
+        RomanInputComposer(romanConverter) { word ->
+            if (useLearning) learnedRomanWords.lookup(word) else null
+        }
     }
     private val romanComposer: RomanInputComposer get() = romanComposerDelegate.value
     private var language = KeyboardLanguage.ENGLISH
@@ -66,6 +89,9 @@ class KeyboardService : InputMethodService() {
     private var useSound = false
     private var useVibration = false
     private var useDarkAppearance = false
+    private var useSuggestions = true
+    private var useLearning = true
+    private var internalSelectionChange = false
     private var keyHeightDp = 48
 
     override fun onCreateInputView(): View {
@@ -89,6 +115,8 @@ class KeyboardService : InputMethodService() {
             currentInputConnection?.finishComposingText()
             romanComposer.reset()
         }
+        directTypingState.clear()
+        internalSelectionChange = false
         resetHandwriting()
         modeHistory.clear()
         shifted = false
@@ -104,6 +132,8 @@ class KeyboardService : InputMethodService() {
             currentInputConnection?.finishComposingText()
             romanComposer.reset()
         }
+        directTypingState.clear()
+        internalSelectionChange = false
         resetHandwriting()
         modeHistory.clear()
         updateLanguageFromSubtype(newSubtype)
@@ -117,6 +147,8 @@ class KeyboardService : InputMethodService() {
             currentInputConnection?.finishComposingText()
             romanComposer.reset()
         }
+        directTypingState.clear()
+        internalSelectionChange = false
         resetHandwriting()
         modeHistory.clear()
         suggestionRow = null
@@ -151,6 +183,16 @@ class KeyboardService : InputMethodService() {
             currentInputConnection?.finishComposingText()
             updateSuggestionRow()
         }
+        if (language != KeyboardLanguage.ROMAN && directTypingState.currentWord.isNotEmpty()) {
+            if (internalSelectionChange) {
+                internalSelectionChange = false
+            } else {
+                directTypingState.clear()
+                updateSuggestionRow()
+            }
+        } else if (language != KeyboardLanguage.ROMAN) {
+            internalSelectionChange = false
+        }
     }
 
     override fun onEvaluateFullscreenMode(): Boolean = false
@@ -169,6 +211,8 @@ class KeyboardService : InputMethodService() {
         useSound = preferences.getBoolean(KeyboardPreferences.KEY_SOUND, false)
         useVibration = preferences.getBoolean(KeyboardPreferences.KEY_VIBRATION, false)
         useDarkAppearance = preferences.getBoolean(KeyboardPreferences.KEY_DARK, false)
+        useSuggestions = preferences.getBoolean(KeyboardPreferences.KEY_SUGGESTIONS, true)
+        useLearning = preferences.getBoolean(KeyboardPreferences.KEY_LEARNING, true)
     }
 
     private fun renderKeyboard() {
@@ -188,7 +232,12 @@ class KeyboardService : InputMethodService() {
             return
         }
 
-        addNavigationRow(colors)
+        val supportsSuggestions = layoutMode == LayoutMode.LETTERS ||
+            (language == KeyboardLanguage.NEPALI && layoutMode == LayoutMode.VOWELS)
+        val useCompactNepaliSuggestions = useSuggestions && supportsSuggestions &&
+            language == KeyboardLanguage.NEPALI
+        if (!useCompactNepaliSuggestions) addNavigationRow(colors)
+
         val rows = when {
             layoutMode == LayoutMode.NUMBERS -> KeyboardLayouts.numbers(language)
             layoutMode == LayoutMode.SYMBOLS -> KeyboardLayouts.symbols(language)
@@ -197,9 +246,7 @@ class KeyboardService : InputMethodService() {
             layoutMode == LayoutMode.VOWELS -> KeyboardLayouts.nepaliVowels()
             else -> KeyboardLayouts.nepaliConsonants()
         }
-        if (language == KeyboardLanguage.ROMAN && layoutMode == LayoutMode.LETTERS) {
-            addSuggestionRow(colors)
-        }
+        if (useSuggestions && supportsSuggestions) addSuggestionRow(colors)
         addKeyRows(rows, colors)
     }
 
@@ -470,17 +517,36 @@ class KeyboardService : InputMethodService() {
     private fun updateSuggestionRow(colors: KeyboardColors = keyboardColors()) {
         val row = suggestionRow ?: return
         row.removeAllViews()
-        val suggestions = romanConverter.suggestions(
-            romanComposer.currentWord,
-            learnedRomanWords.lookup(romanComposer.currentWord)
-        )
+        val currentWord = if (language == KeyboardLanguage.ROMAN) {
+            romanComposer.currentWord
+        } else {
+            directTypingState.currentWord
+        }
+        val suggestions = if (currentWord.isEmpty()) emptyList() else when (language) {
+            KeyboardLanguage.ENGLISH -> englishSuggester.suggestions(
+                currentWord,
+                if (useLearning) learnedEnglishWords.suggestions(currentWord) else emptyList(),
+                MAX_SUGGESTIONS
+            )
+            KeyboardLanguage.NEPALI -> nepaliSuggester.suggestions(
+                currentWord,
+                if (useLearning) learnedNepaliWords.suggestions(currentWord) else emptyList(),
+                MAX_SUGGESTIONS
+            )
+            KeyboardLanguage.ROMAN -> romanConverter.suggestions(
+                currentWord,
+                if (useLearning) learnedRomanWords.lookup(currentWord) else null,
+                MAX_SUGGESTIONS
+            )
+        }
         if (suggestions.isEmpty()) {
+            val hint = when (language) {
+                KeyboardLanguage.ENGLISH -> R.string.english_suggestion_hint
+                KeyboardLanguage.NEPALI -> R.string.nepali_suggestion_hint
+                KeyboardLanguage.ROMAN -> R.string.roman_suggestion_hint
+            }
             row.addView(TextView(this).apply {
-                text = if (romanComposer.currentWord.isEmpty()) {
-                    getString(R.string.roman_suggestion_hint)
-                } else {
-                    romanComposer.currentWord
-                }
+                text = if (currentWord.isEmpty()) getString(hint) else currentWord
                 gravity = Gravity.CENTER
                 textSize = 14f
                 setTextColor(colors.text)
@@ -489,7 +555,7 @@ class KeyboardService : InputMethodService() {
             return
         }
 
-        suggestions.forEach { suggestion ->
+        suggestions.take(MAX_SUGGESTIONS).forEach { suggestion ->
             row.addView(Button(this).apply {
                 text = suggestion
                 contentDescription = suggestion
@@ -517,17 +583,63 @@ class KeyboardService : InputMethodService() {
                 }
                 setOnClickListener {
                     giveFeedback(KeyAction.TEXT)
-                    val romanWord = romanComposer.currentWord
-                    if (learnedRomanWords.learn(romanWord, suggestion)) {
-                        getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
-                            .edit()
-                            .putString(KeyboardPreferences.KEY_LEARNED_ROMAN, learnedRomanWords.serialize())
-                            .apply()
-                    }
-                    applyRomanEdit(romanComposer.acceptSuggestion(suggestion))
-                    updateSuggestionRow(colors)
+                    acceptSuggestion(suggestion, colors)
                 }
             })
+        }
+    }
+
+    private fun acceptSuggestion(suggestion: String, colors: KeyboardColors) {
+        if (language == KeyboardLanguage.ROMAN) {
+            val romanWord = romanComposer.currentWord
+            if (useLearning && learnedRomanWords.learn(romanWord, suggestion)) {
+                getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+                    .edit()
+                    .putString(KeyboardPreferences.KEY_LEARNED_ROMAN, learnedRomanWords.serialize())
+                    .apply()
+            }
+            applyRomanEdit(romanComposer.acceptSuggestion(suggestion))
+            updateSuggestionRow(colors)
+            return
+        }
+
+        val typedWord = directTypingState.currentWord
+        val connection = currentInputConnection ?: return
+        val replacement = SuggestionSelectionPlan.create(
+            typedWord,
+            suggestion,
+            connection.getTextBeforeCursor(typedWord.length, 0).toString()
+        )
+        if (replacement == null) {
+            directTypingState.clear()
+            updateSuggestionRow(colors)
+            return
+        }
+        if (replacement.changesText) {
+            internalSelectionChange = true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                connection.deleteSurroundingTextInCodePoints(replacement.deleteCodePoints, 0)
+            } else {
+                connection.deleteSurroundingText(replacement.deleteCodeUnits, 0)
+            }
+            connection.commitText(replacement.replacement, 1)
+        }
+        directTypingState.replaceWith(suggestion)
+        if (useLearning) persistLearnedWord(suggestion)
+        updateSuggestionRow(colors)
+    }
+
+    private fun persistLearnedWord(word: String) {
+        val (store, preferenceKey) = when (language) {
+            KeyboardLanguage.ENGLISH -> learnedEnglishWords to KeyboardPreferences.KEY_LEARNED_ENGLISH
+            KeyboardLanguage.NEPALI -> learnedNepaliWords to KeyboardPreferences.KEY_LEARNED_NEPALI
+            KeyboardLanguage.ROMAN -> return
+        }
+        if (store.record(word)) {
+            getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(preferenceKey, store.serialize())
+                .apply()
         }
     }
 
@@ -604,7 +716,7 @@ class KeyboardService : InputMethodService() {
                 if (language == KeyboardLanguage.ROMAN && layoutMode == LayoutMode.LETTERS) {
                     handleRomanText(key.output)
                 } else {
-                    commitText(key.output)
+                    handleDirectText(key.output)
                 }
             }
             KeyAction.SPACE -> {
@@ -612,7 +724,9 @@ class KeyboardService : InputMethodService() {
                     applyRomanEdit(romanComposer.finishWord(" "))
                     updateSuggestionRow()
                 } else {
+                    directTypingState.clear()
                     commitText(" ")
+                    updateSuggestionRow()
                 }
             }
             KeyAction.BACKSPACE -> {
@@ -620,12 +734,18 @@ class KeyboardService : InputMethodService() {
                     applyRomanEdit(romanComposer.backspace())
                     updateSuggestionRow()
                 } else {
+                    internalSelectionChange = true
+                    directTypingState.backspace()
                     deleteOneCharacter()
+                    updateSuggestionRow()
                 }
             }
             KeyAction.ENTER -> {
                 if (language == KeyboardLanguage.ROMAN) {
                     applyRomanEdit(romanComposer.finishWord())
+                    updateSuggestionRow()
+                } else {
+                    directTypingState.clear()
                     updateSuggestionRow()
                 }
                 sendEnter()
@@ -680,6 +800,8 @@ class KeyboardService : InputMethodService() {
 
     private fun openPanel(target: LayoutMode) {
         if (language == KeyboardLanguage.ROMAN) applyRomanEdit(romanComposer.finishWord())
+        directTypingState.clear()
+        internalSelectionChange = false
         if (layoutMode == LayoutMode.HANDWRITING) {
             resetHandwriting()
             modeHistory.clear()
@@ -699,6 +821,8 @@ class KeyboardService : InputMethodService() {
 
     private fun openHandwriting() {
         if (language == KeyboardLanguage.ROMAN) applyRomanEdit(romanComposer.finishWord())
+        directTypingState.clear()
+        internalSelectionChange = false
         if (layoutMode != LayoutMode.HANDWRITING) {
             modeHistory.remember(ModeSnapshot(language, layoutMode))
         }
@@ -710,6 +834,8 @@ class KeyboardService : InputMethodService() {
 
     private fun returnToPreviousLayout() {
         if (layoutMode == LayoutMode.HANDWRITING) resetHandwriting()
+        directTypingState.clear()
+        internalSelectionChange = false
         val previous = modeHistory.previousOr(ModeSnapshot(language, LayoutMode.LETTERS))
         language = previous.language
         layoutMode = previous.layout
@@ -719,11 +845,24 @@ class KeyboardService : InputMethodService() {
 
     private fun switchTypingMode(targetLanguage: KeyboardLanguage) {
         resetHandwriting()
+        directTypingState.clear()
+        internalSelectionChange = false
         modeHistory.clear()
         language = targetLanguage
         shifted = false
         layoutMode = LayoutMode.LETTERS
         renderKeyboard()
+    }
+
+    private fun handleDirectText(text: String) {
+        val typingLanguage = when (language) {
+            KeyboardLanguage.ENGLISH -> DirectTypingLanguage.ENGLISH
+            KeyboardLanguage.NEPALI -> DirectTypingLanguage.NEPALI
+            KeyboardLanguage.ROMAN -> return
+        }
+        val isWordText = directTypingState.append(text, typingLanguage)
+        commitText(text)
+        if (isWordText || directTypingState.currentWord.isEmpty()) updateSuggestionRow()
     }
 
     private fun handleRomanText(text: String) {
@@ -756,6 +895,11 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun commitText(text: String) {
+        if (language != KeyboardLanguage.ROMAN &&
+            (layoutMode == LayoutMode.LETTERS || layoutMode == LayoutMode.VOWELS)
+        ) {
+            internalSelectionChange = true
+        }
         InputConnectionCommitter.commit(currentInputConnection, text)
         if (shifted && language == KeyboardLanguage.ENGLISH && text.firstOrNull()?.isLetter() == true) {
             shifted = false
@@ -921,5 +1065,6 @@ class KeyboardService : InputMethodService() {
 
     private companion object {
         const val EMOJIS_PER_ROW = 8
+        const val MAX_SUGGESTIONS = 3
     }
 }

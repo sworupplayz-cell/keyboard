@@ -13,6 +13,10 @@
     <string name="sound_setting">Key sound</string>
     <string name="vibration_setting">Key vibration</string>
     <string name="dark_setting">Dark appearance</string>
+    <string name="suggestions_setting">Typing suggestions</string>
+    <string name="learning_setting">Learn selected words</string>
+    <string name="english_suggestion_hint">English suggestions</string>
+    <string name="nepali_suggestion_hint">नेपाली सुझाव</string>
     <string name="roman_suggestion_hint">Roman → नेपाली</string>
     <string name="emoji_no_recent">No recent emoji yet</string>
     <string name="handwriting_canvas_description">Nepali handwriting canvas</string>

@@ -1,4 +1,4 @@
-# Simple Nepali Keyboard — Phase 6
+# Simple Nepali Keyboard — Phase 7
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
@@ -12,6 +12,10 @@ A lightweight native Android input method (IME) built with Kotlin and `InputMeth
 - Rule-generated Devanagari for unknown names, slang, and made-up Roman words
 - Compact suggestions that include a keep-Roman option for mixed English/Nepali text
 - Up to 100 explicitly selected Roman-to-Nepali mappings learned locally on the device
+- Compact offline English and Nepali prefix suggestions with conservative typo alternatives
+- Local learned English and Nepali words, ranked only after explicit suggestion selection
+- Suggestions never auto-replace normal English or Nepali typing
+- Optional switches for typing suggestions and learned words
 - Mode cycle: **EN → नेपाली → Roman → EN**
 - `✍` handwriting mode with a compact finger/stylus canvas
 - Handwriting stroke capture, undo, clear, cancel, confirm, result row, and safe Unicode insertion interface
@@ -29,6 +33,8 @@ A lightweight native Android input method (IME) built with Kotlin and `InputMeth
 - No internet permission, account, cloud service, GIF, sticker, text collection, AI, or sentence prediction
 
 The expandable Roman vocabulary is the tab-separated file at `app/src/main/res/raw/roman_nepali_dictionary.tsv`. Vocabulary and learned mappings improve ranking, while the phonetic engine remains the fallback for every unknown Roman word. Known and unknown Romanized Nepali words convert on boundaries such as space, punctuation, or Enter. Common mixed-language terms such as `school` remain Roman by default, and every word also offers its original Roman spelling as a compact suggestion.
+
+Normal English suggestions use the small ordered list in `app/src/main/res/raw/english_vocabulary.txt`. Normal Nepali suggestions reuse the Nepali values already present in the Roman vocabulary. Both are prefix-indexed, retain unusual input unchanged, and only replace a word after the user taps a suggestion.
 
 ## Handwriting recognition limitation
 

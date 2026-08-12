@@ -59,6 +59,16 @@ class SettingsActivity : Activity() {
             defaultValue = false,
             recreateOnChange = true
         ))
+        content.addView(preferenceSwitch(
+            label = getString(R.string.suggestions_setting),
+            key = KeyboardPreferences.KEY_SUGGESTIONS,
+            defaultValue = true
+        ))
+        content.addView(preferenceSwitch(
+            label = getString(R.string.learning_setting),
+            key = KeyboardPreferences.KEY_LEARNING,
+            defaultValue = true
+        ))
         content.addView(body(getString(R.string.privacy_note)).apply {
             setPadding(0, dp(28), 0, 0)
             alpha = 0.75f

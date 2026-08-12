@@ -30,10 +30,12 @@ object KeyboardUiMetrics {
         screenHeightDp: Int,
         landscape: Boolean,
         rowCount: Int,
-        hasSuggestion: Boolean
-    ): Int = ROOT_VERTICAL_PADDING_DP + NAVIGATION_HEIGHT_DP +
+        hasSuggestion: Boolean,
+        includeNavigation: Boolean = true
+    ): Int = ROOT_VERTICAL_PADDING_DP +
+        (if (includeNavigation) NAVIGATION_HEIGHT_DP else 0) +
         keyHeightDp(screenWidthDp, screenHeightDp, landscape) * rowCount +
-        if (hasSuggestion) SUGGESTION_HEIGHT_DP else 0
+        (if (hasSuggestion) SUGGESTION_HEIGHT_DP else 0)
 
     fun equalKeyWidthDp(screenWidthDp: Int, keyCount: Int): Float {
         if (keyCount <= 0) return 0f

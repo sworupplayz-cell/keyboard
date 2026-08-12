@@ -24,10 +24,19 @@ class KeyboardUiMetricsTest {
         val commonNepali = KeyboardUiMetrics.estimatedStandardHeightDp(
             360, 800, landscape = false, rowCount = 5, hasSuggestion = false
         )
+        val smallNepaliWithSuggestions = KeyboardUiMetrics.estimatedStandardHeightDp(
+            320,
+            568,
+            landscape = false,
+            rowCount = 5,
+            hasSuggestion = true,
+            includeNavigation = false
+        )
 
         assertTrue(smallNepali <= 280)
         assertTrue(smallRoman <= 275)
         assertTrue(commonNepali <= 290)
+        assertTrue(smallNepaliWithSuggestions <= 280)
     }
 
     @Test

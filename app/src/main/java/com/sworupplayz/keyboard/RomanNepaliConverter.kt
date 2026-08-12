@@ -8,6 +8,7 @@ class RomanNepaliConverter private constructor(
     private val dictionary: Map<String, List<String>>
 ) {
     private val prefixSuggestions: Map<String, List<String>> = buildPrefixSuggestions(dictionary)
+    private val typoSuggestions: RomanTypoSuggestions = buildTypoSuggestions(dictionary)
 
     fun exactConversion(romanWord: String): String? =
         dictionaryCandidates(normalize(romanWord)).firstOrNull()
@@ -32,8 +33,17 @@ class RomanNepaliConverter private constructor(
 
         val candidates = LinkedHashSet<String>()
         if (isNepali(learned)) candidates.add(learned.orEmpty())
-        dictionaryCandidates(normalized).forEach(candidates::add)
+        val exactCandidates = dictionaryCandidates(normalized)
+        exactCandidates.forEach(candidates::add)
         prefixSuggestions[normalized].orEmpty().forEach(candidates::add)
+        if (exactCandidates.isEmpty() && normalized.length >= 3 && candidates.size < 2) {
+            typoSuggestions.deletions[normalized].orEmpty().forEach(candidates::add)
+            normalized.indices.forEach { index ->
+                typoSuggestions.substitutions[substitutionLookupKey(normalized, index)]
+                    .orEmpty()
+                    .forEach(candidates::add)
+            }
+        }
         transliterationCandidates(normalized).forEach(candidates::add)
 
         val romanFirst = normalized in PREFERRED_ENGLISH_WORDS
@@ -153,6 +163,7 @@ class RomanNepaliConverter private constructor(
             val forms = LinkedHashSet<String>()
             forms += value
             forms += collapseRepeatedVowels(value)
+            forms += collapseRepeatedLetters(value)
             if (value.startsWith("aa")) forms += value.drop(1)
             if (value.endsWith("ey")) {
                 forms += value.dropLast(1)
@@ -178,6 +189,48 @@ class RomanNepaliConverter private constructor(
             return output.toString()
         }
 
+        private fun collapseRepeatedLetters(value: String): String {
+            val output = StringBuilder(value.length)
+            value.forEach { character -> if (output.lastOrNull() != character) output.append(character) }
+            return output.toString()
+        }
+
+        private fun substitutionLookupKey(
+            value: String,
+            index: Int,
+            typedCharacter: Char = value[index]
+        ): String = value.replaceRange(index, index + 1, "*") + "|" + typedCharacter
+
+        private fun buildTypoSuggestions(dictionary: Map<String, List<String>>): RomanTypoSuggestions {
+            val deletions = linkedMapOf<String, LinkedHashSet<String>>()
+            val substitutions = linkedMapOf<String, LinkedHashSet<String>>()
+            dictionary.forEach { (roman, values) ->
+                if (roman.length < 3) return@forEach
+                roman.indices.forEach { index ->
+                    if (roman[index] in VOWEL_CHARACTERS) {
+                        val deletionBucket = deletions.getOrPut(roman.removeRange(index, index + 1)) {
+                            LinkedHashSet()
+                        }
+                        values.forEach { value ->
+                            if (deletionBucket.size < MAX_PREFIX_CANDIDATES) deletionBucket.add(value)
+                        }
+                    }
+                    QWERTY_NEIGHBORS[roman[index]].orEmpty().forEach { nearbyKey ->
+                        val substitutionBucket = substitutions.getOrPut(
+                            substitutionLookupKey(roman, index, nearbyKey)
+                        ) { LinkedHashSet() }
+                        values.forEach { value ->
+                            if (substitutionBucket.size < MAX_PREFIX_CANDIDATES) substitutionBucket.add(value)
+                        }
+                    }
+                }
+            }
+            return RomanTypoSuggestions(
+                deletions.mapValues { it.value.toList() },
+                substitutions.mapValues { it.value.toList() }
+            )
+        }
+
         private fun buildPrefixSuggestions(dictionary: Map<String, List<String>>): Map<String, List<String>> {
             val prefixes = linkedMapOf<String, LinkedHashSet<String>>()
             dictionary.forEach { (roman, values) ->
@@ -189,6 +242,14 @@ class RomanNepaliConverter private constructor(
             return prefixes.mapValues { (_, values) -> values.toList() }
         }
 
+        private val QWERTY_NEIGHBORS = mapOf(
+            'q' to "wa", 'w' to "qeas", 'e' to "wrsd", 'r' to "etdf", 't' to "ryfg",
+            'y' to "tugh", 'u' to "yihj", 'i' to "uojk", 'o' to "ipkl", 'p' to "ol",
+            'a' to "qwsz", 's' to "awedxz", 'd' to "ersfxc", 'f' to "rtdgcv",
+            'g' to "tyfhvb", 'h' to "yugjbn", 'j' to "uihknm", 'k' to "iojlm",
+            'l' to "opk", 'z' to "asx", 'x' to "zsdc", 'c' to "xdfv",
+            'v' to "cfgb", 'b' to "vghn", 'n' to "bhjm", 'm' to "njk"
+        )
         private val CONSONANTS = linkedMapOf(
             "nchh" to "न्छ", "nch" to "न्छ", "rchh" to "र्छ", "rch" to "र्छ",
             "ksh" to "क्ष", "chh" to "छ", "shr" to "श्र", "gn" to "ज्ञ",
@@ -221,6 +282,11 @@ class RomanNepaliConverter private constructor(
             "chat", "video", "photo", "bus", "car", "bike", "taxi", "ok", "hello", "thanks"
         )
     }
+
+    private data class RomanTypoSuggestions(
+        val deletions: Map<String, List<String>>,
+        val substitutions: Map<String, List<String>>
+    )
 
     private data class Token(val type: TokenType, val value: String)
     private enum class TokenType { CONSONANT, VOWEL }

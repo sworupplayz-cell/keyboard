@@ -39,6 +39,16 @@ class AdvancedRomanNepaliTest {
     }
 
     @Test
+    fun conservativeRomanTyposAreSuggestedWithoutForcedDictionaryReplacement() {
+        assertEquals("राम्रो", converter.suggestions("rmro").first())
+        assertTrue("राम्रो" !in converter.suggestions("ramo"))
+        assertTrue("राम्रो" in converter.suggestions("ramrp"))
+        assertTrue("ramrp" in converter.suggestions("ramrp"))
+        assertTrue("राम्रो" !in converter.suggestions("xamro"))
+        assertNotEquals("राम्रो", converter.bestConversion("ramrp"))
+    }
+
+    @Test
     fun madeUpWordGetsPhoneticDevanagariInsteadOfBeingRejected() {
         val generated = converter.bestConversion("zorpa")
 
