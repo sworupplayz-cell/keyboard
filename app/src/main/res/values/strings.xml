@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Simple Nepali Keyboard</string>
+    <string name="ime_name">Simple Nepali Keyboard</string>
+    <string name="settings_title">Keyboard settings</string>
+    <string name="subtype_english">English</string>
+    <string name="subtype_nepali">नेपाली</string>
+    <string name="setup_heading">Simple Nepali Keyboard</string>
+    <string name="setup_description">Enable the keyboard in Android settings, then select it from the keyboard picker.</string>
+    <string name="enable_keyboard">Enable keyboard</string>
+    <string name="choose_keyboard">Choose keyboard</string>
+    <string name="preferences_heading">Preferences</string>
+    <string name="sound_setting">Key sound</string>
+    <string name="vibration_setting">Key vibration</string>
+    <string name="dark_setting">Dark appearance</string>
+    <string name="privacy_note">This keyboard works locally. Phase 1 has no internet permission, accounts, cloud features, or text collection.</string>
+</resources>

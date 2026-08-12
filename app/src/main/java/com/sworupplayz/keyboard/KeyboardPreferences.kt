@@ -1,0 +1,8 @@
+package com.sworupplayz.keyboard
+
+object KeyboardPreferences {
+    const val FILE_NAME = "keyboard_preferences"
+    const val KEY_SOUND = "key_sound"
+    const val KEY_VIBRATION = "key_vibration"
+    const val KEY_DARK = "dark_appearance"
+}
