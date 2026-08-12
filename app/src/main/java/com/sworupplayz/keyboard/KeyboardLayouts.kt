@@ -28,20 +28,22 @@ data class KeySpec(
     val label: String,
     val action: KeyAction = KeyAction.TEXT,
     val output: String = label,
-    val width: Float = 1f
+    val width: Float = 1f,
+    val compact: Boolean = false
 )
 
 object KeyboardLayouts {
     fun english(
         shifted: Boolean,
-        language: KeyboardLanguage = KeyboardLanguage.ENGLISH
+        language: KeyboardLanguage = KeyboardLanguage.ENGLISH,
+        includeNumberRow: Boolean = false
     ): List<List<KeySpec>> {
         fun letters(value: String): List<KeySpec> = value.map { character ->
             val text = if (shifted) character.uppercaseChar().toString() else character.toString()
             KeySpec(label = text, output = text)
         }
 
-        return listOf(
+        val rows = listOf(
             letters("qwertyuiop"),
             letters("asdfghjkl"),
             listOf(KeySpec("⇧", KeyAction.SHIFT, width = 1.4f)) +
@@ -49,6 +51,7 @@ object KeyboardLayouts {
                 KeySpec("⌫", KeyAction.BACKSPACE, width = 1.4f),
             commonControls(language, "space")
         )
+        return if (includeNumberRow) listOf(compactNumberRow("1234567890")) + rows else rows
     }
 
     fun numbers(language: KeyboardLanguage): List<List<KeySpec>> = listOf(
@@ -79,21 +82,30 @@ object KeyboardLayouts {
         )
     )
 
-    fun nepaliConsonants(): List<List<KeySpec>> = listOf(
-        textKeys("क ख ग घ ङ च छ ज झ ञ"),
-        textKeys("ट ठ ड ढ ण त थ द ध न"),
-        textKeys("प फ ब भ म य र ल व श"),
-        textKeys("ष स ह क्ष त्र ज्ञ श्र रु ॐ") + KeySpec("⌫", KeyAction.BACKSPACE, width = 1.25f),
-        nepaliControls("स्वर", KeyAction.VOWELS)
-    )
+    fun nepaliConsonants(includeNumberRow: Boolean = false): List<List<KeySpec>> {
+        val rows = listOf(
+            textKeys("क ख ग घ ङ च छ ज झ ञ"),
+            textKeys("ट ठ ड ढ ण त थ द ध न"),
+            textKeys("प फ ब भ म य र ल व श"),
+            textKeys("ष स ह क्ष त्र ज्ञ श्र रु ॐ") + KeySpec("⌫", KeyAction.BACKSPACE, width = 1.25f),
+            nepaliControls("स्वर", KeyAction.VOWELS)
+        )
+        return if (includeNumberRow) listOf(compactNumberRow("१२३४५६७८९०")) + rows else rows
+    }
 
-    fun nepaliVowels(): List<List<KeySpec>> = listOf(
-        textKeys("अ आ इ ई उ ऊ ए ऐ ओ औ"),
-        textKeys("ा ि ी ु ू ृ े ै ो ौ"),
-        textKeys("ं ः ँ ् ऽ ॐ । ॥ ॰") + KeySpec("⌫", KeyAction.BACKSPACE, width = 1.25f),
-        textKeys("१ २ ३ ४ ५ ६ ७ ८ ९ ०"),
-        nepaliControls("व्यञ्जन", KeyAction.CONSONANTS)
-    )
+    fun nepaliVowels(includeNumberRow: Boolean = true): List<List<KeySpec>> {
+        val rows = listOf(
+            textKeys("अ आ इ ई उ ऊ ए ऐ ओ औ"),
+            textKeys("ा ि ी ु ू ृ े ै ो ौ"),
+            textKeys("ं ः ँ ् ऽ ॐ । ॥ ॰") + KeySpec("⌫", KeyAction.BACKSPACE, width = 1.25f),
+            nepaliControls("व्यञ्जन", KeyAction.CONSONANTS)
+        )
+        return if (includeNumberRow) {
+            rows.dropLast(1) + listOf(compactNumberRow("१२३४५६७८९०"), rows.last())
+        } else {
+            rows
+        }
+    }
 
     fun navigationControls(numberLabel: String = "123"): List<KeySpec> = listOf(
         KeySpec("EN", KeyAction.MODE_ENGLISH),
@@ -142,6 +154,9 @@ object KeyboardLayouts {
     )
 
     private fun textKeys(values: String): List<KeySpec> = values.split(' ').map(::KeySpec)
+
+    private fun compactNumberRow(values: String): List<KeySpec> =
+        values.map { KeySpec(it.toString(), compact = true) }
 
     private fun nepaliControls(toggleLabel: String, toggleAction: KeyAction): List<KeySpec> = listOf(
         KeySpec("?१२३", KeyAction.NUMBERS, width = 1.2f),

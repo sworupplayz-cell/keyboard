@@ -5,16 +5,58 @@
     <string name="settings_title">Keyboard settings</string>
     <string name="subtype_english">English</string>
     <string name="subtype_nepali">नेपाली</string>
-    <string name="setup_heading">Simple Nepali Keyboard</string>
+
     <string name="setup_description">Enable the keyboard in Android settings, then select it from the keyboard picker.</string>
     <string name="enable_keyboard">Enable keyboard</string>
     <string name="choose_keyboard">Choose keyboard</string>
-    <string name="preferences_heading">Preferences</string>
+
+    <string name="section_general">GENERAL</string>
+    <string name="section_typing">TYPING</string>
+    <string name="section_feedback">FEEDBACK</string>
+    <string name="section_size">SIZE</string>
+    <string name="section_data">DATA</string>
+    <string name="section_about">ABOUT</string>
+
+    <string name="default_mode_setting">Default keyboard mode</string>
+    <string name="default_mode_description">Use this mode when a new text field opens.</string>
+    <string name="mode_english">EN</string>
+    <string name="mode_nepali">नेपाली</string>
+    <string name="mode_roman">Roman</string>
+
+    <string name="appearance_setting">Keyboard appearance</string>
+    <string name="appearance_description">Follow the phone theme or choose a fixed appearance.</string>
+    <string name="appearance_system">System default</string>
+    <string name="appearance_light">Light</string>
+    <string name="appearance_dark">Dark</string>
+
+    <string name="suggestions_setting">Suggestions</string>
+    <string name="suggestions_description">Show compact local suggestions.</string>
+    <string name="learning_setting">Learned words</string>
+    <string name="learning_description">Learn only from suggestions you select.</string>
+    <string name="number_row_setting">Number row</string>
+    <string name="number_row_description">Show a compact number row on typing layouts.</string>
+
     <string name="sound_setting">Key sound</string>
+    <string name="sound_description">Play a short system key sound.</string>
     <string name="vibration_setting">Key vibration</string>
-    <string name="dark_setting">Dark appearance</string>
-    <string name="suggestions_setting">Typing suggestions</string>
-    <string name="learning_setting">Learn selected words</string>
+    <string name="vibration_description">Use brief, light vibration for key taps.</string>
+
+    <string name="keyboard_height_setting">Keyboard height</string>
+    <string name="keyboard_height_description">Choose a comfortable, bounded key size.</string>
+    <string name="height_small">Small</string>
+    <string name="height_normal">Normal</string>
+    <string name="height_large">Large</string>
+
+    <string name="clear_learned_words">Clear learned words</string>
+    <string name="clear_learned_description">Remove locally learned English, Nepali, and Roman mappings. Built-in vocabularies are kept.</string>
+    <string name="clear_learned_confirmation">Clear all locally learned words? Built-in English and Nepali vocabularies will not be changed.</string>
+    <string name="clear_action">Clear</string>
+    <string name="learned_words_cleared">Learned words cleared</string>
+
+    <string name="app_version">Version %1$s</string>
+    <string name="about_description">A lightweight English, नेपाली, and Romanized Nepali Android keyboard.</string>
+    <string name="privacy_note">Everything works locally. There is no internet permission, account, cloud sync, analytics, advertising, or text collection.</string>
+
     <string name="english_suggestion_hint">English suggestions</string>
     <string name="nepali_suggestion_hint">नेपाली सुझाव</string>
     <string name="roman_suggestion_hint">Roman → नेपाली</string>
@@ -24,5 +66,4 @@
     <string name="handwriting_ready">Tap Confirm to check the writing</string>
     <string name="handwriting_no_match">No match. Clear and try again.</string>
     <string name="handwriting_unavailable">Offline Nepali recognizer is not bundled</string>
-    <string name="privacy_note">This keyboard works locally. It has no internet permission, accounts, cloud features, or text collection.</string>
 </resources>

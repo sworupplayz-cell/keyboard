@@ -19,6 +19,24 @@ class KeyboardLayoutsTest {
     }
 
     @Test
+    fun compactNumberRowCanBeEnabledWithoutChangingTypingRows() {
+        val englishWithout = KeyboardLayouts.english(false, includeNumberRow = false)
+        val englishWith = KeyboardLayouts.english(false, includeNumberRow = true)
+        val nepaliWithout = KeyboardLayouts.nepaliConsonants(includeNumberRow = false)
+        val nepaliWith = KeyboardLayouts.nepaliConsonants(includeNumberRow = true)
+
+        assertEquals(englishWithout.size + 1, englishWith.size)
+        assertEquals(nepaliWithout.size + 1, nepaliWith.size)
+        assertEquals((0..9).map { it.toString() }.toSet(), englishWith.first().map { it.output }.toSet())
+        assertTrue(englishWith.first().all { it.compact })
+        assertTrue(nepaliWith.first().all { it.compact })
+        assertEquals(englishWithout, englishWith.drop(1))
+        assertEquals(nepaliWithout, nepaliWith.drop(1))
+        assertEquals(4, KeyboardLayouts.nepaliVowels(includeNumberRow = false).size)
+        assertEquals(5, KeyboardLayouts.nepaliVowels(includeNumberRow = true).size)
+    }
+
+    @Test
     fun nepaliLayoutsContainCommonUnicodeCharactersAndSigns() {
         val outputs = textOutputs(KeyboardLayouts.nepaliConsonants()) +
             textOutputs(KeyboardLayouts.nepaliVowels())

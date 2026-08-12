@@ -14,6 +14,34 @@ class KeyboardUiMetricsTest {
     }
 
     @Test
+    fun heightChoicesAreBoundedOrderedAndApplyAcrossPanels() {
+        val small = KeyboardUiMetrics.keyHeightDp(360, 800, false, KeyboardHeight.SMALL)
+        val normal = KeyboardUiMetrics.keyHeightDp(360, 800, false, KeyboardHeight.NORMAL)
+        val large = KeyboardUiMetrics.keyHeightDp(360, 800, false, KeyboardHeight.LARGE)
+
+        assertEquals(44, small)
+        assertEquals(48, normal)
+        assertEquals(52, large)
+        assertTrue(small < normal && normal < large)
+        assertEquals(34, KeyboardUiMetrics.compactNumberRowHeightDp(KeyboardHeight.SMALL))
+        assertEquals(38, KeyboardUiMetrics.compactNumberRowHeightDp(KeyboardHeight.LARGE))
+        assertEquals(144, KeyboardUiMetrics.handwritingCanvasHeightDp(800, false, KeyboardHeight.SMALL))
+        assertEquals(176, KeyboardUiMetrics.handwritingCanvasHeightDp(800, false, KeyboardHeight.LARGE))
+        assertTrue(
+            KeyboardUiMetrics.estimatedStandardHeightDp(
+                320,
+                568,
+                landscape = false,
+                rowCount = 5,
+                hasSuggestion = true,
+                includeNavigation = false,
+                height = KeyboardHeight.LARGE,
+                hasNumberRow = true
+            ) <= 340
+        )
+    }
+
+    @Test
     fun denseLayoutsRemainWithinReasonablePortraitHeight() {
         val smallNepali = KeyboardUiMetrics.estimatedStandardHeightDp(
             320, 568, landscape = false, rowCount = 5, hasSuggestion = false

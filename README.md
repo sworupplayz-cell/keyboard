@@ -1,4 +1,4 @@
-# Simple Nepali Keyboard — Phase 7
+# Simple Nepali Keyboard — Phase 8
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
@@ -15,7 +15,8 @@ A lightweight native Android input method (IME) built with Kotlin and `InputMeth
 - Compact offline English and Nepali prefix suggestions with conservative typo alternatives
 - Local learned English and Nepali words, ranked only after explicit suggestion selection
 - Suggestions never auto-replace normal English or Nepali typing
-- Optional switches for typing suggestions and learned words
+- A simple local settings screen for default mode, System/Light/Dark appearance, suggestions, learning, compact number row, brief feedback, and Small/Normal/Large height
+- Confirmed clearing of learned English, Nepali, and Roman mappings without touching built-in vocabularies
 - Mode cycle: **EN → नेपाली → Roman → EN**
 - `✍` handwriting mode with a compact finger/stylus canvas
 - Handwriting stroke capture, undo, clear, cancel, confirm, result row, and safe Unicode insertion interface
@@ -29,7 +30,7 @@ A lightweight native Android input method (IME) built with Kotlin and `InputMeth
 - Previous-layout return behavior for temporary panels
 - Long-press a mode key to move to the next system keyboard
 - Optional key sound and vibration
-- Light or dark keyboard appearance
+- System-default, light, or dark keyboard appearance
 - No internet permission, account, cloud service, GIF, sticker, text collection, AI, or sentence prediction
 
 The expandable Roman vocabulary is the tab-separated file at `app/src/main/res/raw/roman_nepali_dictionary.tsv`. Vocabulary and learned mappings improve ranking, while the phonetic engine remains the fallback for every unknown Roman word. Known and unknown Romanized Nepali words convert on boundaries such as space, punctuation, or Enter. Common mixed-language terms such as `school` remain Roman by default, and every word also offers its original Roman spelling as a compact suggestion.

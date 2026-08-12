@@ -46,21 +46,9 @@ class KeyboardService : InputMethodService() {
             .filter(String::isNotEmpty)
         RecentEmojiList(saved)
     }
-    private val learnedRomanWords: LearnedRomanWords by lazy {
-        val serialized = getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
-            .getString(KeyboardPreferences.KEY_LEARNED_ROMAN, null)
-        LearnedRomanWords.fromSerialized(serialized)
-    }
-    private val learnedEnglishWords: LearnedWordStore by lazy {
-        val serialized = getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
-            .getString(KeyboardPreferences.KEY_LEARNED_ENGLISH, null)
-        LearnedWordStore.fromSerialized(serialized)
-    }
-    private val learnedNepaliWords: LearnedWordStore by lazy {
-        val serialized = getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
-            .getString(KeyboardPreferences.KEY_LEARNED_NEPALI, null)
-        LearnedWordStore.fromSerialized(serialized)
-    }
+    private var learnedRomanWords = LearnedRomanWords()
+    private var learnedEnglishWords = LearnedWordStore()
+    private var learnedNepaliWords = LearnedWordStore()
     private val englishSuggester: LocalWordSuggester by lazy {
         resources.openRawResource(R.raw.english_vocabulary).bufferedReader().use {
             LocalWordSuggester.fromWords(VocabularyLoader.english(it))
@@ -91,13 +79,16 @@ class KeyboardService : InputMethodService() {
     private var useDarkAppearance = false
     private var useSuggestions = true
     private var useLearning = true
+    private var showNumberRow = false
+    private var keyboardHeight = KeyboardHeight.NORMAL
+    private var defaultMode: DefaultKeyboardMode? = null
     private var internalSelectionChange = false
     private var keyHeightDp = 48
 
     override fun onCreateInputView(): View {
         readPreferences()
         val inputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        updateLanguageFromSubtype(inputMethodManager.currentInputMethodSubtype)
+        updateInitialLanguage(inputMethodManager.currentInputMethodSubtype)
         keyHeightDp = preferredKeyHeight()
         keyboardRoot = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -111,6 +102,11 @@ class KeyboardService : InputMethodService() {
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         readPreferences()
+        keyHeightDp = preferredKeyHeight()
+        if (!restarting) {
+            defaultMode?.let { language = it.toKeyboardLanguage() }
+            layoutMode = LayoutMode.LETTERS
+        }
         if (romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()) {
             currentInputConnection?.finishComposingText()
             romanComposer.reset()
@@ -195,24 +191,47 @@ class KeyboardService : InputMethodService() {
         }
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        readPreferences()
+        keyHeightDp = preferredKeyHeight()
+        if (::keyboardRoot.isInitialized) {
+            applyWindowAppearance()
+            renderKeyboard()
+        }
+    }
+
     override fun onEvaluateFullscreenMode(): Boolean = false
 
+    private fun updateInitialLanguage(subtype: InputMethodSubtype?) {
+        language = KeyboardModePolicy.initialLanguage(defaultMode, subtype?.locale.orEmpty())
+    }
+
     private fun updateLanguageFromSubtype(subtype: InputMethodSubtype?) {
-        val locale = subtype?.locale.orEmpty()
-        language = if (locale.startsWith("ne", ignoreCase = true)) {
-            KeyboardLanguage.NEPALI
-        } else {
-            KeyboardLanguage.ENGLISH
-        }
+        language = KeyboardModePolicy.initialLanguage(null, subtype?.locale.orEmpty())
     }
 
     private fun readPreferences() {
         val preferences = getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
-        useSound = preferences.getBoolean(KeyboardPreferences.KEY_SOUND, false)
-        useVibration = preferences.getBoolean(KeyboardPreferences.KEY_VIBRATION, false)
-        useDarkAppearance = preferences.getBoolean(KeyboardPreferences.KEY_DARK, false)
-        useSuggestions = preferences.getBoolean(KeyboardPreferences.KEY_SUGGESTIONS, true)
-        useLearning = preferences.getBoolean(KeyboardPreferences.KEY_LEARNING, true)
+        val repository = KeyboardSettingsRepository(SharedPreferencesSettingsStorage(preferences))
+        val settings = repository.load()
+        defaultMode = repository.savedDefaultMode()
+        useSound = settings.keySound
+        useVibration = settings.keyVibration
+        useDarkAppearance = settings.appearance.isDark(systemUsesDarkTheme())
+        useSuggestions = settings.suggestions
+        useLearning = settings.learnedWords
+        showNumberRow = settings.numberRow
+        keyboardHeight = settings.height
+        learnedRomanWords = LearnedRomanWords.fromSerialized(
+            preferences.getString(KeyboardPreferences.KEY_LEARNED_ROMAN, null)
+        )
+        learnedEnglishWords = LearnedWordStore.fromSerialized(
+            preferences.getString(KeyboardPreferences.KEY_LEARNED_ENGLISH, null)
+        )
+        learnedNepaliWords = LearnedWordStore.fromSerialized(
+            preferences.getString(KeyboardPreferences.KEY_LEARNED_NEPALI, null)
+        )
     }
 
     private fun renderKeyboard() {
@@ -242,9 +261,9 @@ class KeyboardService : InputMethodService() {
             layoutMode == LayoutMode.NUMBERS -> KeyboardLayouts.numbers(language)
             layoutMode == LayoutMode.SYMBOLS -> KeyboardLayouts.symbols(language)
             language == KeyboardLanguage.ENGLISH || language == KeyboardLanguage.ROMAN ->
-                KeyboardLayouts.english(shifted, language)
-            layoutMode == LayoutMode.VOWELS -> KeyboardLayouts.nepaliVowels()
-            else -> KeyboardLayouts.nepaliConsonants()
+                KeyboardLayouts.english(shifted, language, showNumberRow)
+            layoutMode == LayoutMode.VOWELS -> KeyboardLayouts.nepaliVowels(showNumberRow)
+            else -> KeyboardLayouts.nepaliConsonants(showNumberRow)
         }
         if (useSuggestions && supportsSuggestions) addSuggestionRow(colors)
         addKeyRows(rows, colors)
@@ -256,9 +275,14 @@ class KeyboardService : InputMethodService() {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
             }
+            val rowHeight = if (keys.isNotEmpty() && keys.all { it.compact }) {
+                KeyboardUiMetrics.compactNumberRowHeightDp(keyboardHeight)
+            } else {
+                keyHeightDp
+            }
             keyboardRoot.addView(
                 row,
-                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(keyHeightDp))
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(rowHeight))
             )
             keys.forEach { key -> row.addView(createKeyButton(key, colors)) }
         }
@@ -340,7 +364,10 @@ class KeyboardService : InputMethodService() {
                 }
                 keyboardRoot.addView(
                     row,
-                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(KeyboardUiMetrics.EMOJI_KEY_HEIGHT_DP))
+                    LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        dp(KeyboardUiMetrics.emojiKeyHeightDp(keyboardHeight))
+                    )
                 )
                 emojiRow.forEach { emoji -> row.addView(createEmojiButton(emoji, colors)) }
                 repeat(EMOJIS_PER_ROW - emojiRow.size) {
@@ -496,7 +523,8 @@ class KeyboardService : InputMethodService() {
         val configuration = resources.configuration
         return KeyboardUiMetrics.handwritingCanvasHeightDp(
             configuration.screenHeightDp,
-            configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+            configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+            keyboardHeight
         )
     }
 
@@ -980,9 +1008,14 @@ class KeyboardService : InputMethodService() {
         return KeyboardUiMetrics.keyHeightDp(
             configuration.screenWidthDp,
             configuration.screenHeightDp,
-            configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+            configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+            keyboardHeight
         )
     }
+
+    private fun systemUsesDarkTheme(): Boolean =
+        resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+            Configuration.UI_MODE_NIGHT_YES
 
     private fun keyboardColors(): KeyboardColors = if (useDarkAppearance) {
         KeyboardColors(
