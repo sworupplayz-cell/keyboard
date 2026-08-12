@@ -16,7 +16,7 @@ python3 scripts/build_vocabularies.py
 
 ## Ranking
 
-Suggestions combine dictionary frequency, prefix matches, recent words, explicitly learned words, and conservative nearby-key / vowel-deletion typos. The typed word is kept when nothing better exists. The strip still shows at most three items.
+Suggestions combine dictionary frequency, prefix matches, recent words, explicitly learned words, previous-word context, and conservative typos (nearby-key substitutions, vowel deletions, and adjacent transpositions). The typed word is kept when nothing better exists. Uncertain text is never auto-replaced. The strip still shows at most three items.
 
 ## Roman mode
 

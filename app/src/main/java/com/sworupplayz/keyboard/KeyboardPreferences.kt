@@ -22,6 +22,9 @@ object KeyboardPreferences {
     const val KEY_RECENT_ENGLISH = "recent_english_words"
     const val KEY_RECENT_NEPALI = "recent_nepali_words"
     const val KEY_RECENT_ROMAN = "recent_roman_words"
+    const val KEY_CONTEXT_ENGLISH = "context_english_pairs"
+    const val KEY_CONTEXT_NEPALI = "context_nepali_pairs"
+    const val KEY_CONTEXT_ROMAN = "context_roman_pairs"
 
     val LEARNED_WORD_KEYS = setOf(
         KEY_LEARNED_ROMAN,

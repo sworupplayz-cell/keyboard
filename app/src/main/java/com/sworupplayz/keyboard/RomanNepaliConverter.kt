@@ -14,11 +14,19 @@ class RomanNepaliConverter private constructor(
     fun exactConversion(romanWord: String): String? =
         dictionaryCandidates(normalize(romanWord)).firstOrNull()
 
-    fun bestConversion(romanWord: String, learned: String? = null): String {
+    fun bestConversion(
+        romanWord: String,
+        learned: String? = null,
+        previousWord: String? = null
+    ): String {
         val normalized = normalize(romanWord)
         if (normalized.isEmpty()) return romanWord
         if (isNepali(learned)) return learned.orEmpty()
-        dictionaryCandidates(normalized).firstOrNull()?.let { return it }
+        val exact = dictionaryCandidates(normalized)
+        if (MixedLanguagePolicy.keepAsEnglish(normalized, previousWord, keepEnglish, exact.isNotEmpty())) {
+            return romanWord
+        }
+        exact.firstOrNull()?.let { return it }
         if (normalized in keepEnglish) return romanWord
         return transliterate(normalized) ?: romanWord
     }
@@ -27,31 +35,50 @@ class RomanNepaliConverter private constructor(
         romanWord: String,
         learned: String? = null,
         limit: Int = 3,
-        includeRoman: Boolean = true
+        includeRoman: Boolean = true,
+        recent: List<String> = emptyList(),
+        previousWord: String? = null,
+        contextPredictions: List<String> = emptyList()
     ): List<String> {
         val normalized = normalize(romanWord)
         if (normalized.isEmpty() || limit <= 0) return emptyList()
 
-        val candidates = LinkedHashSet<String>()
-        if (isNepali(learned)) candidates.add(learned.orEmpty())
         val exactCandidates = dictionaryCandidates(normalized)
-        exactCandidates.forEach(candidates::add)
-        prefixSuggestions[normalized].orEmpty().forEach(candidates::add)
-        if (exactCandidates.isEmpty() && normalized.length >= 3 && candidates.size < 2) {
-            typoSuggestions.deletions[normalized].orEmpty().forEach(candidates::add)
+        val prefixMatches = prefixSuggestions[normalized].orEmpty()
+        val typoMatches = ArrayList<String>()
+        if (exactCandidates.isEmpty() && normalized.length >= 3 && prefixMatches.size < 2) {
+            typoSuggestions.deletions[normalized].orEmpty().forEach(typoMatches::add)
             normalized.indices.forEach { index ->
                 typoSuggestions.substitutions[substitutionLookupKey(normalized, index)]
                     .orEmpty()
-                    .forEach(candidates::add)
+                    .forEach(typoMatches::add)
             }
         }
-        transliterationCandidates(normalized).forEach(candidates::add)
-
-        val romanFirst = normalized in keepEnglish && exactCandidates.isEmpty()
-        if (!includeRoman) return candidates.take(limit)
-        if (romanFirst) return (listOf(romanWord) + candidates).distinct().take(limit)
-        if (limit == 1) return candidates.take(1)
-        return (candidates.take(limit - 1) + romanWord).distinct().take(limit)
+        val keepEnglishNow = MixedLanguagePolicy.keepAsEnglish(
+            normalized,
+            previousWord,
+            keepEnglish,
+            exactCandidates.isNotEmpty()
+        )
+        val ranked = SuggestionRanker.rank(
+            input = romanWord,
+            prefixMatches = if (keepEnglishNow) emptyList() else exactCandidates + prefixMatches,
+            typoMatches = if (keepEnglishNow) emptyList() else typoMatches + transliterationCandidates(normalized),
+            learned = listOfNotNull(learned?.takeIf { isNepali(it) }),
+            recent = recent,
+            frequencyOf = { word ->
+                val index = (exactCandidates + prefixMatches).indexOf(word)
+                if (index >= 0) index else Int.MAX_VALUE
+            },
+            limit = if (includeRoman) (limit - 1).coerceAtLeast(1) else limit,
+            contextMatches = contextPredictions
+        )
+        if (!includeRoman) return ranked.take(limit)
+        if (keepEnglishNow || (normalized in keepEnglish && exactCandidates.isEmpty())) {
+            return (listOf(romanWord) + ranked).distinct().take(limit)
+        }
+        if (limit == 1) return ranked.take(1)
+        return (ranked + romanWord).distinct().take(limit)
     }
 
     /** Returns the best rule-generated form even when the word is absent from the vocabulary. */
@@ -285,8 +312,15 @@ class RomanNepaliConverter private constructor(
         private const val MAX_PREFIX_CANDIDATES = 5
         private val PREFERRED_ENGLISH_WORDS = setOf(
             "unknown", "school", "college", "class", "office", "job", "meeting", "homework",
-            "mobile", "phone", "computer", "laptop", "internet", "online", "email", "message",
-            "chat", "video", "photo", "bus", "car", "bike", "taxi", "ok", "hello", "thanks"
+            "teacher", "student", "exam", "project", "mobile", "phone", "computer", "laptop",
+            "internet", "online", "email", "message", "chat", "video", "photo", "bus", "car",
+            "bike", "taxi", "train", "plane", "ok", "okay", "hello", "hi", "bye", "thanks",
+            "please", "sorry", "yes", "no", "the", "to", "of", "and", "a", "in", "is", "it",
+            "you", "that", "for", "on", "with", "as", "at", "this", "but", "from", "or", "an",
+            "be", "are", "was", "were", "have", "has", "had", "not", "we", "they", "my", "your",
+            "can", "will", "just", "about", "like", "so", "what", "when", "who", "how", "all",
+            "good", "new", "time", "day", "work", "home", "friend", "family", "food", "water",
+            "app", "google", "facebook", "youtube", "instagram", "whatsapp", "wifi", "file", "man"
         )
     }
 
@@ -378,34 +412,11 @@ class RomanInputComposer(
         else RomanEdit.SetComposing(currentWord)
     }
 
-    fun finishWord(boundary: String = ""): RomanEdit {
+    fun finishWord(boundary: String = "", previousWord: String? = null): RomanEdit {
         if (currentWord.isEmpty()) {
             return if (boundary.isEmpty()) RomanEdit.NoOp else RomanEdit.Commit(boundary)
         }
-        val completed = converter.bestConversion(currentWord, learnedLookup(currentWord))
-        currentWord = ""
-        return RomanEdit.Commit(completed + boundary)
-    }
-
-    fun acceptSuggestion(suggestion: String): RomanEdit {
-        currentWord = ""
-        return RomanEdit.Commit(suggestion)
-    }
-
-    fun reset() {
-        currentWord = ""
-    }
-}
-     currentWord = currentWord.dropLast(1)
-        return if (currentWord.isEmpty()) RomanEdit.ClearComposing
-        else RomanEdit.SetComposing(currentWord)
-    }
-
-    fun finishWord(boundary: String = ""): RomanEdit {
-        if (currentWord.isEmpty()) {
-            return if (boundary.isEmpty()) RomanEdit.NoOp else RomanEdit.Commit(boundary)
-        }
-        val completed = converter.bestConversion(currentWord, learnedLookup(currentWord))
+        val completed = converter.bestConversion(currentWord, learnedLookup(currentWord), previousWord)
         currentWord = ""
         return RomanEdit.Commit(completed + boundary)
     }

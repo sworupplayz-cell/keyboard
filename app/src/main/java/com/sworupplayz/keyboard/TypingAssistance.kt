@@ -50,7 +50,8 @@ class LocalWordSuggester private constructor(words: List<String>) {
         input: String,
         learned: List<String> = emptyList(),
         limit: Int = 3,
-        recent: List<String> = emptyList()
+        recent: List<String> = emptyList(),
+        contextPredictions: List<String> = emptyList()
     ): List<String> {
         val normalized = normalize(input)
         if (normalized.isEmpty() || limit <= 0) return emptyList()
@@ -69,6 +70,10 @@ class LocalWordSuggester private constructor(words: List<String>) {
             }
         }
 
+        if (prefixMatches.size < 2 && normalized.length >= MIN_TYPO_LENGTH) {
+            TypoCorrector.extraCandidates(normalized, ::contains).forEach(typoMatches::add)
+        }
+
         return SuggestionRanker.rank(
             input = input,
             prefixMatches = prefixMatches,
@@ -76,7 +81,8 @@ class LocalWordSuggester private constructor(words: List<String>) {
             learned = learned,
             recent = recent,
             frequencyOf = { word -> frequencyRank[normalize(word)] ?: Int.MAX_VALUE },
-            limit = limit
+            limit = limit,
+            contextMatches = contextPredictions
         )
     }
 
@@ -239,8 +245,15 @@ data class SuggestionReplacement(
 )
 
 object SuggestionSelectionPlan {
+    fun matchesCurrentWord(textBeforeCursor: String, currentWord: String): Boolean {
+        if (currentWord.isEmpty() || !textBeforeCursor.endsWith(currentWord)) return false
+        if (textBeforeCursor.length == currentWord.length) return true
+        val boundary = textBeforeCursor[textBeforeCursor.length - currentWord.length - 1]
+        return !boundary.isLetterOrDigit() && boundary.code !in 0x0900..0x097F
+    }
+
     fun create(currentWord: String, suggestion: String, textBeforeCursor: String): SuggestionReplacement? {
-        if (currentWord.isEmpty() || textBeforeCursor != currentWord) return null
+        if (!matchesCurrentWord(textBeforeCursor, currentWord)) return null
         return SuggestionReplacement(
             deleteCodePoints = currentWord.codePointCount(0, currentWord.length),
             deleteCodeUnits = currentWord.length,
@@ -258,7 +271,8 @@ object SuggestionRanker {
         learned: List<String>,
         recent: List<String>,
         frequencyOf: (String) -> Int,
-        limit: Int
+        limit: Int,
+        contextMatches: List<String> = emptyList()
     ): List<String> {
         val normalizedInput = input.trim().lowercase(Locale.ENGLISH)
         if (normalizedInput.isEmpty() || limit <= 0) return emptyList()
@@ -281,6 +295,11 @@ object SuggestionRanker {
         recent.forEachIndexed { index, word ->
             if (word.trim().lowercase(Locale.ENGLISH).startsWith(normalizedInput)) {
                 consider(word, 3_000 - index * 10)
+            }
+        }
+        contextMatches.forEachIndexed { index, word ->
+            if (word.trim().lowercase(Locale.ENGLISH).startsWith(normalizedInput)) {
+                consider(word, 2_200 - index * 15)
             }
         }
         prefixMatches.forEach { word ->

@@ -11,7 +11,9 @@ Phase 10 keeps the Gboard-style chrome and builds offline typing intelligence un
 - Nepali consonants, independent vowels, vowel signs, conjunct shortcuts, marks, and Devanagari digits
 - Roman mode with an English QWERTY layout, reusable phonetic rules, and offline Nepali conversion
 - Large offline English, Nepali Devanagari, and Romanized Nepali vocabularies that can be edited as plain files
-- Frequency, prefix, recent-word, learned-word, and conservative typo ranking for compact suggestions
+- Context-aware, frequency-weighted suggestions that also prefer recent and learned words
+- Conservative typo correction using nearby keys, vowel deletions, and adjacent transpositions
+- Sentence capitalization and punctuation spacing without auto-replacing uncertain text
 - Rule-generated Devanagari for unknown names, slang, and made-up Roman words
 - Compact suggestions that include a keep-Roman option for mixed English/Nepali text
 - Up to 100 explicitly selected Roman-to-Nepali mappings learned locally on the device

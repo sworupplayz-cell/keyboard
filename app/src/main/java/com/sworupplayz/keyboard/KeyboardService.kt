@@ -58,6 +58,10 @@ class KeyboardService : InputMethodService() {
     private var recentEnglishWords = RecentWordStore()
     private var recentNepaliWords = RecentWordStore()
     private var recentRomanWords = RecentWordStore()
+    private var englishContext = ContextModel(seed = ContextModel.ENGLISH_SEED)
+    private var nepaliContext = ContextModel(seed = ContextModel.NEPALI_SEED)
+    private var romanContext = ContextModel(seed = ContextModel.ROMAN_SEED)
+    private var lastCommittedWord: String = ""
     private val englishVocabulary: List<String> by lazy {
         resources.openRawResource(R.raw.english_vocabulary).bufferedReader().use {
             VocabularyLoader.english(it)
@@ -141,6 +145,7 @@ class KeyboardService : InputMethodService() {
         if (!restarting) {
             defaultMode?.let { language = it.toKeyboardLanguage() }
             layoutMode = LayoutMode.LETTERS
+            lastCommittedWord = ""
         }
         if (romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()) {
             currentInputConnection?.finishComposingText()
@@ -276,6 +281,18 @@ class KeyboardService : InputMethodService() {
         )
         recentRomanWords = RecentWordStore.fromSerialized(
             preferences.getString(KeyboardPreferences.KEY_RECENT_ROMAN, null)
+        )
+        englishContext = ContextModel.fromSerialized(
+            preferences.getString(KeyboardPreferences.KEY_CONTEXT_ENGLISH, null),
+            ContextModel.ENGLISH_SEED
+        )
+        nepaliContext = ContextModel.fromSerialized(
+            preferences.getString(KeyboardPreferences.KEY_CONTEXT_NEPALI, null),
+            ContextModel.NEPALI_SEED
+        )
+        romanContext = ContextModel.fromSerialized(
+            preferences.getString(KeyboardPreferences.KEY_CONTEXT_ROMAN, null),
+            ContextModel.ROMAN_SEED
         )
     }
 
@@ -550,24 +567,38 @@ class KeyboardService : InputMethodService() {
         } else {
             directTypingState.currentWord
         }
-        val suggestions = if (currentWord.isEmpty()) emptyList() else when (language) {
+        val context = editorContext(currentWord)
+        val rawSuggestions = if (currentWord.isEmpty()) emptyList() else when (language) {
             KeyboardLanguage.ENGLISH -> englishSuggester.suggestions(
                 currentWord,
                 if (useLearning) learnedEnglishWords.suggestions(currentWord) else emptyList(),
                 MAX_SUGGESTIONS,
-                recentEnglishWords.matches(currentWord)
+                recentEnglishWords.matches(currentWord),
+                englishContext.predictions(context.previousWord.orEmpty(), currentWord)
             )
             KeyboardLanguage.NEPALI -> nepaliSuggester.suggestions(
                 currentWord,
                 if (useLearning) learnedNepaliWords.suggestions(currentWord) else emptyList(),
                 MAX_SUGGESTIONS,
-                recentNepaliWords.matches(currentWord)
+                recentNepaliWords.matches(currentWord),
+                nepaliContext.predictions(context.previousWord.orEmpty(), currentWord)
             )
             KeyboardLanguage.ROMAN -> romanConverter.suggestions(
                 currentWord,
                 if (useLearning) learnedRomanWords.lookup(currentWord) else null,
-                MAX_SUGGESTIONS
+                MAX_SUGGESTIONS,
+                recent = recentRomanWords.matches(currentWord),
+                previousWord = context.previousWord ?: lastCommittedWord.ifEmpty { null },
+                contextPredictions = romanContext.predictions(
+                    (context.previousWord ?: lastCommittedWord).orEmpty(),
+                    currentWord
+                )
             )
+        }
+        val suggestions = if (language == KeyboardLanguage.ENGLISH) {
+            rawSuggestions.map { CapitalizationPolicy.applyToWord(it, context.textBeforeCursor) }
+        } else {
+            rawSuggestions
         }
         if (suggestions.isEmpty()) {
             val hint = when (language) {
@@ -674,6 +705,7 @@ class KeyboardService : InputMethodService() {
         if (word.isBlank()) return
         when (language) {
             KeyboardLanguage.ENGLISH -> {
+                recordContext(englishContext, KeyboardPreferences.KEY_CONTEXT_ENGLISH, word)
                 recentEnglishWords.record(word)
                 persistRecentWords(KeyboardPreferences.KEY_RECENT_ENGLISH, recentEnglishWords)
                 if (useLearning && learnUnknown &&
@@ -683,6 +715,7 @@ class KeyboardService : InputMethodService() {
                 }
             }
             KeyboardLanguage.NEPALI -> {
+                recordContext(nepaliContext, KeyboardPreferences.KEY_CONTEXT_NEPALI, word)
                 recentNepaliWords.record(word)
                 persistRecentWords(KeyboardPreferences.KEY_RECENT_NEPALI, recentNepaliWords)
                 if (useLearning && learnUnknown &&
@@ -693,13 +726,43 @@ class KeyboardService : InputMethodService() {
             }
             KeyboardLanguage.ROMAN -> Unit
         }
+        lastCommittedWord = word
     }
 
     private fun rememberFinishedRomanWord() {
         val typed = romanComposer.currentWord
         if (typed.isEmpty()) return
+        recordContext(romanContext, KeyboardPreferences.KEY_CONTEXT_ROMAN, typed)
         recentRomanWords.record(typed)
         persistRecentWords(KeyboardPreferences.KEY_RECENT_ROMAN, recentRomanWords)
+        lastCommittedWord = typed
+    }
+
+    private fun finishRomanWord(boundary: String = ""): RomanEdit {
+        val previous = lastCommittedWord.ifEmpty { null }
+        rememberFinishedRomanWord()
+        return romanComposer.finishWord(boundary, previous)
+    }
+
+    private fun recordContext(model: ContextModel, key: String, word: String) {
+        if (lastCommittedWord.isNotEmpty()) {
+            model.record(lastCommittedWord, word)
+            getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(key, model.serialize())
+                .apply()
+        }
+    }
+
+    private fun editorContext(composingWord: String = ""): EditorContext =
+        EditorContext.from(textBeforeCursor(80), composingWord)
+
+    private fun textBeforeCursor(limit: Int): String =
+        currentInputConnection?.getTextBeforeCursor(limit, 0)?.toString().orEmpty()
+
+    private fun adoptWordBeforeCursor() {
+        val word = EditorContext.wordAtEnd(textBeforeCursor(64))
+        if (word.isNotEmpty()) directTypingState.replaceWith(word)
     }
 
     private fun persistRecentWords(key: String, store: RecentWordStore) {
@@ -855,8 +918,7 @@ class KeyboardService : InputMethodService() {
             }
             KeyAction.SPACE -> {
                 if (language == KeyboardLanguage.ROMAN) {
-                    rememberFinishedRomanWord()
-                    applyRomanEdit(romanComposer.finishWord(" "))
+                    applyRomanEdit(finishRomanWord(" "))
                     updateSuggestionRow()
                 } else {
                     rememberFinishedDirectWord(directTypingState.currentWord)
@@ -871,15 +933,18 @@ class KeyboardService : InputMethodService() {
                     updateSuggestionRow()
                 } else {
                     internalSelectionChange = true
+                    val hadWord = directTypingState.currentWord.isNotEmpty()
                     directTypingState.backspace()
                     deleteOneCharacter()
+                    if (!hadWord || directTypingState.currentWord.isEmpty()) {
+                        adoptWordBeforeCursor()
+                    }
                     updateSuggestionRow()
                 }
             }
             KeyAction.ENTER -> {
                 if (language == KeyboardLanguage.ROMAN) {
-                    rememberFinishedRomanWord()
-                    applyRomanEdit(romanComposer.finishWord())
+                    applyRomanEdit(finishRomanWord())
                     updateSuggestionRow()
                 } else {
                     rememberFinishedDirectWord(directTypingState.currentWord)
@@ -899,8 +964,7 @@ class KeyboardService : InputMethodService() {
             KeyAction.LETTERS -> returnToPreviousLayout()
             KeyAction.LANGUAGE -> {
                 if (language == KeyboardLanguage.ROMAN) {
-                    rememberFinishedRomanWord()
-                    applyRomanEdit(romanComposer.finishWord())
+                    applyRomanEdit(finishRomanWord())
                 } else {
                     rememberFinishedDirectWord(directTypingState.currentWord)
                 }
@@ -959,7 +1023,9 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun openPanel(target: LayoutMode) {
-        if (language == KeyboardLanguage.ROMAN) applyRomanEdit(romanComposer.finishWord())
+        if (language == KeyboardLanguage.ROMAN) {
+            applyRomanEdit(finishRomanWord())
+        }
         directTypingState.clear()
         internalSelectionChange = false
         if (layoutMode == LayoutMode.HANDWRITING) {
@@ -981,8 +1047,7 @@ class KeyboardService : InputMethodService() {
 
     private fun openHandwriting() {
         if (language == KeyboardLanguage.ROMAN) {
-            rememberFinishedRomanWord()
-            applyRomanEdit(romanComposer.finishWord())
+            applyRomanEdit(finishRomanWord())
         }
         directTypingState.clear()
         internalSelectionChange = false
@@ -1023,8 +1088,22 @@ class KeyboardService : InputMethodService() {
             KeyboardLanguage.NEPALI -> DirectTypingLanguage.NEPALI
             KeyboardLanguage.ROMAN -> return
         }
-        val isWordText = directTypingState.append(text, typingLanguage)
-        commitText(text)
+        val before = textBeforeCursor(80)
+        var incoming = text
+        if (language == KeyboardLanguage.ENGLISH && !shifted) {
+            incoming = CapitalizationPolicy.applyIncomingLetter(incoming, before)
+        }
+        val spacing = PunctuationSpacing.plan(before, incoming)
+        if (spacing.deleteBefore > 0) {
+            currentInputConnection?.deleteSurroundingText(spacing.deleteBefore, 0)
+        }
+        if (spacing.insertLeadingSpace) {
+            commitText(" ")
+        }
+        val pending = directTypingState.currentWord
+        val isWordText = directTypingState.append(spacing.text, typingLanguage)
+        commitText(spacing.text)
+        if (!isWordText && pending.isNotEmpty()) rememberFinishedDirectWord(pending)
         if (isWordText || directTypingState.currentWord.isEmpty()) updateSuggestionRow()
     }
 
@@ -1032,7 +1111,7 @@ class KeyboardService : InputMethodService() {
         val edit = if (text.all(Char::isLetter)) {
             romanComposer.type(text)
         } else {
-            romanComposer.finishWord(text)
+            finishRomanWord(text)
         }
         applyRomanEdit(edit)
         if (shifted && text.firstOrNull()?.isLetter() == true) {
