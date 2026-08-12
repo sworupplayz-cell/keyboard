@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- API 27+ variants of the keyboard themes.
+         android:windowLightNavigationBar requires API 27, so it lives here and is
+         never applied on API 23-26 devices. The base definitions stay in values/. -->
     <style name="Theme.Keyboard.Light" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">@color/accent</item>
         <item name="android:navigationBarColor">@color/keyboard_light_background</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
     <style name="Theme.Keyboard.Dark" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">@color/accent</item>
         <item name="android:navigationBarColor">@color/keyboard_dark_background</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 </resources>
