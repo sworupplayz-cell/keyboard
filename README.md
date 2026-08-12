@@ -1,4 +1,4 @@
-# Simple Nepali Keyboard — Phase 4
+# Simple Nepali Keyboard — Phase 5
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
@@ -7,8 +7,11 @@ A lightweight native Android input method (IME) built with Kotlin and `InputMeth
 - English lowercase and one-shot uppercase Shift
 - Backspace, space, enter/editor action, punctuation, numbers, and symbols
 - Nepali consonants, independent vowels, vowel signs, conjunct shortcuts, marks, and Devanagari digits
-- Roman mode with an English QWERTY layout and offline Nepali conversion
-- A compact suggestion row for the current Roman word
+- Roman mode with an English QWERTY layout, reusable phonetic rules, and offline Nepali conversion
+- A 388-entry everyday Nepali vocabulary with common alternate Roman spellings
+- Rule-generated Devanagari for unknown names, slang, and made-up Roman words
+- Compact suggestions that include a keep-Roman option for mixed English/Nepali text
+- Up to 100 explicitly selected Roman-to-Nepali mappings learned locally on the device
 - Mode cycle: **EN → नेपाली → Roman → EN**
 - `✍` handwriting mode with a compact finger/stylus canvas
 - Handwriting stroke capture, undo, clear, cancel, confirm, result row, and safe Unicode insertion interface
@@ -23,7 +26,7 @@ A lightweight native Android input method (IME) built with Kotlin and `InputMeth
 - Light or dark keyboard appearance
 - No internet permission, account, cloud service, GIF, sticker, text collection, AI, or sentence prediction
 
-The Roman dictionary is the tab-separated file at `app/src/main/res/raw/roman_nepali_dictionary.tsv`. Known words convert when a suggestion is tapped or when space/punctuation is entered. Unknown words remain in their original Roman spelling. A small rule-based transliterator provides optional suggestions without automatically replacing unknown text.
+The expandable Roman vocabulary is the tab-separated file at `app/src/main/res/raw/roman_nepali_dictionary.tsv`. Vocabulary and learned mappings improve ranking, while the phonetic engine remains the fallback for every unknown Roman word. Known and unknown Romanized Nepali words convert on boundaries such as space, punctuation, or Enter. Common mixed-language terms such as `school` remain Roman by default, and every word also offers its original Roman spelling as a compact suggestion.
 
 ## Handwriting recognition limitation
 

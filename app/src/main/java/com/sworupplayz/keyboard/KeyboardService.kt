@@ -45,12 +45,20 @@ class KeyboardService : InputMethodService() {
             .filter(String::isNotEmpty)
         RecentEmojiList(saved)
     }
+    private val learnedRomanWords: LearnedRomanWords by lazy {
+        val serialized = getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+            .getString(KeyboardPreferences.KEY_LEARNED_ROMAN, null)
+        LearnedRomanWords.fromSerialized(serialized)
+    }
     private val romanConverter: RomanNepaliConverter by lazy {
         resources.openRawResource(R.raw.roman_nepali_dictionary).bufferedReader().use {
             RomanNepaliConverter.from(it)
         }
     }
-    private val romanComposer: RomanInputComposer by lazy { RomanInputComposer(romanConverter) }
+    private val romanComposerDelegate = lazy {
+        RomanInputComposer(romanConverter, learnedRomanWords::lookup)
+    }
+    private val romanComposer: RomanInputComposer get() = romanComposerDelegate.value
     private var language = KeyboardLanguage.ENGLISH
     private var layoutMode = LayoutMode.LETTERS
     private var shifted = false
@@ -76,7 +84,7 @@ class KeyboardService : InputMethodService() {
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         readPreferences()
-        if (romanComposer.currentWord.isNotEmpty()) {
+        if (romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()) {
             currentInputConnection?.finishComposingText()
             romanComposer.reset()
         }
@@ -91,7 +99,7 @@ class KeyboardService : InputMethodService() {
 
     override fun onCurrentInputMethodSubtypeChanged(newSubtype: InputMethodSubtype?) {
         super.onCurrentInputMethodSubtypeChanged(newSubtype)
-        if (romanComposer.currentWord.isNotEmpty()) {
+        if (romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()) {
             currentInputConnection?.finishComposingText()
             romanComposer.reset()
         }
@@ -104,7 +112,7 @@ class KeyboardService : InputMethodService() {
     }
 
     override fun onFinishInput() {
-        if (romanComposer.currentWord.isNotEmpty()) {
+        if (romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()) {
             currentInputConnection?.finishComposingText()
             romanComposer.reset()
         }
@@ -112,6 +120,36 @@ class KeyboardService : InputMethodService() {
         modeHistory.clear()
         suggestionRow = null
         super.onFinishInput()
+    }
+
+    override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int
+    ) {
+        super.onUpdateSelection(
+            oldSelStart,
+            oldSelEnd,
+            newSelStart,
+            newSelEnd,
+            candidatesStart,
+            candidatesEnd
+        )
+        if (romanComposerDelegate.isInitialized() &&
+            RomanSelectionState.movedAwayFromComposition(
+                romanComposer.currentWord,
+                newSelStart,
+                newSelEnd,
+                candidatesEnd
+            )
+        ) {
+            romanComposer.reset()
+            currentInputConnection?.finishComposingText()
+            updateSuggestionRow()
+        }
     }
 
     override fun onEvaluateFullscreenMode(): Boolean = false
@@ -418,7 +456,10 @@ class KeyboardService : InputMethodService() {
     private fun updateSuggestionRow(colors: KeyboardColors = keyboardColors()) {
         val row = suggestionRow ?: return
         row.removeAllViews()
-        val suggestions = romanConverter.suggestions(romanComposer.currentWord)
+        val suggestions = romanConverter.suggestions(
+            romanComposer.currentWord,
+            learnedRomanWords.lookup(romanComposer.currentWord)
+        )
         if (suggestions.isEmpty()) {
             row.addView(TextView(this).apply {
                 text = if (romanComposer.currentWord.isEmpty()) {
@@ -441,7 +482,7 @@ class KeyboardService : InputMethodService() {
                 isAllCaps = false
                 includeFontPadding = false
                 gravity = Gravity.CENTER
-                textSize = 16f
+                textSize = if (suggestion.length > 10) 13f else 16f
                 minWidth = 0
                 minimumWidth = 0
                 minHeight = 0
@@ -459,6 +500,13 @@ class KeyboardService : InputMethodService() {
                 ).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
                 setOnClickListener {
                     giveFeedback(KeyAction.TEXT)
+                    val romanWord = romanComposer.currentWord
+                    if (learnedRomanWords.learn(romanWord, suggestion)) {
+                        getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+                            .edit()
+                            .putString(KeyboardPreferences.KEY_LEARNED_ROMAN, learnedRomanWords.serialize())
+                            .apply()
+                    }
                     applyRomanEdit(romanComposer.acceptSuggestion(suggestion))
                     updateSuggestionRow(colors)
                 }
