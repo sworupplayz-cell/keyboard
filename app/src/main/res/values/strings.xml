@@ -14,6 +14,7 @@
     <string name="vibration_setting">Key vibration</string>
     <string name="dark_setting">Dark appearance</string>
     <string name="roman_suggestion_hint">Roman → नेपाली</string>
+    <string name="emoji_no_recent">No recent emoji yet</string>
     <string name="handwriting_canvas_description">Nepali handwriting canvas</string>
     <string name="handwriting_hint">Write नेपाली, then tap Confirm</string>
     <string name="handwriting_ready">Tap Confirm to check the writing</string>

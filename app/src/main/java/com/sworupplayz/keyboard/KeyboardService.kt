@@ -24,7 +24,9 @@ class KeyboardService : InputMethodService() {
     private enum class LayoutMode {
         LETTERS,
         VOWELS,
+        NUMBERS,
         SYMBOLS,
+        EMOJI,
         HANDWRITING
     }
 
@@ -33,6 +35,16 @@ class KeyboardService : InputMethodService() {
     private var handwritingResultRow: LinearLayout? = null
     private var handwritingCanvas: HandwritingCanvasView? = null
     private val handwritingState = HandwritingInputState(UnavailableNepaliHandwritingRecognizer)
+    private val modeHistory = PreviousLayoutStack<ModeSnapshot>()
+    private var emojiCategory = EmojiCategory.RECENT
+    private val recentEmojis: RecentEmojiList by lazy {
+        val saved = getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+            .getString(KeyboardPreferences.KEY_RECENT_EMOJIS, null)
+            .orEmpty()
+            .split('\n')
+            .filter(String::isNotEmpty)
+        RecentEmojiList(saved)
+    }
     private val romanConverter: RomanNepaliConverter by lazy {
         resources.openRawResource(R.raw.roman_nepali_dictionary).bufferedReader().use {
             RomanNepaliConverter.from(it)
@@ -69,6 +81,7 @@ class KeyboardService : InputMethodService() {
             romanComposer.reset()
         }
         resetHandwriting()
+        modeHistory.clear()
         shifted = false
         if (::keyboardRoot.isInitialized) {
             applyWindowAppearance()
@@ -83,6 +96,7 @@ class KeyboardService : InputMethodService() {
             romanComposer.reset()
         }
         resetHandwriting()
+        modeHistory.clear()
         updateLanguageFromSubtype(newSubtype)
         shifted = false
         layoutMode = LayoutMode.LETTERS
@@ -95,6 +109,7 @@ class KeyboardService : InputMethodService() {
             romanComposer.reset()
         }
         resetHandwriting()
+        modeHistory.clear()
         suggestionRow = null
         super.onFinishInput()
     }
@@ -129,8 +144,14 @@ class KeyboardService : InputMethodService() {
             renderHandwriting(colors)
             return
         }
+        if (layoutMode == LayoutMode.EMOJI) {
+            renderEmojiPanel(colors)
+            return
+        }
 
+        addNavigationRow(colors)
         val rows = when {
+            layoutMode == LayoutMode.NUMBERS -> KeyboardLayouts.numbers(language)
             layoutMode == LayoutMode.SYMBOLS -> KeyboardLayouts.symbols(language)
             language == KeyboardLanguage.ENGLISH || language == KeyboardLanguage.ROMAN ->
                 KeyboardLayouts.english(shifted, language)
@@ -155,6 +176,126 @@ class KeyboardService : InputMethodService() {
             )
             keys.forEach { key -> row.addView(createKeyButton(key, colors)) }
         }
+    }
+
+    private fun addNavigationRow(colors: KeyboardColors) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        keyboardRoot.addView(
+            row,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(38))
+        )
+        KeyboardLayouts.navigationControls().forEach { key ->
+            row.addView(createKeyButton(key, colors))
+        }
+    }
+
+    private fun renderEmojiPanel(colors: KeyboardColors) {
+        val categories = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        keyboardRoot.addView(
+            categories,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(38))
+        )
+        EmojiCategory.entries.forEach { category ->
+            val selected = category == emojiCategory
+            categories.addView(Button(this).apply {
+                text = category.label
+                contentDescription = category.name.lowercase()
+                isAllCaps = false
+                gravity = Gravity.CENTER
+                includeFontPadding = false
+                textSize = 18f
+                minWidth = 0
+                minimumWidth = 0
+                minHeight = 0
+                minimumHeight = 0
+                setPadding(0, 0, 0, 0)
+                setTextColor(if (selected) Color.WHITE else colors.text)
+                isSoundEffectsEnabled = false
+                isHapticFeedbackEnabled = false
+                stateListAnimator = null
+                background = roundedBackground(if (selected) colors.accent else colors.specialKey)
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    1f
+                ).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
+                setOnClickListener {
+                    giveFeedback(KeyAction.EMOJI)
+                    emojiCategory = category
+                    renderKeyboard()
+                }
+            })
+        }
+
+        val emojis = EmojiCatalog.emojis(emojiCategory, recentEmojis.values())
+        if (emojis.isEmpty()) {
+            keyboardRoot.addView(TextView(this).apply {
+                text = getString(R.string.emoji_no_recent)
+                gravity = Gravity.CENTER
+                textSize = 14f
+                setTextColor(colors.text)
+                alpha = 0.75f
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(92)))
+        } else {
+            emojis.chunked(EMOJIS_PER_ROW).forEach { emojiRow ->
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER
+                }
+                keyboardRoot.addView(
+                    row,
+                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(46))
+                )
+                emojiRow.forEach { emoji -> row.addView(createEmojiButton(emoji, colors)) }
+                repeat(EMOJIS_PER_ROW - emojiRow.size) {
+                    row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+                }
+            }
+        }
+        addKeyRows(KeyboardLayouts.emojiControls(), colors)
+    }
+
+    private fun createEmojiButton(emoji: String, colors: KeyboardColors): Button = Button(this).apply {
+        text = emoji
+        contentDescription = emoji
+        isAllCaps = false
+        gravity = Gravity.CENTER
+        includeFontPadding = false
+        textSize = 24f
+        minWidth = 0
+        minimumWidth = 0
+        minHeight = 0
+        minimumHeight = 0
+        setPadding(0, 0, 0, 0)
+        setTextColor(colors.text)
+        isSoundEffectsEnabled = false
+        isHapticFeedbackEnabled = false
+        stateListAnimator = null
+        background = roundedBackground(colors.key)
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+            setMargins(dp(2), dp(2), dp(2), dp(2))
+        }
+        setOnClickListener {
+            giveFeedback(KeyAction.EMOJI)
+            insertEmoji(emoji)
+        }
+    }
+
+    private fun insertEmoji(emoji: String) {
+        val connection = currentInputConnection ?: return
+        if (!InputConnectionCommitter.commit(connection, emoji)) return
+        recentEmojis.record(emoji)
+        getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KeyboardPreferences.KEY_RECENT_EMOJIS, recentEmojis.values().joinToString("\n"))
+            .apply()
+        returnToPreviousLayout()
     }
 
     private fun renderHandwriting(colors: KeyboardColors) {
@@ -245,7 +386,7 @@ class KeyboardService : InputMethodService() {
 
     private fun insertHandwritingCandidate(index: Int, colors: KeyboardColors) {
         val candidate = handwritingState.confirm(index) ?: return
-        currentInputConnection?.commitText(candidate, 1)
+        InputConnectionCommitter.commit(currentInputConnection, candidate)
         handwritingCanvas?.clearInk()
         updateHandwritingResultRow(colors)
     }
@@ -409,26 +550,16 @@ class KeyboardService : InputMethodService() {
                 shifted = !shifted
                 renderKeyboard()
             }
-            KeyAction.SYMBOLS -> {
-                if (language == KeyboardLanguage.ROMAN) {
-                    applyRomanEdit(romanComposer.finishWord())
-                }
-                shifted = false
-                layoutMode = LayoutMode.SYMBOLS
-                renderKeyboard()
-            }
-            KeyAction.LETTERS -> {
-                layoutMode = LayoutMode.LETTERS
-                renderKeyboard()
-            }
+            KeyAction.NUMBERS -> openPanel(LayoutMode.NUMBERS)
+            KeyAction.SYMBOLS -> openPanel(LayoutMode.SYMBOLS)
+            KeyAction.EMOJI -> openPanel(LayoutMode.EMOJI)
+            KeyAction.RETURN_TO_PREVIOUS -> returnToPreviousLayout()
+            KeyAction.LETTERS -> returnToPreviousLayout()
             KeyAction.LANGUAGE -> {
                 if (language == KeyboardLanguage.ROMAN) {
                     applyRomanEdit(romanComposer.finishWord())
                 }
-                shifted = false
-                language = language.next()
-                layoutMode = LayoutMode.LETTERS
-                renderKeyboard()
+                switchTypingMode(language.next())
             }
             KeyAction.VOWELS -> {
                 layoutMode = LayoutMode.VOWELS
@@ -438,15 +569,7 @@ class KeyboardService : InputMethodService() {
                 layoutMode = LayoutMode.LETTERS
                 renderKeyboard()
             }
-            KeyAction.HANDWRITING -> {
-                if (language == KeyboardLanguage.ROMAN) {
-                    applyRomanEdit(romanComposer.finishWord())
-                }
-                handwritingState.clear()
-                shifted = false
-                layoutMode = LayoutMode.HANDWRITING
-                renderKeyboard()
-            }
+            KeyAction.HANDWRITING -> openHandwriting()
             KeyAction.HANDWRITING_UNDO -> {
                 if (handwritingState.undo()) handwritingCanvas?.undoStroke()
                 updateHandwritingResultRow()
@@ -464,15 +587,55 @@ class KeyboardService : InputMethodService() {
                     updateHandwritingResultRow()
                 }
             }
-            KeyAction.HANDWRITING_CANCEL -> leaveHandwriting(language)
-            KeyAction.MODE_ENGLISH -> leaveHandwriting(KeyboardLanguage.ENGLISH)
-            KeyAction.MODE_NEPALI -> leaveHandwriting(KeyboardLanguage.NEPALI)
-            KeyAction.MODE_ROMAN -> leaveHandwriting(KeyboardLanguage.ROMAN)
+            KeyAction.HANDWRITING_CANCEL -> returnToPreviousLayout()
+            KeyAction.MODE_ENGLISH -> switchTypingMode(KeyboardLanguage.ENGLISH)
+            KeyAction.MODE_NEPALI -> switchTypingMode(KeyboardLanguage.NEPALI)
+            KeyAction.MODE_ROMAN -> switchTypingMode(KeyboardLanguage.ROMAN)
         }
     }
 
-    private fun leaveHandwriting(targetLanguage: KeyboardLanguage) {
+    private fun openPanel(target: LayoutMode) {
+        if (language == KeyboardLanguage.ROMAN) applyRomanEdit(romanComposer.finishWord())
+        if (layoutMode == LayoutMode.HANDWRITING) {
+            resetHandwriting()
+            modeHistory.clear()
+            layoutMode = LayoutMode.LETTERS
+        }
+        val numberOrSymbolSwitch =
+            (layoutMode == LayoutMode.NUMBERS || layoutMode == LayoutMode.SYMBOLS) &&
+                (target == LayoutMode.NUMBERS || target == LayoutMode.SYMBOLS)
+        if (!numberOrSymbolSwitch && layoutMode != target) {
+            modeHistory.remember(ModeSnapshot(language, layoutMode))
+        }
+        shifted = false
+        layoutMode = target
+        if (target == LayoutMode.EMOJI) emojiCategory = EmojiCategory.RECENT
+        renderKeyboard()
+    }
+
+    private fun openHandwriting() {
+        if (language == KeyboardLanguage.ROMAN) applyRomanEdit(romanComposer.finishWord())
+        if (layoutMode != LayoutMode.HANDWRITING) {
+            modeHistory.remember(ModeSnapshot(language, layoutMode))
+        }
+        handwritingState.clear()
+        shifted = false
+        layoutMode = LayoutMode.HANDWRITING
+        renderKeyboard()
+    }
+
+    private fun returnToPreviousLayout() {
+        if (layoutMode == LayoutMode.HANDWRITING) resetHandwriting()
+        val previous = modeHistory.previousOr(ModeSnapshot(language, LayoutMode.LETTERS))
+        language = previous.language
+        layoutMode = previous.layout
+        shifted = false
+        renderKeyboard()
+    }
+
+    private fun switchTypingMode(targetLanguage: KeyboardLanguage) {
         resetHandwriting()
+        modeHistory.clear()
         language = targetLanguage
         shifted = false
         layoutMode = LayoutMode.LETTERS
@@ -509,7 +672,7 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun commitText(text: String) {
-        currentInputConnection?.commitText(text, 1)
+        InputConnectionCommitter.commit(currentInputConnection, text)
         if (shifted && language == KeyboardLanguage.ENGLISH && text.firstOrNull()?.isLetter() == true) {
             shifted = false
             renderKeyboard()
@@ -621,6 +784,11 @@ class KeyboardService : InputMethodService() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
 
+    private data class ModeSnapshot(
+        val language: KeyboardLanguage,
+        val layout: LayoutMode
+    )
+
     private data class KeyboardColors(
         val background: Int,
         val key: Int,
@@ -628,4 +796,8 @@ class KeyboardService : InputMethodService() {
         val text: Int,
         val accent: Int
     )
+
+    private companion object {
+        const val EMOJIS_PER_ROW = 8
+    }
 }

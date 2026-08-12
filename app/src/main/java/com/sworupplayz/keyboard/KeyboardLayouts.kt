@@ -6,7 +6,10 @@ enum class KeyAction {
     BACKSPACE,
     SPACE,
     ENTER,
+    NUMBERS,
     SYMBOLS,
+    EMOJI,
+    RETURN_TO_PREVIOUS,
     LETTERS,
     LANGUAGE,
     VOWELS,
@@ -48,19 +51,31 @@ object KeyboardLayouts {
         )
     }
 
+    fun numbers(language: KeyboardLanguage): List<List<KeySpec>> = listOf(
+        "1234567890".map { KeySpec(it.toString()) },
+        listOf(
+            KeySpec(language.lettersLabel(), KeyAction.LETTERS, width = 1.4f),
+            KeySpec("#+=", KeyAction.SYMBOLS, width = 1.2f),
+            KeySpec("😊", KeyAction.EMOJI),
+            KeySpec("space", KeyAction.SPACE, output = " ", width = 3f),
+            KeySpec("⌫", KeyAction.BACKSPACE, width = 1.2f),
+            KeySpec("↵", KeyAction.ENTER, width = 1.3f)
+        )
+    )
+
     fun symbols(language: KeyboardLanguage): List<List<KeySpec>> = listOf(
         "1234567890".map { KeySpec(it.toString()) },
-        listOf("@", "#", "\$", "%", "&", "*", "(", ")", "-", "+").map(::KeySpec),
-        listOf("_", "/", "\\", ":", ";", "\"", "'", "!", "?").map(::KeySpec) +
-            KeySpec("⌫", KeyAction.BACKSPACE, width = 1.2f),
+        listOf(".", ",", "?", "!", "'", "\"", "@", "#", "\$", "%").map(::KeySpec),
+        listOf("&", "*", "(", ")", "-", "+", "=", "/", ":", ";").map(::KeySpec),
+        listOf("_", "\\", "[", "]", "{", "}", "<", ">", "€", "₹").map(::KeySpec),
         listOf(
             KeySpec(language.lettersLabel(), KeyAction.LETTERS, width = 1.35f),
-            KeySpec(language.nextModeLabel(), KeyAction.LANGUAGE, width = 1.4f),
-            KeySpec(",", width = 0.8f),
-            KeySpec("space", KeyAction.SPACE, output = " ", width = 2.6f),
-            KeySpec(".", width = 0.8f),
+            KeySpec("123", KeyAction.NUMBERS),
+            KeySpec("😊", KeyAction.EMOJI),
+            KeySpec("space", KeyAction.SPACE, output = " ", width = 2.5f),
             KeySpec("✍", KeyAction.HANDWRITING),
-            KeySpec("↵", KeyAction.ENTER, width = 1.3f)
+            KeySpec("⌫", KeyAction.BACKSPACE),
+            KeySpec("↵", KeyAction.ENTER, width = 1.2f)
         )
     )
 
@@ -80,6 +95,25 @@ object KeyboardLayouts {
         nepaliControls("व्यञ्जन", KeyAction.CONSONANTS)
     )
 
+    fun navigationControls(): List<KeySpec> = listOf(
+        KeySpec("EN", KeyAction.MODE_ENGLISH),
+        KeySpec("ने", KeyAction.MODE_NEPALI),
+        KeySpec("R", KeyAction.MODE_ROMAN),
+        KeySpec("123", KeyAction.NUMBERS),
+        KeySpec("😊", KeyAction.EMOJI),
+        KeySpec("✍", KeyAction.HANDWRITING)
+    )
+
+    fun emojiControls(): List<List<KeySpec>> = listOf(
+        listOf(
+            KeySpec("Back", KeyAction.RETURN_TO_PREVIOUS, width = 1.4f),
+            KeySpec("123", KeyAction.NUMBERS),
+            KeySpec("space", KeyAction.SPACE, output = " ", width = 3f),
+            KeySpec("⌫", KeyAction.BACKSPACE),
+            KeySpec("↵", KeyAction.ENTER, width = 1.2f)
+        )
+    )
+
     fun handwritingControls(): List<List<KeySpec>> = listOf(
         listOf(
             KeySpec("Undo", KeyAction.HANDWRITING_UNDO),
@@ -90,13 +124,15 @@ object KeyboardLayouts {
         ),
         listOf(
             KeySpec("EN", KeyAction.MODE_ENGLISH),
-            KeySpec("नेपाली", KeyAction.MODE_NEPALI),
-            KeySpec("Roman", KeyAction.MODE_ROMAN)
+            KeySpec("नेपाली", KeyAction.MODE_NEPALI, width = 1.2f),
+            KeySpec("Roman", KeyAction.MODE_ROMAN),
+            KeySpec("123", KeyAction.NUMBERS),
+            KeySpec("😊", KeyAction.EMOJI)
         )
     )
 
     private fun commonControls(language: KeyboardLanguage, spaceLabel: String): List<KeySpec> = listOf(
-        KeySpec("?123", KeyAction.SYMBOLS, width = 1.3f),
+        KeySpec("?123", KeyAction.NUMBERS, width = 1.3f),
         KeySpec(language.nextModeLabel(), KeyAction.LANGUAGE, width = 1.4f),
         KeySpec(",", width = 0.8f),
         KeySpec(spaceLabel, KeyAction.SPACE, output = " ", width = 2.6f),
@@ -108,7 +144,7 @@ object KeyboardLayouts {
     private fun textKeys(values: String): List<KeySpec> = values.split(' ').map(::KeySpec)
 
     private fun nepaliControls(toggleLabel: String, toggleAction: KeyAction): List<KeySpec> = listOf(
-        KeySpec("?१२३", KeyAction.SYMBOLS, width = 1.2f),
+        KeySpec("?१२३", KeyAction.NUMBERS, width = 1.2f),
         KeySpec(KeyboardLanguage.NEPALI.nextModeLabel(), KeyAction.LANGUAGE, width = 1.3f),
         KeySpec(toggleLabel, toggleAction, width = 1.4f),
         KeySpec("खाली", KeyAction.SPACE, output = " ", width = 2.2f),

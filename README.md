@@ -1,4 +1,4 @@
-# Simple Nepali Keyboard — Phase 3
+# Simple Nepali Keyboard — Phase 4
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
@@ -13,10 +13,15 @@ A lightweight native Android input method (IME) built with Kotlin and `InputMeth
 - `✍` handwriting mode with a compact finger/stylus canvas
 - Handwriting stroke capture, undo, clear, cancel, confirm, result row, and safe Unicode insertion interface
 - Direct return from handwriting to EN, नेपाली, or Roman
+- Compact Unicode emoji panel with Recent, Smileys, People, Animals, Food, Objects, and Symbols
+- Small on-device recent-emoji history with no image assets or downloads
+- Dedicated ASCII number panel and expanded common-symbol panel
+- A compact navigation row for EN, नेपाली, Roman, numbers, emoji, and handwriting
+- Previous-layout return behavior for temporary panels
 - Long-press a mode key to move to the next system keyboard
 - Optional key sound and vibration
 - Light or dark keyboard appearance
-- No internet permission, account, cloud service, text collection, AI, or sentence prediction
+- No internet permission, account, cloud service, GIF, sticker, text collection, AI, or sentence prediction
 
 The Roman dictionary is the tab-separated file at `app/src/main/res/raw/roman_nepali_dictionary.tsv`. Known words convert when a suggestion is tapped or when space/punctuation is entered. Unknown words remain in their original Roman spelling. A small rule-based transliterator provides optional suggestions without automatically replacing unknown text.
 
