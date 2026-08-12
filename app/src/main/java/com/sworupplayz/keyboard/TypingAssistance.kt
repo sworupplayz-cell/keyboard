@@ -288,17 +288,17 @@ object SuggestionRanker {
         }
 
         learned.forEachIndexed { index, word ->
-            if (word.trim().lowercase(Locale.ENGLISH).startsWith(normalizedInput)) {
+            if (matchesRankedInput(word, normalizedInput)) {
                 consider(word, 8_000 - index * 20)
             }
         }
         recent.forEachIndexed { index, word ->
-            if (word.trim().lowercase(Locale.ENGLISH).startsWith(normalizedInput)) {
+            if (matchesRankedInput(word, normalizedInput)) {
                 consider(word, 3_000 - index * 10)
             }
         }
         contextMatches.forEachIndexed { index, word ->
-            if (word.trim().lowercase(Locale.ENGLISH).startsWith(normalizedInput)) {
+            if (matchesRankedInput(word, normalizedInput)) {
                 consider(word, 2_200 - index * 15)
             }
         }
@@ -329,6 +329,18 @@ object SuggestionRanker {
         } else {
             candidate
         }
+
+    private fun matchesRankedInput(word: String, normalizedInput: String): Boolean {
+        val trimmed = word.trim()
+        if (trimmed.isEmpty()) return false
+        if (trimmed.lowercase(Locale.ENGLISH).startsWith(normalizedInput)) return true
+        return isDevanagariWord(trimmed) && normalizedInput.all { it in 'a'..'z' }
+    }
+
+    private fun isDevanagariWord(value: String): Boolean =
+        value.any { it.code in DEVANAGARI_RANGE }
+
+    private val DEVANAGARI_RANGE = 0x0900..0x097F
 }
 
 class RecentWordStore(

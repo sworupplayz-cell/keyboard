@@ -1128,6 +1128,13 @@ esewa	इसेवा
 khalti	खल्ती
 ime pay	आईएमई पे
 connectips	कनेक्टआईपीएस
+manparcha	मनपर्छ
+manparchha	मनपर्छ
+manparyo	मनपर्यो
+kahaa	कहाँ
+kahaan	कहाँ
+meroo	मेरो
+ramrooo	राम्रो
 """
 
 

@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 10
+# Simple Nepali Keyboard — Phase 12
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 10 keeps the Gboard-style chrome and builds offline typing intelligence underneath it: large local English, Nepali, and Romanized Nepali vocabularies, frequency-aware suggestions, recent and learned words, and mixed English/Nepali Roman conversion. The phonetic engine remains the fallback for unknown Roman words.
+Phase 12 keeps the Gboard-style chrome and earlier offline typing intelligence. The focus is Roman Nepali Engine 2.0: reusable spelling variants, stronger phonetic transliteration, sentence-level conversion that preserves links and symbols, and mixed English/Nepali protection. Unknown Roman words still convert even when they are missing from the dictionary.
 
 ## Features
 
@@ -15,8 +15,9 @@ Phase 10 keeps the Gboard-style chrome and builds offline typing intelligence un
 - Conservative typo correction using nearby keys, vowel deletions, and adjacent transpositions
 - Sentence capitalization and punctuation spacing without auto-replacing uncertain text
 - Rule-generated Devanagari for unknown names, slang, and made-up Roman words
+- Alternate Roman spellings such as `cha/chha`, `aja/aaja`, and lengthened vowels
 - Compact suggestions that include a keep-Roman option for mixed English/Nepali text
-- Up to 100 explicitly selected Roman-to-Nepali mappings learned locally on the device
+- Up to 250 explicitly selected Roman-to-Nepali mappings learned locally on the device
 - Compact offline English and Nepali prefix suggestions with conservative typo alternatives
 - Local learned English and Nepali words, ranked only after explicit suggestion selection
 - Suggestions never auto-replace normal English or Nepali typing
@@ -44,7 +45,7 @@ The expandable Roman vocabulary is the tab-separated file at `app/src/main/res/r
 
 English suggestions use `app/src/main/res/raw/english_vocabulary.txt`. Nepali suggestions use `app/src/main/res/raw/nepali_vocabulary.txt` plus Nepali values from the Roman dictionary. Both are prefix-indexed, retain unusual input unchanged, and only replace a word after the user taps a suggestion.
 
-See [`docs/UI.md`](docs/UI.md) for the Phase A visual contract and [`docs/VOCABULARY.md`](docs/VOCABULARY.md) for the offline dictionaries.
+See [`docs/UI.md`](docs/UI.md) for the Phase A visual contract, [`docs/VOCABULARY.md`](docs/VOCABULARY.md) for the offline dictionaries, and [`docs/ROMAN_ENGINE.md`](docs/ROMAN_ENGINE.md) for the Roman engine.
 
 ## Handwriting recognition limitation
 

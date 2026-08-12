@@ -92,12 +92,14 @@ class ContextModel(
         )
 
         val ROMAN_SEED = mapOf(
-            "ma" to listOf("pani", "ni"),
+            "ma" to listOf("ghar", "pani", "ni"),
             "mero" to listOf("ghar", "naam"),
-            "timi" to listOf("lai"),
+            "timi" to listOf("kaha", "lai"),
+            "malai" to listOf("nepali"),
             "ke" to listOf("cha", "garchau"),
             "aaja" to listOf("kaam"),
-            "ghar" to listOf("jaanchu")
+            "ghar" to listOf("jaanchu"),
+            "nepali" to listOf("manparcha")
         )
 
         private fun normalize(value: String): String = value.trim().lowercase(Locale.ENGLISH)
