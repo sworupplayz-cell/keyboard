@@ -1,4 +1,4 @@
-# Simple Nepali Keyboard — Phase 5
+# Simple Nepali Keyboard — Phase 6
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
@@ -20,6 +20,8 @@ A lightweight native Android input method (IME) built with Kotlin and `InputMeth
 - Small on-device recent-emoji history with no image assets or downloads
 - Dedicated ASCII number panel and expanded common-symbol panel
 - A compact navigation row for EN, नेपाली, Roman, numbers, emoji, and handwriting
+- Responsive key heights, readable mode labels, visible active modes, and pressed-key feedback
+- Clear key borders and contrast in both light and dark appearances
 - Previous-layout return behavior for temporary panels
 - Long-press a mode key to move to the next system keyboard
 - Optional key sound and vibration

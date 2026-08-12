@@ -4,9 +4,11 @@
     <color name="keyboard_light_key">#FFFFFF</color>
     <color name="keyboard_light_special">#C9CDD4</color>
     <color name="keyboard_light_text">#17181A</color>
+    <color name="keyboard_light_border">#B7BCC5</color>
     <color name="keyboard_dark_background">#17191D</color>
     <color name="keyboard_dark_key">#30343A</color>
     <color name="keyboard_dark_special">#464B53</color>
     <color name="keyboard_dark_text">#F5F6F7</color>
+    <color name="keyboard_dark_border">#5A606A</color>
     <color name="accent">#3568D4</color>
 </resources>

@@ -74,8 +74,8 @@ object KeyboardLayouts {
             KeySpec("😊", KeyAction.EMOJI),
             KeySpec("space", KeyAction.SPACE, output = " ", width = 2.5f),
             KeySpec("✍", KeyAction.HANDWRITING),
-            KeySpec("⌫", KeyAction.BACKSPACE),
-            KeySpec("↵", KeyAction.ENTER, width = 1.2f)
+            KeySpec("⌫", KeyAction.BACKSPACE, width = 1.25f),
+            KeySpec("↵", KeyAction.ENTER, width = 1.3f)
         )
     )
 
@@ -95,11 +95,11 @@ object KeyboardLayouts {
         nepaliControls("व्यञ्जन", KeyAction.CONSONANTS)
     )
 
-    fun navigationControls(): List<KeySpec> = listOf(
+    fun navigationControls(numberLabel: String = "123"): List<KeySpec> = listOf(
         KeySpec("EN", KeyAction.MODE_ENGLISH),
-        KeySpec("ने", KeyAction.MODE_NEPALI),
-        KeySpec("R", KeyAction.MODE_ROMAN),
-        KeySpec("123", KeyAction.NUMBERS),
+        KeySpec("नेपाली", KeyAction.MODE_NEPALI),
+        KeySpec("Roman", KeyAction.MODE_ROMAN),
+        KeySpec(numberLabel, KeyAction.NUMBERS),
         KeySpec("😊", KeyAction.EMOJI),
         KeySpec("✍", KeyAction.HANDWRITING)
     )
@@ -109,8 +109,8 @@ object KeyboardLayouts {
             KeySpec("Back", KeyAction.RETURN_TO_PREVIOUS, width = 1.4f),
             KeySpec("123", KeyAction.NUMBERS),
             KeySpec("space", KeyAction.SPACE, output = " ", width = 3f),
-            KeySpec("⌫", KeyAction.BACKSPACE),
-            KeySpec("↵", KeyAction.ENTER, width = 1.2f)
+            KeySpec("⌫", KeyAction.BACKSPACE, width = 1.2f),
+            KeySpec("↵", KeyAction.ENTER, width = 1.3f)
         )
     )
 
@@ -150,7 +150,7 @@ object KeyboardLayouts {
         KeySpec("खाली", KeyAction.SPACE, output = " ", width = 2.2f),
         KeySpec("।", width = 0.8f),
         KeySpec("✍", KeyAction.HANDWRITING),
-        KeySpec("↵", KeyAction.ENTER, width = 1.2f)
+        KeySpec("↵", KeyAction.ENTER, width = 1.3f)
     )
 
     private fun KeyboardLanguage.lettersLabel(): String = when (this) {

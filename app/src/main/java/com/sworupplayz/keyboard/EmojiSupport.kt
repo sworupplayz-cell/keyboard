@@ -1,13 +1,13 @@
 package com.sworupplayz.keyboard
 
-enum class EmojiCategory(val label: String) {
-    RECENT("◷"),
-    SMILEYS("🙂"),
-    PEOPLE("👋"),
-    ANIMALS("🐾"),
-    FOOD("🍎"),
-    OBJECTS("💡"),
-    SYMBOLS("♥")
+enum class EmojiCategory(val title: String) {
+    RECENT("Recent"),
+    SMILEYS("Smileys"),
+    PEOPLE("People"),
+    ANIMALS("Animals"),
+    FOOD("Food"),
+    OBJECTS("Objects"),
+    SYMBOLS("Symbols")
 }
 
 /** Small Unicode-only catalog. No image assets or downloaded data are used. */
