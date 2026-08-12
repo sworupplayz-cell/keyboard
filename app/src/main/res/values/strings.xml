@@ -14,5 +14,10 @@
     <string name="vibration_setting">Key vibration</string>
     <string name="dark_setting">Dark appearance</string>
     <string name="roman_suggestion_hint">Roman → नेपाली</string>
+    <string name="handwriting_canvas_description">Nepali handwriting canvas</string>
+    <string name="handwriting_hint">Write नेपाली, then tap Confirm</string>
+    <string name="handwriting_ready">Tap Confirm to check the writing</string>
+    <string name="handwriting_no_match">No match. Clear and try again.</string>
+    <string name="handwriting_unavailable">Offline Nepali recognizer is not bundled</string>
     <string name="privacy_note">This keyboard works locally. It has no internet permission, accounts, cloud features, or text collection.</string>
 </resources>

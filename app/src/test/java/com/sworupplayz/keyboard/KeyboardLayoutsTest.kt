@@ -54,6 +54,27 @@ class KeyboardLayoutsTest {
         })
     }
 
+    @Test
+    fun handwritingModeIsReachableAndCanReturnToEveryTypingMode() {
+        listOf(
+            KeyboardLayouts.english(false),
+            KeyboardLayouts.nepaliConsonants(),
+            KeyboardLayouts.nepaliVowels(),
+            KeyboardLayouts.symbols(KeyboardLanguage.ROMAN)
+        ).forEach { layout ->
+            assertTrue(layout.flatten().any { it.action == KeyAction.HANDWRITING })
+        }
+
+        val controls = KeyboardLayouts.handwritingControls().flatten()
+        assertTrue(controls.any { it.action == KeyAction.HANDWRITING_CLEAR })
+        assertTrue(controls.any { it.action == KeyAction.HANDWRITING_UNDO })
+        assertTrue(controls.any { it.action == KeyAction.HANDWRITING_CONFIRM })
+        assertTrue(controls.any { it.action == KeyAction.HANDWRITING_CANCEL })
+        assertTrue(controls.any { it.action == KeyAction.MODE_ENGLISH })
+        assertTrue(controls.any { it.action == KeyAction.MODE_NEPALI })
+        assertTrue(controls.any { it.action == KeyAction.MODE_ROMAN })
+    }
+
     private fun textOutputs(rows: List<List<KeySpec>>): Set<String> = rows.flatten()
         .filter { it.action == KeyAction.TEXT }
         .map { it.output }

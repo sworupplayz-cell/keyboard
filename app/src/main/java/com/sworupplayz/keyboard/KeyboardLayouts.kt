@@ -10,7 +10,15 @@ enum class KeyAction {
     LETTERS,
     LANGUAGE,
     VOWELS,
-    CONSONANTS
+    CONSONANTS,
+    HANDWRITING,
+    HANDWRITING_UNDO,
+    HANDWRITING_CLEAR,
+    HANDWRITING_CONFIRM,
+    HANDWRITING_CANCEL,
+    MODE_ENGLISH,
+    MODE_NEPALI,
+    MODE_ROMAN
 }
 
 data class KeySpec(
@@ -36,14 +44,7 @@ object KeyboardLayouts {
             listOf(KeySpec("⇧", KeyAction.SHIFT, width = 1.4f)) +
                 letters("zxcvbnm") +
                 KeySpec("⌫", KeyAction.BACKSPACE, width = 1.4f),
-            listOf(
-                KeySpec("?123", KeyAction.SYMBOLS, width = 1.4f),
-                KeySpec(language.nextModeLabel(), KeyAction.LANGUAGE, width = 1.5f),
-                KeySpec(","),
-                KeySpec("space", KeyAction.SPACE, output = " ", width = 3.3f),
-                KeySpec("."),
-                KeySpec("↵", KeyAction.ENTER, width = 1.4f)
-            )
+            commonControls(language, "space")
         )
     }
 
@@ -53,12 +54,13 @@ object KeyboardLayouts {
         listOf("_", "/", "\\", ":", ";", "\"", "'", "!", "?").map(::KeySpec) +
             KeySpec("⌫", KeyAction.BACKSPACE, width = 1.2f),
         listOf(
-            KeySpec(language.lettersLabel(), KeyAction.LETTERS, width = 1.5f),
-            KeySpec(language.nextModeLabel(), KeyAction.LANGUAGE, width = 1.5f),
-            KeySpec(","),
-            KeySpec("space", KeyAction.SPACE, output = " ", width = 3.3f),
-            KeySpec("."),
-            KeySpec("↵", KeyAction.ENTER, width = 1.4f)
+            KeySpec(language.lettersLabel(), KeyAction.LETTERS, width = 1.35f),
+            KeySpec(language.nextModeLabel(), KeyAction.LANGUAGE, width = 1.4f),
+            KeySpec(",", width = 0.8f),
+            KeySpec("space", KeyAction.SPACE, output = " ", width = 2.6f),
+            KeySpec(".", width = 0.8f),
+            KeySpec("✍", KeyAction.HANDWRITING),
+            KeySpec("↵", KeyAction.ENTER, width = 1.3f)
         )
     )
 
@@ -78,15 +80,41 @@ object KeyboardLayouts {
         nepaliControls("व्यञ्जन", KeyAction.CONSONANTS)
     )
 
+    fun handwritingControls(): List<List<KeySpec>> = listOf(
+        listOf(
+            KeySpec("Undo", KeyAction.HANDWRITING_UNDO),
+            KeySpec("Clear", KeyAction.HANDWRITING_CLEAR),
+            KeySpec("Confirm", KeyAction.HANDWRITING_CONFIRM, width = 1.3f),
+            KeySpec("⌫", KeyAction.BACKSPACE),
+            KeySpec("Cancel", KeyAction.HANDWRITING_CANCEL)
+        ),
+        listOf(
+            KeySpec("EN", KeyAction.MODE_ENGLISH),
+            KeySpec("नेपाली", KeyAction.MODE_NEPALI),
+            KeySpec("Roman", KeyAction.MODE_ROMAN)
+        )
+    )
+
+    private fun commonControls(language: KeyboardLanguage, spaceLabel: String): List<KeySpec> = listOf(
+        KeySpec("?123", KeyAction.SYMBOLS, width = 1.3f),
+        KeySpec(language.nextModeLabel(), KeyAction.LANGUAGE, width = 1.4f),
+        KeySpec(",", width = 0.8f),
+        KeySpec(spaceLabel, KeyAction.SPACE, output = " ", width = 2.6f),
+        KeySpec(".", width = 0.8f),
+        KeySpec("✍", KeyAction.HANDWRITING),
+        KeySpec("↵", KeyAction.ENTER, width = 1.3f)
+    )
+
     private fun textKeys(values: String): List<KeySpec> = values.split(' ').map(::KeySpec)
 
     private fun nepaliControls(toggleLabel: String, toggleAction: KeyAction): List<KeySpec> = listOf(
-        KeySpec("?१२३", KeyAction.SYMBOLS, width = 1.35f),
-        KeySpec(KeyboardLanguage.NEPALI.nextModeLabel(), KeyAction.LANGUAGE, width = 1.5f),
-        KeySpec(toggleLabel, toggleAction, width = 1.5f),
-        KeySpec("खाली", KeyAction.SPACE, output = " ", width = 2.7f),
-        KeySpec("।"),
-        KeySpec("↵", KeyAction.ENTER, width = 1.35f)
+        KeySpec("?१२३", KeyAction.SYMBOLS, width = 1.2f),
+        KeySpec(KeyboardLanguage.NEPALI.nextModeLabel(), KeyAction.LANGUAGE, width = 1.3f),
+        KeySpec(toggleLabel, toggleAction, width = 1.4f),
+        KeySpec("खाली", KeyAction.SPACE, output = " ", width = 2.2f),
+        KeySpec("।", width = 0.8f),
+        KeySpec("✍", KeyAction.HANDWRITING),
+        KeySpec("↵", KeyAction.ENTER, width = 1.2f)
     )
 
     private fun KeyboardLanguage.lettersLabel(): String = when (this) {

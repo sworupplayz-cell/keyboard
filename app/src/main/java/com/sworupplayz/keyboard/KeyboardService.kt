@@ -24,11 +24,15 @@ class KeyboardService : InputMethodService() {
     private enum class LayoutMode {
         LETTERS,
         VOWELS,
-        SYMBOLS
+        SYMBOLS,
+        HANDWRITING
     }
 
     private lateinit var keyboardRoot: LinearLayout
     private var suggestionRow: LinearLayout? = null
+    private var handwritingResultRow: LinearLayout? = null
+    private var handwritingCanvas: HandwritingCanvasView? = null
+    private val handwritingState = HandwritingInputState(UnavailableNepaliHandwritingRecognizer)
     private val romanConverter: RomanNepaliConverter by lazy {
         resources.openRawResource(R.raw.roman_nepali_dictionary).bufferedReader().use {
             RomanNepaliConverter.from(it)
@@ -64,6 +68,7 @@ class KeyboardService : InputMethodService() {
             currentInputConnection?.finishComposingText()
             romanComposer.reset()
         }
+        resetHandwriting()
         shifted = false
         if (::keyboardRoot.isInitialized) {
             applyWindowAppearance()
@@ -77,6 +82,7 @@ class KeyboardService : InputMethodService() {
             currentInputConnection?.finishComposingText()
             romanComposer.reset()
         }
+        resetHandwriting()
         updateLanguageFromSubtype(newSubtype)
         shifted = false
         layoutMode = LayoutMode.LETTERS
@@ -88,6 +94,7 @@ class KeyboardService : InputMethodService() {
             currentInputConnection?.finishComposingText()
             romanComposer.reset()
         }
+        resetHandwriting()
         suggestionRow = null
         super.onFinishInput()
     }
@@ -111,6 +118,18 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun renderKeyboard() {
+        val colors = keyboardColors()
+        keyboardRoot.setBackgroundColor(colors.background)
+        keyboardRoot.removeAllViews()
+        suggestionRow = null
+        handwritingResultRow = null
+        handwritingCanvas = null
+
+        if (layoutMode == LayoutMode.HANDWRITING) {
+            renderHandwriting(colors)
+            return
+        }
+
         val rows = when {
             layoutMode == LayoutMode.SYMBOLS -> KeyboardLayouts.symbols(language)
             language == KeyboardLanguage.ENGLISH || language == KeyboardLanguage.ROMAN ->
@@ -118,15 +137,13 @@ class KeyboardService : InputMethodService() {
             layoutMode == LayoutMode.VOWELS -> KeyboardLayouts.nepaliVowels()
             else -> KeyboardLayouts.nepaliConsonants()
         }
-
-        val colors = keyboardColors()
-        keyboardRoot.setBackgroundColor(colors.background)
-        keyboardRoot.removeAllViews()
-        suggestionRow = null
         if (language == KeyboardLanguage.ROMAN && layoutMode == LayoutMode.LETTERS) {
             addSuggestionRow(colors)
         }
+        addKeyRows(rows, colors)
+    }
 
+    private fun addKeyRows(rows: List<List<KeySpec>>, colors: KeyboardColors) {
         rows.forEach { keys ->
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -139,6 +156,109 @@ class KeyboardService : InputMethodService() {
             keys.forEach { key -> row.addView(createKeyButton(key, colors)) }
         }
     }
+
+    private fun renderHandwriting(colors: KeyboardColors) {
+        val resultRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(2), dp(1), dp(2), dp(1))
+        }
+        handwritingResultRow = resultRow
+        keyboardRoot.addView(
+            resultRow,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(38))
+        )
+
+        val canvas = HandwritingCanvasView(this).apply {
+            contentDescription = getString(R.string.handwriting_canvas_description)
+            setInkColor(colors.text)
+            background = roundedBackground(colors.key)
+            onStrokeFinished = { points ->
+                handwritingState.addStroke(points)
+                updateHandwritingResultRow(colors)
+            }
+        }
+        handwritingCanvas = canvas
+        keyboardRoot.addView(
+            canvas,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(preferredCanvasHeight())
+            ).apply { setMargins(dp(4), dp(2), dp(4), dp(2)) }
+        )
+
+        updateHandwritingResultRow(colors)
+        addKeyRows(KeyboardLayouts.handwritingControls(), colors)
+    }
+
+    private fun updateHandwritingResultRow(colors: KeyboardColors = keyboardColors()) {
+        val row = handwritingResultRow ?: return
+        row.removeAllViews()
+        if (handwritingState.candidates.isNotEmpty()) {
+            handwritingState.candidates.forEachIndexed { index, candidate ->
+                row.addView(Button(this).apply {
+                    text = candidate
+                    contentDescription = candidate
+                    isAllCaps = false
+                    includeFontPadding = false
+                    gravity = Gravity.CENTER
+                    textSize = 17f
+                    minWidth = 0
+                    minimumWidth = 0
+                    minHeight = 0
+                    minimumHeight = 0
+                    setPadding(dp(2), 0, dp(2), 0)
+                    setTextColor(colors.text)
+                    isSoundEffectsEnabled = false
+                    isHapticFeedbackEnabled = false
+                    stateListAnimator = null
+                    background = roundedBackground(colors.key)
+                    layoutParams = LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        1f
+                    ).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
+                    setOnClickListener {
+                        giveFeedback(KeyAction.TEXT)
+                        insertHandwritingCandidate(index, colors)
+                    }
+                })
+            }
+            return
+        }
+
+        val message = when (handwritingState.status) {
+            HandwritingStatus.EMPTY -> R.string.handwriting_hint
+            HandwritingStatus.READY -> R.string.handwriting_ready
+            HandwritingStatus.NO_MATCH -> R.string.handwriting_no_match
+            HandwritingStatus.RECOGNIZER_UNAVAILABLE -> R.string.handwriting_unavailable
+            HandwritingStatus.RESULTS -> R.string.handwriting_no_match
+        }
+        row.addView(TextView(this).apply {
+            text = getString(message)
+            gravity = Gravity.CENTER
+            textSize = 13f
+            setTextColor(colors.text)
+            alpha = 0.75f
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+    }
+
+    private fun insertHandwritingCandidate(index: Int, colors: KeyboardColors) {
+        val candidate = handwritingState.confirm(index) ?: return
+        currentInputConnection?.commitText(candidate, 1)
+        handwritingCanvas?.clearInk()
+        updateHandwritingResultRow(colors)
+    }
+
+    private fun resetHandwriting() {
+        handwritingState.clear()
+        handwritingCanvas?.clearInk()
+        handwritingResultRow = null
+        handwritingCanvas = null
+    }
+
+    private fun preferredCanvasHeight(): Int =
+        if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) 96 else 140
 
     private fun addSuggestionRow(colors: KeyboardColors) {
         val row = LinearLayout(this).apply {
@@ -240,7 +360,11 @@ class KeyboardService : InputMethodService() {
                 giveFeedback(key.action)
                 handleKey(key)
             }
-            if (key.action == KeyAction.LANGUAGE) {
+            if (key.action == KeyAction.LANGUAGE ||
+                key.action == KeyAction.MODE_ENGLISH ||
+                key.action == KeyAction.MODE_NEPALI ||
+                key.action == KeyAction.MODE_ROMAN
+            ) {
                 setOnLongClickListener {
                     switchToNextInputMethod(false)
                     true
@@ -314,7 +438,45 @@ class KeyboardService : InputMethodService() {
                 layoutMode = LayoutMode.LETTERS
                 renderKeyboard()
             }
+            KeyAction.HANDWRITING -> {
+                if (language == KeyboardLanguage.ROMAN) {
+                    applyRomanEdit(romanComposer.finishWord())
+                }
+                handwritingState.clear()
+                shifted = false
+                layoutMode = LayoutMode.HANDWRITING
+                renderKeyboard()
+            }
+            KeyAction.HANDWRITING_UNDO -> {
+                if (handwritingState.undo()) handwritingCanvas?.undoStroke()
+                updateHandwritingResultRow()
+            }
+            KeyAction.HANDWRITING_CLEAR -> {
+                handwritingState.clear()
+                handwritingCanvas?.clearInk()
+                updateHandwritingResultRow()
+            }
+            KeyAction.HANDWRITING_CONFIRM -> {
+                if (handwritingState.status == HandwritingStatus.RESULTS) {
+                    insertHandwritingCandidate(0, keyboardColors())
+                } else {
+                    handwritingState.recognize()
+                    updateHandwritingResultRow()
+                }
+            }
+            KeyAction.HANDWRITING_CANCEL -> leaveHandwriting(language)
+            KeyAction.MODE_ENGLISH -> leaveHandwriting(KeyboardLanguage.ENGLISH)
+            KeyAction.MODE_NEPALI -> leaveHandwriting(KeyboardLanguage.NEPALI)
+            KeyAction.MODE_ROMAN -> leaveHandwriting(KeyboardLanguage.ROMAN)
         }
+    }
+
+    private fun leaveHandwriting(targetLanguage: KeyboardLanguage) {
+        resetHandwriting()
+        language = targetLanguage
+        shifted = false
+        layoutMode = LayoutMode.LETTERS
+        renderKeyboard()
     }
 
     private fun handleRomanText(text: String) {
