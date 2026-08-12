@@ -21,7 +21,9 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.InputMethodSubtype
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 
 class KeyboardService : InputMethodService() {
@@ -44,13 +46,21 @@ class KeyboardService : InputMethodService() {
     private val handwritingState = HandwritingInputState(UnavailableNepaliHandwritingRecognizer)
     private val modeHistory = PreviousLayoutStack<ModeSnapshot>()
     private var emojiCategory = EmojiCategory.RECENT
+    private var emojiQuery = ""
+    private var digitScript = DigitScript.LATIN
+    private var symbolGroup = SymbolGroup.COMMON
+    private var emojiUsage = EmojiUsageStore()
+    private var recentSymbols = RecentSymbolStore()
+    private val emojiDataset = lazy {
+        resources.openRawResource(R.raw.emoji_catalog).bufferedReader().use { EmojiCatalog.load(it) }
+        true
+    }
     private val recentEmojis: RecentEmojiList by lazy {
-        val saved = getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
-            .getString(KeyboardPreferences.KEY_RECENT_EMOJIS, null)
-            .orEmpty()
-            .split('\n')
-            .filter(String::isNotEmpty)
-        RecentEmojiList(saved)
+        ensureEmojiDataset()
+        RecentEmojiList.fromSerialized(
+            getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+                .getString(KeyboardPreferences.KEY_RECENT_EMOJIS, null)
+        )
     }
     private var learnedRomanWords = LearnedRomanWords()
     private var learnedEnglishWords = LearnedWordStore()
@@ -294,6 +304,16 @@ class KeyboardService : InputMethodService() {
             preferences.getString(KeyboardPreferences.KEY_CONTEXT_ROMAN, null),
             ContextModel.ROMAN_SEED
         )
+        emojiUsage = EmojiUsageStore.fromSerialized(
+            preferences.getString(KeyboardPreferences.KEY_EMOJI_USAGE, null)
+        )
+        recentSymbols = RecentSymbolStore.fromSerialized(
+            preferences.getString(KeyboardPreferences.KEY_RECENT_SYMBOLS, null)
+        )
+    }
+
+    private fun ensureEmojiDataset() {
+        emojiDataset.value
     }
 
     private fun renderKeyboard() {
@@ -327,8 +347,8 @@ class KeyboardService : InputMethodService() {
         if (!useCompactNepaliSuggestions) addNavigationRow(colors)
 
         val rows = when {
-            layoutMode == LayoutMode.NUMBERS -> KeyboardLayouts.numbers(language)
-            layoutMode == LayoutMode.SYMBOLS -> KeyboardLayouts.symbols(language)
+            layoutMode == LayoutMode.NUMBERS -> KeyboardLayouts.numbers(language, digitScript)
+            layoutMode == LayoutMode.SYMBOLS -> KeyboardLayouts.symbols(language, symbolGroup, recentSymbols.values())
             language == KeyboardLanguage.ENGLISH || language == KeyboardLanguage.ROMAN ->
                 KeyboardLayouts.english(shifted, language, showNumberRow)
             layoutMode == LayoutMode.VOWELS -> KeyboardLayouts.nepaliVowels(showNumberRow)
@@ -373,40 +393,87 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun renderEmojiPanel(colors: KeyboardPalette) {
+        ensureEmojiDataset()
         val categories = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+            gravity = Gravity.CENTER_VERTICAL
         }
-        keyboardRoot.addView(
-            categories,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(KeyboardUiMetrics.EMOJI_CATEGORY_HEIGHT_DP))
-        )
         EmojiCategory.entries.forEach { category ->
             val selected = category == emojiCategory
-            categories.addView(chromeLabel(KeyVisuals.emojiCategoryIcon(category), category.title, colors, selected).apply {
+            categories.addView(TextView(this).apply {
+                text = KeyVisuals.emojiCategoryIcon(category)
+                contentDescription = category.title
+                gravity = Gravity.CENTER
+                isClickable = true
+                isFocusable = true
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                setTextColor(if (selected) Color.WHITE else colors.text)
+                background = KeyboardTheme.keyBackground(
+                    if (selected) colors.accent else colors.specialKey,
+                    dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat(),
+                    colors.shadow,
+                    dp(KeyboardTheme.SHADOW_DP)
+                )
+                layoutParams = LinearLayout.LayoutParams(dp(36), LinearLayout.LayoutParams.MATCH_PARENT).apply {
+                    val margin = preferredKeyMargin()
+                    setMargins(margin, dp(2), margin, dp(2))
+                }
                 setOnClickListener {
                     giveFeedback(KeyAction.EMOJI)
                     emojiCategory = category
+                    if (category != EmojiCategory.SEARCH) emojiQuery = ""
                     renderKeyboard()
                 }
             })
         }
+        keyboardRoot.addView(
+            HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled = false
+                addView(categories)
+            },
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(KeyboardUiMetrics.EMOJI_CATEGORY_HEIGHT_DP))
+        )
 
-        val emojis = EmojiCatalog.emojis(emojiCategory, recentEmojis.values())
-        if (emojis.isEmpty()) {
+        if (emojiCategory == EmojiCategory.SEARCH) {
             keyboardRoot.addView(TextView(this).apply {
-                text = getString(R.string.emoji_no_recent)
+                text = emojiQuery.ifEmpty { getString(R.string.emoji_search_hint) }
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(12), 0, dp(12), 0)
+                textSize = 14f
+                setTextColor(if (emojiQuery.isEmpty()) colors.secondaryText else colors.text)
+                background = KeyboardTheme.roundedRect(
+                    colors.key,
+                    dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat()
+                )
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(36)).apply {
+                setMargins(dp(4), dp(2), dp(4), dp(2))
+            })
+        }
+
+        val emojis = emojiGlyphsForCurrentCategory()
+        if (emojis.isEmpty()) {
+            val message = when {
+                emojiCategory == EmojiCategory.SEARCH && emojiQuery.isNotEmpty() -> R.string.emoji_search_empty
+                emojiCategory == EmojiCategory.SEARCH -> R.string.emoji_search_hint
+                else -> R.string.emoji_no_recent
+            }
+            keyboardRoot.addView(TextView(this).apply {
+                text = getString(message)
                 gravity = Gravity.CENTER
                 textSize = 14f
                 setTextColor(colors.secondaryText)
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(92)))
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(72)))
+            if (emojiCategory == EmojiCategory.SEARCH && emojiQuery.isEmpty()) {
+                addEmojiKeywordChips(colors)
+            }
         } else {
+            val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             emojis.chunked(EMOJIS_PER_ROW).forEach { emojiRow ->
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER
                 }
-                keyboardRoot.addView(
+                grid.addView(
                     row,
                     LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
@@ -418,8 +485,61 @@ class KeyboardService : InputMethodService() {
                     row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
                 }
             }
+            keyboardRoot.addView(
+                ScrollView(this).apply {
+                    isVerticalScrollBarEnabled = false
+                    addView(grid)
+                },
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(KeyboardUiMetrics.emojiKeyHeightDp(keyboardHeight) * EMOJI_VISIBLE_ROWS)
+                )
+            )
+        }
+        if (emojiCategory == EmojiCategory.SEARCH) {
+            addKeyRows(KeyboardLayouts.emojiSearchLetters(), colors)
         }
         addKeyRows(KeyboardLayouts.emojiControls(), colors)
+    }
+
+    private fun emojiGlyphsForCurrentCategory(): List<String> {
+        val frequency = { glyph: String -> emojiUsage.score(glyph) }
+        return when (emojiCategory) {
+            EmojiCategory.SEARCH -> EmojiCatalog.search(emojiQuery, 48, frequency)
+            EmojiCategory.RECENT -> recentEmojis.values()
+            else -> EmojiCatalog.repository().emojis(emojiCategory, recentEmojis.values(), frequency)
+        }
+    }
+
+    private fun addEmojiKeywordChips(colors: KeyboardPalette) {
+        val chips = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        EmojiCatalog.repository().popularKeywords(8).forEach { keyword ->
+            chips.addView(TextView(this).apply {
+                text = keyword
+                gravity = Gravity.CENTER
+                textSize = 12f
+                setPadding(dp(8), 0, dp(8), 0)
+                setTextColor(colors.text)
+                background = KeyboardTheme.roundedRect(
+                    colors.key,
+                    dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat()
+                )
+                setOnClickListener {
+                    giveFeedback(KeyAction.EMOJI)
+                    emojiQuery = keyword
+                    renderKeyboard()
+                }
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                setMargins(dp(2), dp(4), dp(2), dp(4))
+            })
+        }
+        keyboardRoot.addView(
+            chips,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(36))
+        )
     }
 
     private fun createEmojiButton(emoji: String, colors: KeyboardPalette): View {
@@ -439,18 +559,41 @@ class KeyboardService : InputMethodService() {
                 giveFeedback(KeyAction.EMOJI)
                 insertEmoji(emoji)
             }
+            val variants = EmojiCatalog.variants(emoji)
+            if (variants.isNotEmpty()) {
+                setOnLongClickListener { view ->
+                    previewView?.dismiss()
+                    giveFeedback(KeyAction.EMOJI)
+                    alternateChooser?.showAbove(
+                        view,
+                        overlayHost,
+                        variants,
+                        colors,
+                        dp(KeyboardTheme.PREVIEW_CORNER_RADIUS_DP).toFloat()
+                    )
+                    true
+                }
+            }
         }
     }
 
     private fun insertEmoji(emoji: String) {
+        if (language == KeyboardLanguage.ROMAN) {
+            applyRomanEdit(PanelInsertionPolicy.romanEditBeforeInsert(romanComposer))
+        } else {
+            currentInputConnection?.finishComposingText()
+            directTypingState.clear()
+        }
         val connection = currentInputConnection ?: return
         if (!InputConnectionCommitter.commit(connection, emoji)) return
         recentEmojis.record(emoji)
+        emojiUsage.record(emoji)
         getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString(KeyboardPreferences.KEY_RECENT_EMOJIS, recentEmojis.values().joinToString("\n"))
+            .putString(KeyboardPreferences.KEY_RECENT_EMOJIS, recentEmojis.serialize())
+            .putString(KeyboardPreferences.KEY_EMOJI_USAGE, emojiUsage.serialize())
             .apply()
-        returnToPreviousLayout()
+        updateSuggestionRow()
     }
 
     private fun renderHandwriting(colors: KeyboardPalette) {
@@ -901,6 +1044,8 @@ class KeyboardService : InputMethodService() {
             KeyAction.NUMBERS ->
                 (layoutMode == LayoutMode.NUMBERS && key.label == "123") ||
                     (layoutMode == LayoutMode.SYMBOLS && key.label == "#+=")
+            KeyAction.DIGIT_SCRIPT -> layoutMode == LayoutMode.NUMBERS
+            KeyAction.SYMBOL_GROUP -> layoutMode == LayoutMode.SYMBOLS
             KeyAction.EMOJI -> layoutMode == LayoutMode.EMOJI
             KeyAction.HANDWRITING -> layoutMode == LayoutMode.HANDWRITING
             else -> false
@@ -910,10 +1055,15 @@ class KeyboardService : InputMethodService() {
     private fun handleKey(key: KeySpec) {
         when (key.action) {
             KeyAction.TEXT -> {
-                if (language == KeyboardLanguage.ROMAN && layoutMode == LayoutMode.LETTERS) {
+                if (layoutMode == LayoutMode.EMOJI && emojiCategory == EmojiCategory.SEARCH &&
+                    key.output.all(Char::isLetter)
+                ) {
+                    emojiQuery += key.output.lowercase()
+                    renderKeyboard()
+                } else if (language == KeyboardLanguage.ROMAN && layoutMode == LayoutMode.LETTERS) {
                     handleRomanText(key.output)
                 } else {
-                    handleDirectText(key.output)
+                    insertPanelOrDirect(key.output)
                 }
             }
             KeyAction.SPACE -> {
@@ -928,7 +1078,10 @@ class KeyboardService : InputMethodService() {
                 }
             }
             KeyAction.BACKSPACE -> {
-                if (language == KeyboardLanguage.ROMAN) {
+                if (layoutMode == LayoutMode.EMOJI && emojiCategory == EmojiCategory.SEARCH && emojiQuery.isNotEmpty()) {
+                    emojiQuery = emojiQuery.dropLast(1)
+                    renderKeyboard()
+                } else if (language == KeyboardLanguage.ROMAN) {
                     applyRomanEdit(romanComposer.backspace())
                     updateSuggestionRow()
                 } else {
@@ -959,6 +1112,14 @@ class KeyboardService : InputMethodService() {
             }
             KeyAction.NUMBERS -> openPanel(LayoutMode.NUMBERS)
             KeyAction.SYMBOLS -> openPanel(LayoutMode.SYMBOLS)
+            KeyAction.SYMBOL_GROUP -> {
+                symbolGroup = symbolGroup.next()
+                renderKeyboard()
+            }
+            KeyAction.DIGIT_SCRIPT -> {
+                digitScript = digitScript.toggle()
+                renderKeyboard()
+            }
             KeyAction.EMOJI -> openPanel(LayoutMode.EMOJI)
             KeyAction.RETURN_TO_PREVIOUS -> returnToPreviousLayout()
             KeyAction.LETTERS -> returnToPreviousLayout()
@@ -1007,7 +1168,11 @@ class KeyboardService : InputMethodService() {
     private fun insertAlternate(text: String) {
         hideOverlays()
         giveFeedback(KeyAction.TEXT)
-        handleKey(KeySpec(label = text, output = text))
+        if (layoutMode == LayoutMode.EMOJI || EmojiCatalog.contains(text)) {
+            insertEmoji(text)
+        } else {
+            handleKey(KeySpec(label = text, output = text))
+        }
     }
 
     private fun openSettings() {
@@ -1040,8 +1205,18 @@ class KeyboardService : InputMethodService() {
             modeHistory.remember(ModeSnapshot(language, layoutMode))
         }
         shifted = false
+        if (target == LayoutMode.NUMBERS && layoutMode != LayoutMode.NUMBERS && layoutMode != LayoutMode.SYMBOLS) {
+            digitScript = DigitScript.defaultFor(language)
+        }
+        if (target == LayoutMode.SYMBOLS && layoutMode != LayoutMode.SYMBOLS && layoutMode != LayoutMode.NUMBERS) {
+            symbolGroup = SymbolGroup.COMMON
+        }
         layoutMode = target
-        if (target == LayoutMode.EMOJI) emojiCategory = EmojiCategory.RECENT
+        if (target == LayoutMode.EMOJI) {
+            ensureEmojiDataset()
+            emojiCategory = EmojiCategory.RECENT
+            emojiQuery = ""
+        }
         renderKeyboard()
     }
 
@@ -1080,6 +1255,22 @@ class KeyboardService : InputMethodService() {
         shifted = false
         layoutMode = LayoutMode.LETTERS
         renderKeyboard()
+    }
+
+    private fun insertPanelOrDirect(text: String) {
+        if (language == KeyboardLanguage.ROMAN) {
+            applyRomanEdit(finishRomanWord(text))
+        } else {
+            handleDirectText(text)
+        }
+        if ((layoutMode == LayoutMode.NUMBERS || layoutMode == LayoutMode.SYMBOLS) &&
+            recentSymbols.record(text)
+        ) {
+            getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KeyboardPreferences.KEY_RECENT_SYMBOLS, recentSymbols.serialize())
+                .apply()
+        }
     }
 
     private fun handleDirectText(text: String) {
@@ -1279,6 +1470,7 @@ class KeyboardService : InputMethodService() {
 
     private companion object {
         const val EMOJIS_PER_ROW = 8
+        const val EMOJI_VISIBLE_ROWS = 4
         const val MAX_SUGGESTIONS = 3
     }
 }

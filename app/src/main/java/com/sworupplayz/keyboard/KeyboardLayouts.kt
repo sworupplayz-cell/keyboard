@@ -8,6 +8,8 @@ enum class KeyAction {
     ENTER,
     NUMBERS,
     SYMBOLS,
+    SYMBOL_GROUP,
+    DIGIT_SCRIPT,
     EMOJI,
     RETURN_TO_PREVIOUS,
     LETTERS,
@@ -55,32 +57,69 @@ object KeyboardLayouts {
         return if (includeNumberRow) listOf(compactNumberRow("1234567890")) + rows else rows
     }
 
-    fun numbers(language: KeyboardLanguage): List<List<KeySpec>> = listOf(
-        "1234567890".map { KeySpec(it.toString()) },
-        listOf(
-            KeySpec(language.lettersLabel(), KeyAction.LETTERS, width = 1.4f),
-            KeySpec("#+=", KeyAction.SYMBOLS, width = 1.2f),
-            KeySpec("😊", KeyAction.EMOJI),
-            KeySpec(language.spaceLabel(), KeyAction.SPACE, output = " ", width = 3f),
-            KeySpec("⌫", KeyAction.BACKSPACE, width = 1.2f),
-            KeySpec("↵", KeyAction.ENTER, width = 1.3f)
+    fun numbers(
+        language: KeyboardLanguage,
+        digitScript: DigitScript = DigitScript.defaultFor(language)
+    ): List<List<KeySpec>> {
+        val digits = digitScript.digits().map { it.toString() }
+        return listOf(
+            listOf(digits[0], digits[1], digits[2], "+", "−", "(").map(::KeySpec),
+            listOf(digits[3], digits[4], digits[5], "×", "÷", ")").map(::KeySpec),
+            listOf(digits[6], digits[7], digits[8], "=", "%", "₹").map(::KeySpec),
+            listOf(".", digits[9], ",", "$", "€", "£").map(::KeySpec),
+            listOf(
+                KeySpec(language.lettersLabel(), KeyAction.LETTERS, width = 1.3f),
+                KeySpec("#+=", KeyAction.SYMBOLS, width = 1.15f),
+                KeySpec(digitScript.switchLabel(), KeyAction.DIGIT_SCRIPT),
+                KeySpec("😊", KeyAction.EMOJI),
+                KeySpec(language.spaceLabel(), KeyAction.SPACE, output = " ", width = 2.2f),
+                KeySpec("⌫", KeyAction.BACKSPACE, width = 1.15f),
+                KeySpec("↵", KeyAction.ENTER, width = 1.2f)
+            )
         )
-    )
+    }
 
-    fun symbols(language: KeyboardLanguage): List<List<KeySpec>> = listOf(
-        "1234567890".map { KeySpec(it.toString()) },
-        listOf(".", ",", "?", "!", "'", "\"", "@", "#", "\$", "%").map(::KeySpec),
-        listOf("&", "*", "(", ")", "-", "+", "=", "/", ":", ";").map(::KeySpec),
-        listOf("_", "\\", "[", "]", "{", "}", "<", ">", "€", "₹").map(::KeySpec),
-        listOf(
+    fun symbols(
+        language: KeyboardLanguage,
+        group: SymbolGroup = SymbolGroup.COMMON,
+        recent: List<String> = emptyList()
+    ): List<List<KeySpec>> {
+        val pages = when (group) {
+            SymbolGroup.COMMON -> listOf(
+                "1234567890".map { KeySpec(it.toString()) },
+                listOf(".", ",", "?", "!", "'", "\"", "@", "#", "\$", "%").map(::KeySpec),
+                listOf("&", "*", "(", ")", "-", "+", "=", "/", ":", ";").map(::KeySpec),
+                listOf("_", "\\", "[", "]", "{", "}", "<", ">", "€", "₹").map(::KeySpec)
+            )
+            SymbolGroup.MATH -> listOf(
+                listOf("+", "−", "×", "÷", "=", "≠", "<", ">", "≤", "≥").map(::KeySpec),
+                listOf("±", "%", "√", "∞", "≈", "^", "π", "∑", "∆", "°").map(::KeySpec),
+                listOf("(", ")", "[", "]", "{", "}", ",", ".", ":", ";").map(::KeySpec)
+            )
+            SymbolGroup.MORE -> listOf(
+                listOf("\$", "€", "£", "¥", "₹", "₨", "¢", "₩", "₦", "₱").map(::KeySpec),
+                listOf("@", "#", "&", "*", "/", "\\", "|", "~", "^", "`").map(::KeySpec),
+                listOf("©", "®", "™", "§", "¶", "•", "…", "†", "‡", "⁂").map(::KeySpec)
+            )
+        }
+        val recentRow = recent.take(10).map(::KeySpec).takeIf { it.isNotEmpty() }.orEmpty()
+        val controls = listOf(
             KeySpec(language.lettersLabel(), KeyAction.LETTERS, width = 1.35f),
             KeySpec("123", KeyAction.NUMBERS),
+            KeySpec(group.next().title, KeyAction.SYMBOL_GROUP),
             KeySpec("😊", KeyAction.EMOJI),
-            KeySpec(language.spaceLabel(), KeyAction.SPACE, output = " ", width = 2.5f),
+            KeySpec(language.spaceLabel(), KeyAction.SPACE, output = " ", width = 2.2f),
             KeySpec("✍", KeyAction.HANDWRITING),
-            KeySpec("⌫", KeyAction.BACKSPACE, width = 1.25f),
-            KeySpec("↵", KeyAction.ENTER, width = 1.3f)
+            KeySpec("⌫", KeyAction.BACKSPACE, width = 1.2f),
+            KeySpec("↵", KeyAction.ENTER, width = 1.2f)
         )
+        return (if (recentRow.isEmpty()) pages else listOf(recentRow) + pages) + listOf(controls)
+    }
+
+    fun emojiSearchLetters(): List<List<KeySpec>> = listOf(
+        "qwertyuiop".map { KeySpec(it.toString(), compact = true) },
+        "asdfghjkl".map { KeySpec(it.toString(), compact = true) },
+        "zxcvbnm".map { KeySpec(it.toString(), compact = true) }
     )
 
     fun nepaliConsonants(includeNumberRow: Boolean = false): List<List<KeySpec>> {

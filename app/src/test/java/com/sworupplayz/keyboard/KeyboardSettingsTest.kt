@@ -121,6 +121,21 @@ class KeyboardSettingsTest {
     }
 
     @Test
+    fun clearRecentEmojiRemovesOnlyPanelHistory() {
+        val storage = FakeSettingsStorage().apply {
+            putString(KeyboardPreferences.KEY_RECENT_EMOJIS, "😊")
+            putString(KeyboardPreferences.KEY_EMOJI_USAGE, "😊\t2")
+            putString(KeyboardPreferences.KEY_RECENT_SYMBOLS, "+")
+            putString(KeyboardPreferences.KEY_LEARNED_ENGLISH, "hello\t1")
+        }
+        KeyboardSettingsRepository(storage).clearRecentEmojiAndSymbols()
+        assertFalse(storage.contains(KeyboardPreferences.KEY_RECENT_EMOJIS))
+        assertFalse(storage.contains(KeyboardPreferences.KEY_EMOJI_USAGE))
+        assertFalse(storage.contains(KeyboardPreferences.KEY_RECENT_SYMBOLS))
+        assertEquals("hello\t1", storage.getString(KeyboardPreferences.KEY_LEARNED_ENGLISH))
+    }
+
+    @Test
     fun everySettingSurvivesRepositoryRecreation() {
         val storage = FakeSettingsStorage()
         KeyboardSettingsRepository(storage).apply {

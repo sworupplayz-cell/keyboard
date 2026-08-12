@@ -52,6 +52,10 @@
     <string name="clear_learned_confirmation">Clear all locally learned words? Built-in English and Nepali vocabularies will not be changed.</string>
     <string name="clear_action">Clear</string>
     <string name="learned_words_cleared">Learned words cleared</string>
+    <string name="clear_recent_emoji">Clear recent emoji</string>
+    <string name="clear_recent_emoji_description">Remove recent emoji, usage counts, and recent symbols stored on this device.</string>
+    <string name="clear_recent_emoji_confirmation">Clear recent emoji and symbols? Built-in catalogs are kept.</string>
+    <string name="recent_emoji_cleared">Recent emoji and symbols cleared</string>
 
     <string name="app_version">Version %1$s</string>
     <string name="about_description">A lightweight English, नेपाली, and Romanized Nepali Android keyboard.</string>
@@ -61,6 +65,8 @@
     <string name="nepali_suggestion_hint">नेपाली सुझाव</string>
     <string name="roman_suggestion_hint">Roman → नेपाली</string>
     <string name="emoji_no_recent">No recent emoji yet</string>
+    <string name="emoji_search_hint">Search emoji</string>
+    <string name="emoji_search_empty">No matching emoji</string>
     <string name="handwriting_canvas_description">Nepali handwriting canvas</string>
     <string name="handwriting_hint">Write नेपाली, then tap Confirm</string>
     <string name="handwriting_ready">Tap Confirm to check the writing</string>

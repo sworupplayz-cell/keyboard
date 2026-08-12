@@ -6,6 +6,9 @@ import android.view.inputmethod.InputConnection
 object InputConnectionCommitter {
     fun commit(connection: InputConnection?, text: String): Boolean {
         if (connection == null || text.isEmpty()) return false
+        if (PanelInsertionPolicy.shouldFinishComposing(true)) {
+            connection.finishComposingText()
+        }
         return connection.commitText(text, 1)
     }
 }

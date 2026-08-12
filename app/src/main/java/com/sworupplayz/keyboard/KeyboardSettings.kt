@@ -114,6 +114,14 @@ class KeyboardSettingsRepository(private val storage: SettingsStorage) {
 
     fun clearLearnedWords() = storage.remove(KeyboardPreferences.LEARNED_WORD_KEYS)
 
+    fun clearRecentEmojiAndSymbols() = storage.remove(
+        setOf(
+            KeyboardPreferences.KEY_RECENT_EMOJIS,
+            KeyboardPreferences.KEY_EMOJI_USAGE,
+            KeyboardPreferences.KEY_RECENT_SYMBOLS
+        )
+    )
+
     private fun loadAppearance(): KeyboardAppearance {
         storage.getString(KeyboardPreferences.KEY_APPEARANCE)?.let {
             return KeyboardAppearance.fromStored(it)

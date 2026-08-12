@@ -11,8 +11,8 @@ android {
         applicationId = "com.sworupplayz.keyboard"
         minSdk = 23
         targetSdk = 35
-        versionCode = 12
-        versionName = "12.0"
+        versionCode = 13
+        versionName = "13.0"
 
         testInstrumentationRunner = "android.test.InstrumentationTestRunner"
     }

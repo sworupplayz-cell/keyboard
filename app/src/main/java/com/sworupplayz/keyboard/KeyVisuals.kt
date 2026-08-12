@@ -39,13 +39,17 @@ object KeyVisuals {
     }
 
     fun emojiCategoryIcon(category: EmojiCategory): String = when (category) {
+        EmojiCategory.SEARCH -> "🔍"
         EmojiCategory.RECENT -> "🕒"
         EmojiCategory.SMILEYS -> "😊"
         EmojiCategory.PEOPLE -> "👋"
         EmojiCategory.ANIMALS -> "🐱"
         EmojiCategory.FOOD -> "🍔"
+        EmojiCategory.TRAVEL -> "✈"
+        EmojiCategory.ACTIVITIES -> "⚽"
         EmojiCategory.OBJECTS -> "💡"
         EmojiCategory.SYMBOLS -> "❤"
+        EmojiCategory.FLAGS -> "🇳🇵"
     }
 
     fun letterTextSizeSp(label: String, compactScreen: Boolean, role: KeyVisualRole): Float {
@@ -81,14 +85,21 @@ object KeyVisuals {
         "," to listOf("'", "‚"),
         "?" to listOf("¿"),
         "!" to listOf("¡"),
-        "'" to listOf("\"", "`", "´"),
-        "-" to listOf("—", "–", "_"),
+        "'" to listOf("’", "‘", "`", "´"),
+        "\"" to listOf("“", "”", "„"),
+        "-" to listOf("—", "–", "−", "_"),
         "/" to listOf("\\", "|"),
-        "0" to listOf("°"),
+        "+" to listOf("±"),
+        "=" to listOf("≠", "≈"),
+        "<" to listOf("≤", "«"),
+        ">" to listOf("≥", "»"),
+        "0" to listOf("°", "⁰"),
+        "०" to listOf("°"),
         "1" to listOf("¹", "½", "¼"),
         "2" to listOf("²"),
         "3" to listOf("³", "¾"),
-        "$" to listOf("¢", "£", "€", "¥", "₹"),
+        "$" to listOf("€", "£", "¥", "₹", "₨", "¢"),
+        "₹" to listOf("$", "€", "£", "¥", "₨"),
         "क" to listOf("ख", "क्"),
         "ग" to listOf("घ", "ग्"),
         "च" to listOf("छ", "च्"),

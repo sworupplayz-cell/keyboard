@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 12
+# Simple Nepali Keyboard — Phase 13
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 12 keeps the Gboard-style chrome and earlier offline typing intelligence. The focus is Roman Nepali Engine 2.0: reusable spelling variants, stronger phonetic transliteration, sentence-level conversion that preserves links and symbols, and mixed English/Nepali protection. Unknown Roman words still convert even when they are missing from the dictionary.
+Phase 13 keeps the Gboard-style chrome, Roman Nepali Engine 2.0, and earlier typing intelligence. The focus is a larger offline emoji catalog with search and recents, a clearer number pad with Latin/Devanagari digits, and grouped symbols.
 
 ## Features
 
@@ -27,9 +27,10 @@ Phase 12 keeps the Gboard-style chrome and earlier offline typing intelligence. 
 - `✍` handwriting mode with a compact finger/stylus canvas
 - Handwriting stroke capture, undo, clear, cancel, confirm, result row, and safe Unicode insertion interface
 - Direct return from handwriting to EN, नेपाली, or Roman
-- Compact Unicode emoji panel with Recent, Smileys, People, Animals, Food, Objects, and Symbols
-- Small on-device recent-emoji history with no image assets or downloads
-- Dedicated ASCII number panel and expanded common-symbol panel
+- Offline Unicode emoji catalog with Smileys, People, Animals, Food, Travel, Activities, Objects, Symbols, and Flags
+- Local emoji search, recent history, usage ranking, and skin-tone variants
+- Number pad with operators plus a Latin/Devanagari digit switch
+- Grouped symbol pages and a small recent-symbol history
 - A compact navigation row for EN, नेपाली, Roman, numbers, emoji, handwriting, and settings
 - Gboard-style rounded keys, blue Enter, language-labeled space bar, and a flat suggestion strip
 - Key-press preview for letters and long-press alternate characters

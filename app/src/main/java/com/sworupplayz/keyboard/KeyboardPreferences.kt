@@ -16,6 +16,8 @@ object KeyboardPreferences {
     const val KEY_DARK_LEGACY = "dark_appearance"
 
     const val KEY_RECENT_EMOJIS = "recent_emojis"
+    const val KEY_EMOJI_USAGE = "emoji_usage"
+    const val KEY_RECENT_SYMBOLS = "recent_symbols"
     const val KEY_LEARNED_ROMAN = "learned_roman_words"
     const val KEY_LEARNED_ENGLISH = "learned_english_words"
     const val KEY_LEARNED_NEPALI = "learned_nepali_words"

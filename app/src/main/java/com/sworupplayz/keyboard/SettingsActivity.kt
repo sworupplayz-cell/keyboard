@@ -137,6 +137,12 @@ class SettingsActivity : Activity() {
         content.addView(actionButton(getString(R.string.clear_learned_words)) {
             confirmClearLearnedWords()
         })
+        content.addView(body(getString(R.string.clear_recent_emoji_description)).apply {
+            setPadding(0, dp(12), 0, dp(4))
+        })
+        content.addView(actionButton(getString(R.string.clear_recent_emoji)) {
+            confirmClearRecentEmoji()
+        })
 
         content.addView(sectionHeading(getString(R.string.section_about)))
         content.addView(body(getString(R.string.app_version, appVersion())).apply {
