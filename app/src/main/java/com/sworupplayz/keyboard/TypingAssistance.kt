@@ -6,6 +6,13 @@ import java.util.Locale
 /** Small indexed prefix dictionary with conservative one-edit typo candidates. */
 class LocalWordSuggester private constructor(words: List<String>) {
     private val vocabulary = words.map(String::trim).filter(String::isNotEmpty).distinct()
+    private val knownWords = vocabulary.map(::normalize).toHashSet()
+    private val frequencyRank = linkedMapOf<String, Int>().apply {
+        vocabulary.forEachIndexed { index, word ->
+            val normalized = normalize(word)
+            if (normalized !in this) this[normalized] = index
+        }
+    }
     private val prefixIndex = linkedMapOf<String, List<String>>()
     private val deletionIndex = linkedMapOf<String, List<String>>()
     private val substitutionIndex = linkedMapOf<String, List<String>>()
@@ -37,49 +44,46 @@ class LocalWordSuggester private constructor(words: List<String>) {
         substitutionBuckets.forEach { (key, values) -> substitutionIndex[key] = values.toList() }
     }
 
+    fun contains(word: String): Boolean = normalize(word) in knownWords
+
     fun suggestions(
         input: String,
         learned: List<String> = emptyList(),
-        limit: Int = 3
+        limit: Int = 3,
+        recent: List<String> = emptyList()
     ): List<String> {
         val normalized = normalize(input)
         if (normalized.isEmpty() || limit <= 0) return emptyList()
 
-        val results = LinkedHashSet<String>()
-        learned.filter { normalize(it).startsWith(normalized) }.forEach(results::add)
-        prefixIndex[normalized].orEmpty().forEach(results::add)
-
-        if (results.size < 2 && normalized.length >= MIN_TYPO_LENGTH) {
+        val prefixMatches = prefixIndex[normalized].orEmpty()
+        val typoMatches = ArrayList<String>()
+        if (prefixMatches.size < 2 && normalized.length >= MIN_TYPO_LENGTH) {
             val collapsed = collapseRepeatedLetters(normalized)
-            if (collapsed != normalized) prefixIndex[collapsed].orEmpty().forEach(results::add)
-            deletionIndex[normalized].orEmpty().forEach(results::add)
+            if (collapsed != normalized) typoMatches += prefixIndex[collapsed].orEmpty()
+            typoMatches += deletionIndex[normalized].orEmpty()
             normalized.indices.forEach { index ->
                 substitutionIndex[normalized.replaceRange(index, index + 1, "*")]
                     .orEmpty()
                     .filter { candidate -> hasSingleNearbyKeySubstitution(normalized, normalize(candidate)) }
-                    .forEach(results::add)
+                    .forEach(typoMatches::add)
             }
         }
 
-        val formatted = results.map { formatLikeInput(input, it) }.toMutableList()
-        if (formatted.none { it == input }) {
-            if (formatted.size >= limit) formatted.removeAt(limit - 1)
-            formatted.add(input)
-        }
-        return formatted.distinct().take(limit)
+        return SuggestionRanker.rank(
+            input = input,
+            prefixMatches = prefixMatches,
+            typoMatches = typoMatches,
+            learned = learned,
+            recent = recent,
+            frequencyOf = { word -> frequencyRank[normalize(word)] ?: Int.MAX_VALUE },
+            limit = limit
+        )
     }
 
     companion object {
         fun fromWords(words: List<String>): LocalWordSuggester = LocalWordSuggester(words)
 
         private fun normalize(value: String): String = value.trim().lowercase(Locale.ENGLISH)
-
-        private fun formatLikeInput(input: String, candidate: String): String =
-            if (input.firstOrNull()?.isUpperCase() == true) {
-                candidate.replaceFirstChar { it.uppercaseChar() }
-            } else {
-                candidate
-            }
 
         private fun collapseRepeatedLetters(value: String): String {
             val output = StringBuilder(value.length)
@@ -157,7 +161,7 @@ class LearnedWordStore(
         '\n' !in value && '\t' !in value && value.length <= MAX_WORD_LENGTH
 
     companion object {
-        const val DEFAULT_LIMIT = 100
+        const val DEFAULT_LIMIT = 250
         private const val MAX_WORD_LENGTH = 48
 
         fun fromSerialized(value: String?): LearnedWordStore {
@@ -246,11 +250,125 @@ object SuggestionSelectionPlan {
     }
 }
 
+object SuggestionRanker {
+    fun rank(
+        input: String,
+        prefixMatches: List<String>,
+        typoMatches: List<String>,
+        learned: List<String>,
+        recent: List<String>,
+        frequencyOf: (String) -> Int,
+        limit: Int
+    ): List<String> {
+        val normalizedInput = input.trim().lowercase(Locale.ENGLISH)
+        if (normalizedInput.isEmpty() || limit <= 0) return emptyList()
+
+        val scored = linkedMapOf<String, Pair<String, Int>>()
+        fun consider(display: String, score: Int) {
+            val normalized = display.trim().lowercase(Locale.ENGLISH)
+            if (normalized.isEmpty()) return
+            val existing = scored[normalized]
+            if (existing == null || score > existing.second) {
+                scored[normalized] = display to score
+            }
+        }
+
+        learned.forEachIndexed { index, word ->
+            if (word.trim().lowercase(Locale.ENGLISH).startsWith(normalizedInput)) {
+                consider(word, 8_000 - index * 20)
+            }
+        }
+        recent.forEachIndexed { index, word ->
+            if (word.trim().lowercase(Locale.ENGLISH).startsWith(normalizedInput)) {
+                consider(word, 3_000 - index * 10)
+            }
+        }
+        prefixMatches.forEach { word ->
+            val exact = if (word.trim().lowercase(Locale.ENGLISH) == normalizedInput) 20_000 else 0
+            consider(word, exact + 1_000 - frequencyOf(word).coerceAtMost(900))
+        }
+        typoMatches.forEach { word ->
+            consider(word, 120 - frequencyOf(word).coerceAtMost(50))
+        }
+        if (scored.keys.none { it == normalizedInput }) {
+            consider(input, 10)
+        }
+
+        return scored.values
+            .sortedWith(
+                compareByDescending<Pair<String, Int>> { it.second }
+                    .thenBy { frequencyOf(it.first) }
+            )
+            .map { formatLikeInput(input, it.first) }
+            .distinct()
+            .take(limit)
+    }
+
+    private fun formatLikeInput(input: String, candidate: String): String =
+        if (input.firstOrNull()?.isUpperCase() == true) {
+            candidate.replaceFirstChar { it.uppercaseChar() }
+        } else {
+            candidate
+        }
+}
+
+class RecentWordStore(
+    initial: List<String> = emptyList(),
+    private val limit: Int = DEFAULT_LIMIT
+) {
+    private val words = ArrayList<String>(limit)
+
+    init {
+        initial.forEach { record(it) }
+    }
+
+    fun record(word: String): Boolean {
+        val clean = word.trim()
+        if (clean.isEmpty() || '\n' in clean || '\t' in clean || clean.length > MAX_WORD_LENGTH) return false
+        words.removeAll { it.equals(clean, ignoreCase = true) }
+        words.add(0, clean)
+        while (words.size > limit) words.removeAt(words.lastIndex)
+        return true
+    }
+
+    fun matches(prefix: String, limit: Int = 6): List<String> {
+        val normalized = prefix.trim().lowercase(Locale.ENGLISH)
+        if (normalized.isEmpty()) return words.take(limit)
+        return words.filter { it.lowercase(Locale.ENGLISH).startsWith(normalized) }.take(limit)
+    }
+
+    fun values(): List<String> = words.toList()
+
+    fun serialize(): String = words.joinToString("\n")
+
+    companion object {
+        const val DEFAULT_LIMIT = 60
+        private const val MAX_WORD_LENGTH = 48
+
+        fun fromSerialized(value: String?): RecentWordStore =
+            RecentWordStore(value.orEmpty().lineSequence().map(String::trim).filter(String::isNotEmpty).toList())
+    }
+}
+
+object WordLearningPolicy {
+    const val MIN_TEACHABLE_LENGTH = 3
+
+    fun shouldLearnUnknown(word: String, known: (String) -> Boolean): Boolean {
+        val clean = word.trim()
+        return clean.length >= MIN_TEACHABLE_LENGTH && !known(clean)
+    }
+}
+
 object VocabularyLoader {
-    fun english(reader: Reader): List<String> = reader.buffered().useLines { lines ->
-        lines.map(String::trim)
-            .filter { it.isNotEmpty() && !it.startsWith('#') }
-            .toList()
+    fun english(reader: Reader): List<String> = loadWordList(reader)
+
+    fun nepali(reader: Reader): List<String> = loadWordList(reader)
+
+    fun mergeDistinct(first: List<String>, second: List<String>): List<String> {
+        val words = LinkedHashSet<String>()
+        first.forEach { words.add(it) }
+        second.forEach { words.add(it) }
+        return words.toList()
     }
 
     fun nepaliFromRomanDictionary(reader: Reader): List<String> {
@@ -266,5 +384,13 @@ object VocabularyLoader {
             }
         }
         return words.toList()
+    }
+
+    private fun loadWordList(reader: Reader): List<String> = reader.buffered().useLines { lines ->
+        lines.map(String::trim)
+            .filter { it.isNotEmpty() && !it.startsWith('#') }
+            .map { line -> line.split('\t', limit = 2).first().trim() }
+            .filter(String::isNotEmpty)
+            .toList()
     }
 }

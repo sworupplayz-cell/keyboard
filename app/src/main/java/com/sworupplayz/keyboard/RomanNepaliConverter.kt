@@ -5,7 +5,8 @@ import java.util.Locale
 
 /** Offline vocabulary plus reusable phonetic Roman-to-Devanagari rules. */
 class RomanNepaliConverter private constructor(
-    private val dictionary: Map<String, List<String>>
+    private val dictionary: Map<String, List<String>>,
+    private val keepEnglish: Set<String>
 ) {
     private val prefixSuggestions: Map<String, List<String>> = buildPrefixSuggestions(dictionary)
     private val typoSuggestions: RomanTypoSuggestions = buildTypoSuggestions(dictionary)
@@ -18,7 +19,7 @@ class RomanNepaliConverter private constructor(
         if (normalized.isEmpty()) return romanWord
         if (isNepali(learned)) return learned.orEmpty()
         dictionaryCandidates(normalized).firstOrNull()?.let { return it }
-        if (normalized in PREFERRED_ENGLISH_WORDS) return romanWord
+        if (normalized in keepEnglish) return romanWord
         return transliterate(normalized) ?: romanWord
     }
 
@@ -46,7 +47,7 @@ class RomanNepaliConverter private constructor(
         }
         transliterationCandidates(normalized).forEach(candidates::add)
 
-        val romanFirst = normalized in PREFERRED_ENGLISH_WORDS
+        val romanFirst = normalized in keepEnglish && exactCandidates.isEmpty()
         if (!includeRoman) return candidates.take(limit)
         if (romanFirst) return (listOf(romanWord) + candidates).distinct().take(limit)
         if (limit == 1) return candidates.take(1)
@@ -137,7 +138,10 @@ class RomanNepaliConverter private constructor(
     }
 
     companion object {
-        fun from(reader: Reader): RomanNepaliConverter {
+        fun from(
+            reader: Reader,
+            keepEnglish: Set<String> = PREFERRED_ENGLISH_WORDS
+        ): RomanNepaliConverter {
             val entries = linkedMapOf<String, List<String>>()
             reader.buffered().useLines { lines ->
                 lines.forEach { line ->
@@ -150,7 +154,10 @@ class RomanNepaliConverter private constructor(
                     if (key.isNotEmpty() && values.isNotEmpty()) entries[key] = values
                 }
             }
-            return RomanNepaliConverter(entries)
+            val english = LinkedHashSet<String>()
+            PREFERRED_ENGLISH_WORDS.forEach(english::add)
+            keepEnglish.map { normalize(it) }.filter(String::isNotEmpty).forEach(english::add)
+            return RomanNepaliConverter(entries, english)
         }
 
         fun isNepali(value: String?): Boolean = !value.isNullOrBlank() && value.all { character ->
@@ -318,7 +325,7 @@ class LearnedRomanWords(
     fun values(): Map<String, String> = mappings.toMap()
 
     companion object {
-        const val DEFAULT_LIMIT = 100
+        const val DEFAULT_LIMIT = 250
 
         fun fromSerialized(value: String?): LearnedRomanWords {
             val entries = linkedMapOf<String, String>()
@@ -367,6 +374,29 @@ class RomanInputComposer(
     fun backspace(): RomanEdit {
         if (currentWord.isEmpty()) return RomanEdit.DeletePrevious
         currentWord = currentWord.dropLast(1)
+        return if (currentWord.isEmpty()) RomanEdit.ClearComposing
+        else RomanEdit.SetComposing(currentWord)
+    }
+
+    fun finishWord(boundary: String = ""): RomanEdit {
+        if (currentWord.isEmpty()) {
+            return if (boundary.isEmpty()) RomanEdit.NoOp else RomanEdit.Commit(boundary)
+        }
+        val completed = converter.bestConversion(currentWord, learnedLookup(currentWord))
+        currentWord = ""
+        return RomanEdit.Commit(completed + boundary)
+    }
+
+    fun acceptSuggestion(suggestion: String): RomanEdit {
+        currentWord = ""
+        return RomanEdit.Commit(suggestion)
+    }
+
+    fun reset() {
+        currentWord = ""
+    }
+}
+     currentWord = currentWord.dropLast(1)
         return if (currentWord.isEmpty()) RomanEdit.ClearComposing
         else RomanEdit.SetComposing(currentWord)
     }
