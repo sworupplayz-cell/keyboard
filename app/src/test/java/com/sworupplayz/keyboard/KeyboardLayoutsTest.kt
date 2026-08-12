@@ -73,6 +73,19 @@ class KeyboardLayoutsTest {
     }
 
     @Test
+    fun spaceBarShowsTheCurrentLanguageNameLikeGboard() {
+        assertEquals("English", KeyboardLanguage.ENGLISH.spaceLabel())
+        assertEquals("नेपाली", KeyboardLanguage.NEPALI.spaceLabel())
+        assertEquals("Roman", KeyboardLanguage.ROMAN.spaceLabel())
+        assertTrue(KeyboardLayouts.english(false).flatten().any {
+            it.action == KeyAction.SPACE && it.label == "English" && it.output == " "
+        })
+        assertTrue(KeyboardLayouts.nepaliConsonants().flatten().any {
+            it.action == KeyAction.SPACE && it.label == "नेपाली" && it.output == " "
+        })
+    }
+
+    @Test
     fun handwritingModeIsReachableAndCanReturnToEveryTypingMode() {
         listOf(
             KeyboardLayouts.english(false),

@@ -1,25 +1,26 @@
 package com.sworupplayz.keyboard
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
-import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.StateListDrawable
 import android.inputmethodservice.InputMethodService
 import android.media.AudioManager
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.Window
 import android.view.WindowInsetsController
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.InputMethodSubtype
-import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 
@@ -33,7 +34,10 @@ class KeyboardService : InputMethodService() {
         HANDWRITING
     }
 
+    private lateinit var overlayHost: FrameLayout
     private lateinit var keyboardRoot: LinearLayout
+    private var previewView: KeyPreviewView? = null
+    private var alternateChooser: AlternateChooserView? = null
     private var suggestionRow: LinearLayout? = null
     private var handwritingResultRow: LinearLayout? = null
     private var handwritingCanvas: HandwritingCanvasView? = null
@@ -86,6 +90,7 @@ class KeyboardService : InputMethodService() {
     private var defaultMode: DefaultKeyboardMode? = null
     private var internalSelectionChange = false
     private var keyHeightDp = 48
+    private var suggestionSettingsVisible = false
 
     override fun onCreateInputView(): View {
         readPreferences()
@@ -94,11 +99,29 @@ class KeyboardService : InputMethodService() {
         keyHeightDp = preferredKeyHeight()
         keyboardRoot = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(2), dp(3), dp(2), dp(3))
+            setPadding(
+                dp(KeyboardUiMetrics.ROOT_HORIZONTAL_PADDING_DP),
+                dp(KeyboardUiMetrics.ROOT_VERTICAL_PADDING_DP / 2),
+                dp(KeyboardUiMetrics.ROOT_HORIZONTAL_PADDING_DP),
+                dp(KeyboardUiMetrics.ROOT_VERTICAL_PADDING_DP / 2)
+            )
+        }
+        overlayHost = FrameLayout(this)
+        overlayHost.addView(
+            keyboardRoot,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+        previewView = KeyPreviewView(this).also { overlayHost.addView(it) }
+        alternateChooser = AlternateChooserView(this).also { overlay ->
+            overlay.onPick = { text -> insertAlternate(text) }
+            overlayHost.addView(overlay)
         }
         applyWindowAppearance()
         renderKeyboard()
-        return keyboardRoot
+        return overlayHost
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
@@ -150,6 +173,7 @@ class KeyboardService : InputMethodService() {
         resetHandwriting()
         modeHistory.clear()
         suggestionRow = null
+        hideOverlays()
         super.onFinishInput()
     }
 
@@ -237,12 +261,16 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun renderKeyboard() {
+        hideOverlays()
         val colors = keyboardColors()
+        if (::overlayHost.isInitialized) overlayHost.setBackgroundColor(colors.background)
         keyboardRoot.setBackgroundColor(colors.background)
         keyboardRoot.removeAllViews()
         suggestionRow = null
+        suggestionSettingsVisible = false
         handwritingResultRow = null
         handwritingCanvas = null
+        previewView?.bind(colors, dp(KeyboardTheme.PREVIEW_CORNER_RADIUS_DP).toFloat())
 
         if (layoutMode == LayoutMode.HANDWRITING) {
             renderHandwriting(colors)
@@ -257,6 +285,9 @@ class KeyboardService : InputMethodService() {
             (language == KeyboardLanguage.NEPALI && layoutMode == LayoutMode.VOWELS)
         val useCompactNepaliSuggestions = useSuggestions && supportsSuggestions &&
             language == KeyboardLanguage.NEPALI
+        if (useSuggestions && supportsSuggestions) {
+            addSuggestionRow(colors, includeSettings = useCompactNepaliSuggestions)
+        }
         if (!useCompactNepaliSuggestions) addNavigationRow(colors)
 
         val rows = when {
@@ -267,11 +298,10 @@ class KeyboardService : InputMethodService() {
             layoutMode == LayoutMode.VOWELS -> KeyboardLayouts.nepaliVowels(showNumberRow)
             else -> KeyboardLayouts.nepaliConsonants(showNumberRow)
         }
-        if (useSuggestions && supportsSuggestions) addSuggestionRow(colors)
         addKeyRows(rows, colors)
     }
 
-    private fun addKeyRows(rows: List<List<KeySpec>>, colors: KeyboardColors) {
+    private fun addKeyRows(rows: List<List<KeySpec>>, colors: KeyboardPalette) {
         rows.forEach { keys ->
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -290,7 +320,7 @@ class KeyboardService : InputMethodService() {
         }
     }
 
-    private fun addNavigationRow(colors: KeyboardColors) {
+    private fun addNavigationRow(colors: KeyboardPalette) {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -303,9 +333,10 @@ class KeyboardService : InputMethodService() {
         KeyboardLayouts.navigationControls(numberLabel).forEach { key ->
             row.addView(createKeyButton(key, colors))
         }
+        row.addView(createKeyButton(KeySpec("⚙", KeyAction.SETTINGS), colors))
     }
 
-    private fun renderEmojiPanel(colors: KeyboardColors) {
+    private fun renderEmojiPanel(colors: KeyboardPalette) {
         val categories = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -316,31 +347,7 @@ class KeyboardService : InputMethodService() {
         )
         EmojiCategory.entries.forEach { category ->
             val selected = category == emojiCategory
-            categories.addView(Button(this).apply {
-                text = category.title
-                contentDescription = category.title
-                isAllCaps = false
-                gravity = Gravity.CENTER
-                includeFontPadding = false
-                textSize = if (resources.configuration.screenWidthDp < 360) 10f else 11f
-                minWidth = 0
-                minimumWidth = 0
-                minHeight = 0
-                minimumHeight = 0
-                setPadding(0, 0, 0, 0)
-                setTextColor(if (selected) Color.WHITE else colors.text)
-                isSoundEffectsEnabled = false
-                isHapticFeedbackEnabled = false
-                stateListAnimator = null
-                background = keyBackground(if (selected) colors.accent else colors.specialKey, colors.border)
-                layoutParams = LinearLayout.LayoutParams(
-                    0,
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    1f
-                ).apply {
-                    val margin = preferredKeyMargin()
-                    setMargins(margin, dp(2), margin, dp(2))
-                }
+            categories.addView(chromeLabel(KeyVisuals.emojiCategoryIcon(category), category.title, colors, selected).apply {
                 setOnClickListener {
                     giveFeedback(KeyAction.EMOJI)
                     emojiCategory = category
@@ -355,8 +362,7 @@ class KeyboardService : InputMethodService() {
                 text = getString(R.string.emoji_no_recent)
                 gravity = Gravity.CENTER
                 textSize = 14f
-                setTextColor(colors.text)
-                alpha = 0.75f
+                setTextColor(colors.secondaryText)
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(92)))
         } else {
             emojis.chunked(EMOJIS_PER_ROW).forEach { emojiRow ->
@@ -380,30 +386,23 @@ class KeyboardService : InputMethodService() {
         addKeyRows(KeyboardLayouts.emojiControls(), colors)
     }
 
-    private fun createEmojiButton(emoji: String, colors: KeyboardColors): Button = Button(this).apply {
-        text = emoji
-        contentDescription = emoji
-        isAllCaps = false
-        gravity = Gravity.CENTER
-        includeFontPadding = false
-        textSize = 24f
-        minWidth = 0
-        minimumWidth = 0
-        minHeight = 0
-        minimumHeight = 0
-        setPadding(0, 0, 0, 0)
-        setTextColor(colors.text)
-        isSoundEffectsEnabled = false
-        isHapticFeedbackEnabled = false
-        stateListAnimator = null
-        background = keyBackground(colors.key, colors.border)
-        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-            val margin = preferredKeyMargin()
-            setMargins(margin, dp(2), margin, dp(2))
-        }
-        setOnClickListener {
-            giveFeedback(KeyAction.EMOJI)
-            insertEmoji(emoji)
+    private fun createEmojiButton(emoji: String, colors: KeyboardPalette): View {
+        return KeyboardKeyView(this).apply {
+            bind(
+                key = KeySpec(emoji),
+                palette = colors,
+                active = false,
+                compactScreen = resources.configuration.screenWidthDp < 360,
+                horizontalGapPx = preferredKeyMargin(),
+                verticalGapPx = dp(2),
+                radiusPx = dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat(),
+                shadowPx = dp(KeyboardTheme.SHADOW_DP)
+            )
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+            setOnClickListener {
+                giveFeedback(KeyAction.EMOJI)
+                insertEmoji(emoji)
+            }
         }
     }
 
@@ -418,7 +417,7 @@ class KeyboardService : InputMethodService() {
         returnToPreviousLayout()
     }
 
-    private fun renderHandwriting(colors: KeyboardColors) {
+    private fun renderHandwriting(colors: KeyboardPalette) {
         val resultRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -433,7 +432,10 @@ class KeyboardService : InputMethodService() {
         val canvas = HandwritingCanvasView(this).apply {
             contentDescription = getString(R.string.handwriting_canvas_description)
             setInkColor(colors.text)
-            background = roundedBackground(colors.key, colors.border)
+            background = KeyboardTheme.roundedRect(
+                colors.key,
+                dp(KeyboardTheme.PREVIEW_CORNER_RADIUS_DP).toFloat()
+            )
             onStrokeFinished = { points ->
                 handwritingState.addStroke(points)
                 updateHandwritingResultRow(colors)
@@ -452,36 +454,13 @@ class KeyboardService : InputMethodService() {
         addKeyRows(KeyboardLayouts.handwritingControls(), colors)
     }
 
-    private fun updateHandwritingResultRow(colors: KeyboardColors = keyboardColors()) {
+    private fun updateHandwritingResultRow(colors: KeyboardPalette = keyboardColors()) {
         val row = handwritingResultRow ?: return
         row.removeAllViews()
         if (handwritingState.candidates.isNotEmpty()) {
             handwritingState.candidates.forEachIndexed { index, candidate ->
-                row.addView(Button(this).apply {
-                    text = candidate
-                    contentDescription = candidate
-                    isAllCaps = false
-                    includeFontPadding = false
-                    gravity = Gravity.CENTER
-                    textSize = 17f
-                    minWidth = 0
-                    minimumWidth = 0
-                    minHeight = 0
-                    minimumHeight = 0
-                    setPadding(dp(2), 0, dp(2), 0)
-                    setTextColor(colors.text)
-                    isSoundEffectsEnabled = false
-                    isHapticFeedbackEnabled = false
-                    stateListAnimator = null
-                    background = keyBackground(colors.key, colors.border)
-                    layoutParams = LinearLayout.LayoutParams(
-                        0,
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        1f
-                    ).apply {
-                        val margin = preferredKeyMargin()
-                        setMargins(margin, dp(2), margin, dp(2))
-                    }
+                row.addView(chromeLabel(candidate, candidate, colors, selected = false).apply {
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
                     setOnClickListener {
                         giveFeedback(KeyAction.TEXT)
                         insertHandwritingCandidate(index, colors)
@@ -502,12 +481,11 @@ class KeyboardService : InputMethodService() {
             text = getString(message)
             gravity = Gravity.CENTER
             textSize = 13f
-            setTextColor(colors.text)
-            alpha = 0.75f
+            setTextColor(colors.secondaryText)
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
     }
 
-    private fun insertHandwritingCandidate(index: Int, colors: KeyboardColors) {
+    private fun insertHandwritingCandidate(index: Int, colors: KeyboardPalette) {
         val candidate = handwritingState.confirm(index) ?: return
         InputConnectionCommitter.commit(currentInputConnection, candidate)
         handwritingCanvas?.clearInk()
@@ -530,11 +508,12 @@ class KeyboardService : InputMethodService() {
         )
     }
 
-    private fun addSuggestionRow(colors: KeyboardColors) {
+    private fun addSuggestionRow(colors: KeyboardPalette, includeSettings: Boolean) {
+        suggestionSettingsVisible = includeSettings
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(dp(2), dp(1), dp(2), dp(1))
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), dp(2), dp(4), dp(2))
         }
         suggestionRow = row
         keyboardRoot.addView(
@@ -544,7 +523,7 @@ class KeyboardService : InputMethodService() {
         updateSuggestionRow(colors)
     }
 
-    private fun updateSuggestionRow(colors: KeyboardColors = keyboardColors()) {
+    private fun updateSuggestionRow(colors: KeyboardPalette = keyboardColors()) {
         val row = suggestionRow ?: return
         row.removeAllViews()
         val currentWord = if (language == KeyboardLanguage.ROMAN) {
@@ -579,47 +558,56 @@ class KeyboardService : InputMethodService() {
                 text = if (currentWord.isEmpty()) getString(hint) else currentWord
                 gravity = Gravity.CENTER
                 textSize = 14f
-                setTextColor(colors.text)
-                alpha = 0.7f
+                setTextColor(colors.secondaryText)
             }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+            if (suggestionSettingsVisible) addSuggestionSettings(row, colors)
             return
         }
 
-        suggestions.take(MAX_SUGGESTIONS).forEach { suggestion ->
-            row.addView(Button(this).apply {
+        suggestions.take(MAX_SUGGESTIONS).forEachIndexed { index, suggestion ->
+            if (index > 0) row.addView(suggestionDivider(colors))
+            row.addView(TextView(this).apply {
                 text = suggestion
                 contentDescription = suggestion
+                isClickable = true
+                isFocusable = true
                 isAllCaps = false
                 includeFontPadding = false
                 gravity = Gravity.CENTER
-                textSize = if (suggestion.length > 10) 13f else 16f
-                minWidth = 0
-                minimumWidth = 0
-                minHeight = 0
-                minimumHeight = 0
-                setPadding(dp(2), 0, dp(2), 0)
-                setTextColor(colors.text)
-                isSoundEffectsEnabled = false
-                isHapticFeedbackEnabled = false
-                stateListAnimator = null
-                background = keyBackground(colors.key, colors.border)
-                layoutParams = LinearLayout.LayoutParams(
-                    0,
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    1f
-                ).apply {
-                    val margin = preferredKeyMargin()
-                    setMargins(margin, dp(2), margin, dp(2))
-                }
+                setTextSize(
+                    TypedValue.COMPLEX_UNIT_SP,
+                    if (suggestion.length > 10) 13f else KeyboardTheme.SUGGESTION_TEXT_SP
+                )
+                setTextColor(if (index == 0) colors.text else colors.secondaryText)
+                background = null
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
                 setOnClickListener {
                     giveFeedback(KeyAction.TEXT)
                     acceptSuggestion(suggestion, colors)
                 }
             })
         }
+        if (suggestionSettingsVisible) {
+            row.addView(suggestionDivider(colors))
+            addSuggestionSettings(row, colors)
+        }
     }
 
-    private fun acceptSuggestion(suggestion: String, colors: KeyboardColors) {
+    private fun addSuggestionSettings(row: LinearLayout, colors: KeyboardPalette) {
+        row.addView(createKeyButton(KeySpec("⚙", KeyAction.SETTINGS), colors).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(40), LinearLayout.LayoutParams.MATCH_PARENT)
+        })
+    }
+
+    private fun suggestionDivider(colors: KeyboardPalette): View = View(this).apply {
+        setBackgroundColor(colors.divider)
+        layoutParams = LinearLayout.LayoutParams(dp(1), LinearLayout.LayoutParams.MATCH_PARENT).apply {
+            topMargin = dp(8)
+            bottomMargin = dp(8)
+        }
+    }
+
+    private fun acceptSuggestion(suggestion: String, colors: KeyboardPalette) {
         if (language == KeyboardLanguage.ROMAN) {
             val romanWord = romanComposer.currentWord
             if (useLearning && learnedRomanWords.learn(romanWord, suggestion)) {
@@ -673,59 +661,106 @@ class KeyboardService : InputMethodService() {
         }
     }
 
-    private fun createKeyButton(key: KeySpec, colors: KeyboardColors): Button {
-        val isSpecial = key.action != KeyAction.TEXT
-        val isActive = isActiveKey(key)
-        val buttonColor = when {
-            isActive -> colors.accent
-            isSpecial -> colors.specialKey
-            else -> colors.key
+    @SuppressLint("ClickableViewAccessibility")
+    private fun createKeyButton(key: KeySpec, colors: KeyboardPalette): View {
+        val compactScreen = resources.configuration.screenWidthDp < 360
+        val horizontalGap = if (key.compact) {
+            dp(KeyboardTheme.COMPACT_HORIZONTAL_GAP_DP)
+        } else {
+            preferredKeyMargin()
         }
-
-        return Button(this).apply {
-            text = key.label
-            contentDescription = key.label
-            isAllCaps = false
-            gravity = Gravity.CENTER
-            includeFontPadding = false
-            minWidth = 0
-            minimumWidth = 0
-            minHeight = 0
-            minimumHeight = 0
-            setPadding(dp(2), 0, dp(2), 0)
-            setTextColor(if (isActive) Color.WHITE else colors.text)
-            textSize = preferredTextSize(key.label)
-            setTypeface(Typeface.DEFAULT, Typeface.NORMAL)
-            isSoundEffectsEnabled = false
-            isHapticFeedbackEnabled = false
-            stateListAnimator = null
-            elevation = dp(1).toFloat()
-            background = keyBackground(buttonColor, colors.border)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, key.width).apply {
-                val margin = preferredKeyMargin()
-                setMargins(margin, dp(2), margin, dp(2))
+        return KeyboardKeyView(this).apply {
+            bind(
+                key = key,
+                palette = colors,
+                active = isActiveKey(key),
+                compactScreen = compactScreen,
+                horizontalGapPx = horizontalGap,
+                verticalGapPx = dp(KeyboardTheme.KEY_VERTICAL_GAP_DP / 2),
+                radiusPx = dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat(),
+                shadowPx = dp(KeyboardTheme.SHADOW_DP)
+            )
+            if (key.action == KeyAction.SETTINGS) {
+                contentDescription = getString(R.string.settings_key_description)
             }
             setOnClickListener {
+                hideOverlays()
                 giveFeedback(key.action)
                 handleKey(key)
             }
-            if (key.action == KeyAction.LANGUAGE ||
-                key.action == KeyAction.MODE_ENGLISH ||
-                key.action == KeyAction.MODE_NEPALI ||
-                key.action == KeyAction.MODE_ROMAN
-            ) {
-                setOnLongClickListener {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        switchToNextInputMethod(false)
-                    } else {
-                        // switchToNextInputMethod is API 28+. On API 23-27 fall back to the
-                        // system keyboard picker so long-press still offers a keyboard switch.
-                        (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
-                            .showInputMethodPicker()
+            setOnTouchListener { view, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        if (KeyVisuals.showsPreview(key)) {
+                            previewView?.showAbove(view, overlayHost, key.label)
+                        }
                     }
-                    true
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> previewView?.dismiss()
+                }
+                false
+            }
+            val alternates = KeyVisuals.alternates(key.label)
+            when {
+                alternates.isNotEmpty() && key.action == KeyAction.TEXT -> {
+                    setOnLongClickListener { view ->
+                        previewView?.dismiss()
+                        giveFeedback(KeyAction.TEXT)
+                        alternateChooser?.showAbove(
+                            view,
+                            overlayHost,
+                            alternates,
+                            colors,
+                            dp(KeyboardTheme.PREVIEW_CORNER_RADIUS_DP).toFloat()
+                        )
+                        true
+                    }
+                }
+                KeyVisuals.isImeSwitchKey(key) -> {
+                    setOnLongClickListener {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            switchToNextInputMethod(false)
+                        } else {
+                            // switchToNextInputMethod is API 28+. On API 23-27 fall back to the
+                            // system keyboard picker so long-press still offers a keyboard switch.
+                            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
+                                .showInputMethodPicker()
+                        }
+                        true
+                    }
                 }
             }
+        }
+    }
+
+    private fun chromeLabel(
+        label: String,
+        description: String,
+        colors: KeyboardPalette,
+        selected: Boolean
+    ): TextView = TextView(this).apply {
+        text = label
+        contentDescription = description
+        isAllCaps = false
+        includeFontPadding = false
+        gravity = Gravity.CENTER
+        isClickable = true
+        isFocusable = true
+        minWidth = 0
+        minimumWidth = 0
+        minHeight = 0
+        minimumHeight = 0
+        setPadding(0, 0, 0, 0)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, if (resources.configuration.screenWidthDp < 360) 12f else 13f)
+        setTextColor(if (selected) Color.WHITE else colors.text)
+        background = KeyboardTheme.keyBackground(
+            if (selected) colors.accent else colors.specialKey,
+            dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat(),
+            colors.shadow,
+            dp(KeyboardTheme.SHADOW_DP)
+        )
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+            val margin = preferredKeyMargin()
+            setMargins(margin, dp(2), margin, dp(2))
         }
     }
 
@@ -832,7 +867,26 @@ class KeyboardService : InputMethodService() {
             KeyAction.MODE_ENGLISH -> switchTypingMode(KeyboardLanguage.ENGLISH)
             KeyAction.MODE_NEPALI -> switchTypingMode(KeyboardLanguage.NEPALI)
             KeyAction.MODE_ROMAN -> switchTypingMode(KeyboardLanguage.ROMAN)
+            KeyAction.SETTINGS -> openSettings()
         }
+    }
+
+    private fun insertAlternate(text: String) {
+        hideOverlays()
+        giveFeedback(KeyAction.TEXT)
+        handleKey(KeySpec(label = text, output = text))
+    }
+
+    private fun openSettings() {
+        requestHideSelf(0)
+        startActivity(
+            Intent(this, SettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
+
+    private fun hideOverlays() {
+        previewView?.dismiss()
+        alternateChooser?.dismiss()
     }
 
     private fun openPanel(target: LayoutMode) {
@@ -1054,66 +1108,14 @@ class KeyboardService : InputMethodService() {
         resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
             Configuration.UI_MODE_NIGHT_YES
 
-    private fun keyboardColors(): KeyboardColors = if (useDarkAppearance) {
-        KeyboardColors(
-            background = color(R.color.keyboard_dark_background),
-            key = color(R.color.keyboard_dark_key),
-            specialKey = color(R.color.keyboard_dark_special),
-            text = color(R.color.keyboard_dark_text),
-            border = color(R.color.keyboard_dark_border),
-            accent = color(R.color.accent)
-        )
-    } else {
-        KeyboardColors(
-            background = color(R.color.keyboard_light_background),
-            key = color(R.color.keyboard_light_key),
-            specialKey = color(R.color.keyboard_light_special),
-            text = color(R.color.keyboard_light_text),
-            border = color(R.color.keyboard_light_border),
-            accent = color(R.color.accent)
-        )
-    }
+    private fun keyboardColors(): KeyboardPalette =
+        KeyboardTheme.palette(useDarkAppearance) { color(it) }
 
-    private fun roundedBackground(color: Int, borderColor: Int) = GradientDrawable().apply {
-        shape = GradientDrawable.RECTANGLE
-        cornerRadius = dp(6).toFloat()
-        setColor(color)
-        setStroke(dp(1), borderColor)
-    }
-
-    private fun keyBackground(color: Int, borderColor: Int) = StateListDrawable().apply {
-        addState(
-            intArrayOf(android.R.attr.state_pressed),
-            roundedBackground(pressedColor(color), borderColor)
-        )
-        addState(
-            intArrayOf(android.R.attr.state_focused),
-            roundedBackground(pressedColor(color), borderColor)
-        )
-        addState(IntArray(0), roundedBackground(color, borderColor))
-    }
-
-    private fun pressedColor(color: Int): Int {
-        val isDark = Color.red(color) + Color.green(color) + Color.blue(color) < 384
-        val factor = if (isDark) 1.18f else 0.9f
-        return Color.rgb(
-            (Color.red(color) * factor).toInt().coerceIn(0, 255),
-            (Color.green(color) * factor).toInt().coerceIn(0, 255),
-            (Color.blue(color) * factor).toInt().coerceIn(0, 255)
-        )
-    }
-
-    private fun preferredTextSize(label: String): Float {
+    private fun preferredKeyMargin(): Int {
         val compact = resources.configuration.screenWidthDp < 360
-        return when {
-            label.length > 6 -> if (compact) 11f else 12f
-            label.length > 3 -> if (compact) 12f else 13f
-            else -> if (compact) 17f else 18f
-        }
+        val gap = if (compact) KeyboardTheme.COMPACT_HORIZONTAL_GAP_DP else KeyboardTheme.KEY_HORIZONTAL_GAP_DP
+        return dp(maxOf(gap, KeyboardUiMetrics.keyMarginDp(resources.configuration.screenWidthDp)))
     }
-
-    private fun preferredKeyMargin(): Int =
-        dp(KeyboardUiMetrics.keyMarginDp(resources.configuration.screenWidthDp))
 
     private fun color(resource: Int): Int = resources.getColor(resource, theme)
 
@@ -1124,16 +1126,12 @@ class KeyboardService : InputMethodService() {
         val layout: LayoutMode
     )
 
-    private data class KeyboardColors(
-        val background: Int,
-        val key: Int,
-        val specialKey: Int,
-        val text: Int,
-        val border: Int,
-        val accent: Int
-    )
-
     private companion object {
+        const val EMOJIS_PER_ROW = 8
+        const val MAX_SUGGESTIONS = 3
+    }
+}
+  private companion object {
         const val EMOJIS_PER_ROW = 8
         const val MAX_SUGGESTIONS = 3
     }

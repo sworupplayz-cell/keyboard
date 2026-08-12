@@ -21,7 +21,8 @@ enum class KeyAction {
     HANDWRITING_CANCEL,
     MODE_ENGLISH,
     MODE_NEPALI,
-    MODE_ROMAN
+    MODE_ROMAN,
+    SETTINGS
 }
 
 data class KeySpec(
@@ -49,7 +50,7 @@ object KeyboardLayouts {
             listOf(KeySpec("⇧", KeyAction.SHIFT, width = 1.4f)) +
                 letters("zxcvbnm") +
                 KeySpec("⌫", KeyAction.BACKSPACE, width = 1.4f),
-            commonControls(language, "space")
+            commonControls(language, language.spaceLabel())
         )
         return if (includeNumberRow) listOf(compactNumberRow("1234567890")) + rows else rows
     }
@@ -60,7 +61,7 @@ object KeyboardLayouts {
             KeySpec(language.lettersLabel(), KeyAction.LETTERS, width = 1.4f),
             KeySpec("#+=", KeyAction.SYMBOLS, width = 1.2f),
             KeySpec("😊", KeyAction.EMOJI),
-            KeySpec("space", KeyAction.SPACE, output = " ", width = 3f),
+            KeySpec(language.spaceLabel(), KeyAction.SPACE, output = " ", width = 3f),
             KeySpec("⌫", KeyAction.BACKSPACE, width = 1.2f),
             KeySpec("↵", KeyAction.ENTER, width = 1.3f)
         )
@@ -75,7 +76,7 @@ object KeyboardLayouts {
             KeySpec(language.lettersLabel(), KeyAction.LETTERS, width = 1.35f),
             KeySpec("123", KeyAction.NUMBERS),
             KeySpec("😊", KeyAction.EMOJI),
-            KeySpec("space", KeyAction.SPACE, output = " ", width = 2.5f),
+            KeySpec(language.spaceLabel(), KeyAction.SPACE, output = " ", width = 2.5f),
             KeySpec("✍", KeyAction.HANDWRITING),
             KeySpec("⌫", KeyAction.BACKSPACE, width = 1.25f),
             KeySpec("↵", KeyAction.ENTER, width = 1.3f)
@@ -120,7 +121,7 @@ object KeyboardLayouts {
         listOf(
             KeySpec("Back", KeyAction.RETURN_TO_PREVIOUS, width = 1.4f),
             KeySpec("123", KeyAction.NUMBERS),
-            KeySpec("space", KeyAction.SPACE, output = " ", width = 3f),
+            KeySpec(" ", KeyAction.SPACE, output = " ", width = 3f),
             KeySpec("⌫", KeyAction.BACKSPACE, width = 1.2f),
             KeySpec("↵", KeyAction.ENTER, width = 1.3f)
         )
@@ -162,7 +163,7 @@ object KeyboardLayouts {
         KeySpec("?१२३", KeyAction.NUMBERS, width = 1.2f),
         KeySpec(KeyboardLanguage.NEPALI.nextModeLabel(), KeyAction.LANGUAGE, width = 1.3f),
         KeySpec(toggleLabel, toggleAction, width = 1.4f),
-        KeySpec("खाली", KeyAction.SPACE, output = " ", width = 2.2f),
+        KeySpec(KeyboardLanguage.NEPALI.spaceLabel(), KeyAction.SPACE, output = " ", width = 2.2f),
         KeySpec("।", width = 0.8f),
         KeySpec("✍", KeyAction.HANDWRITING),
         KeySpec("↵", KeyAction.ENTER, width = 1.3f)
@@ -190,5 +191,11 @@ enum class KeyboardLanguage {
         ENGLISH -> "नेपाली"
         NEPALI -> "Roman"
         ROMAN -> "EN"
+    }
+
+    fun spaceLabel(): String = when (this) {
+        ENGLISH -> "English"
+        NEPALI -> "नेपाली"
+        ROMAN -> "Roman"
     }
 }

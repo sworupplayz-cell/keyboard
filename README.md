@@ -1,6 +1,8 @@
-# Simple Nepali Keyboard — Phase 8
+# Simple Nepali Keyboard — Phase 9
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
+
+Phase 9 keeps every previous typing path and restyles the IME with Gboard-like chrome: rounded shadowed keys, a flat suggestion strip, language-labeled space bar, key-press preview, long-press alternates, and a settings gear on the keyboard.
 
 ## Features
 
@@ -24,9 +26,11 @@ A lightweight native Android input method (IME) built with Kotlin and `InputMeth
 - Compact Unicode emoji panel with Recent, Smileys, People, Animals, Food, Objects, and Symbols
 - Small on-device recent-emoji history with no image assets or downloads
 - Dedicated ASCII number panel and expanded common-symbol panel
-- A compact navigation row for EN, नेपाली, Roman, numbers, emoji, and handwriting
+- A compact navigation row for EN, नेपाली, Roman, numbers, emoji, handwriting, and settings
+- Gboard-style rounded keys, blue Enter, language-labeled space bar, and a flat suggestion strip
+- Key-press preview for letters and long-press alternate characters
 - Responsive key heights, readable mode labels, visible active modes, and pressed-key feedback
-- Clear key borders and contrast in both light and dark appearances
+- Clear contrast in both light and dark appearances
 - Previous-layout return behavior for temporary panels
 - Long-press a mode key to move to the next system keyboard
 - Optional key sound and vibration
@@ -36,6 +40,8 @@ A lightweight native Android input method (IME) built with Kotlin and `InputMeth
 The expandable Roman vocabulary is the tab-separated file at `app/src/main/res/raw/roman_nepali_dictionary.tsv`. Vocabulary and learned mappings improve ranking, while the phonetic engine remains the fallback for every unknown Roman word. Known and unknown Romanized Nepali words convert on boundaries such as space, punctuation, or Enter. Common mixed-language terms such as `school` remain Roman by default, and every word also offers its original Roman spelling as a compact suggestion.
 
 Normal English suggestions use the small ordered list in `app/src/main/res/raw/english_vocabulary.txt`. Normal Nepali suggestions reuse the Nepali values already present in the Roman vocabulary. Both are prefix-indexed, retain unusual input unchanged, and only replace a word after the user taps a suggestion.
+
+See [`docs/UI.md`](docs/UI.md) for the Phase A visual contract.
 
 ## Handwriting recognition limitation
 

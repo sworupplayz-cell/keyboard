@@ -66,4 +66,5 @@
     <string name="handwriting_ready">Tap Confirm to check the writing</string>
     <string name="handwriting_no_match">No match. Clear and try again.</string>
     <string name="handwriting_unavailable">Offline Nepali recognizer is not bundled</string>
+    <string name="settings_key_description">Keyboard settings</string>
 </resources>
