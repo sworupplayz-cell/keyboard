@@ -1018,14 +1018,14 @@ class KeyboardService : InputMethodService() {
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            applyLegacyLightNavigationBars()
+            applyLegacyLightNavigationBars(window)
         }
     }
 
     /** API 26-29 fallback: systemUiVisibility is deprecated from API 30 but is the only
      *  pre-30 mechanism for light navigation-bar icons. */
     @Suppress("DEPRECATION")
-    private fun applyLegacyLightNavigationBars() {
+    private fun applyLegacyLightNavigationBars(window: Window) {
         window.decorView.systemUiVisibility = if (useDarkAppearance) {
             window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv()
         } else {
