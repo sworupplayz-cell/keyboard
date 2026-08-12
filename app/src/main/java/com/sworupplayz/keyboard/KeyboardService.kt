@@ -14,6 +14,8 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.Gravity
 import android.view.View
+import android.view.Window
+import android.view.WindowInsetsController
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.InputMethodSubtype
@@ -713,7 +715,14 @@ class KeyboardService : InputMethodService() {
                 key.action == KeyAction.MODE_ROMAN
             ) {
                 setOnLongClickListener {
-                    switchToNextInputMethod(false)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        switchToNextInputMethod(false)
+                    } else {
+                        // switchToNextInputMethod is API 28+. On API 23-27 fall back to the
+                        // system keyboard picker so long-press still offers a keyboard switch.
+                        (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
+                            .showInputMethodPicker()
+                    }
                     true
                 }
             }
@@ -993,14 +1002,42 @@ class KeyboardService : InputMethodService() {
     private fun applyWindowAppearance() {
         val window = window.window ?: return
         val colors = keyboardColors()
-        window.navigationBarColor = colors.background
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            window.decorView.systemUiVisibility = if (useDarkAppearance) {
-                window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv()
-            } else {
-                window.decorView.systemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        setNavigationBarColor(window, colors.background)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val controller = window.decorView.windowInsetsController
+            if (controller != null) {
+                controller.setSystemBarsAppearance(
+                    if (useDarkAppearance) {
+                        0
+                    } else {
+                        WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                    },
+                    WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                )
+                return
             }
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            applyLegacyLightNavigationBars()
+        }
+    }
+
+    /** API 26-29 fallback: systemUiVisibility is deprecated from API 30 but is the only
+     *  pre-30 mechanism for light navigation-bar icons. */
+    @Suppress("DEPRECATION")
+    private fun applyLegacyLightNavigationBars() {
+        window.decorView.systemUiVisibility = if (useDarkAppearance) {
+            window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv()
+        } else {
+            window.decorView.systemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        }
+    }
+
+    /** Navigation bar background color. Deprecated in API 35 but still the supported way
+     *  to color the bar on API 23-34 devices, so it stays behind a single suppression. */
+    @Suppress("DEPRECATION")
+    private fun setNavigationBarColor(window: Window, color: Int) {
+        window.navigationBarColor = color
     }
 
     private fun preferredKeyHeight(): Int {
