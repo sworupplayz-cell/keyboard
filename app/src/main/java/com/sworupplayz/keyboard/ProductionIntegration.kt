@@ -23,5 +23,9 @@ object ProductionIntegrationPolicy {
 
     fun handwritingRecognitionImplemented(): Boolean = false
 
+    fun handwritingPipelineReady(): Boolean = true
+
+    fun handwritingModelBundled(): Boolean = false
+
     fun allowsNetworkPrediction(): Boolean = false
 }

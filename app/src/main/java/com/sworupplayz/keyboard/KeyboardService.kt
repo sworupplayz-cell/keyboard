@@ -49,6 +49,7 @@ class KeyboardService : InputMethodService() {
     private var handwritingResultRow: LinearLayout? = null
     private var handwritingCanvas: HandwritingCanvasView? = null
     private val handwritingState = HandwritingInputState(UnavailableNepaliHandwritingRecognizer)
+    private val handwritingJobs = HandwritingJobController()
     private val modeHistory = PreviousLayoutStack<ModeSnapshot>()
     private var emojiCategory = EmojiCategory.RECENT
     private var emojiQuery = ""
@@ -323,6 +324,7 @@ class KeyboardService : InputMethodService() {
 
     override fun onDestroy() {
         inputViewActive = false
+        handwritingJobs.cancel()
         if (ImeLifecyclePolicy.shouldStopBackspaceOnDestroy()) {
             typingGeneration.bump()
             stopBackspaceRepeat()
@@ -1153,6 +1155,15 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun renderHandwriting(colors: KeyboardPalette) {
+        keyboardRoot.addView(TextView(this).apply {
+            text = HandwritingUiState.showsLanguage(language)
+            contentDescription = AccessibilityLabels.handwritingCanvas(language)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), 0, dp(12), 0)
+            textSize = 13f
+            setTextColor(colors.secondaryText)
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)))
+
         val resultRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -1165,13 +1176,14 @@ class KeyboardService : InputMethodService() {
         )
 
         val canvas = HandwritingCanvasView(this).apply {
-            contentDescription = getString(R.string.handwriting_canvas_description)
+            contentDescription = AccessibilityLabels.handwritingCanvas(language)
             setInkColor(colors.text)
             background = KeyboardTheme.roundedRect(
                 colors.key,
                 dp(KeyboardTheme.PREVIEW_CORNER_RADIUS_DP).toFloat()
             )
             onStrokeFinished = { points ->
+                if (HandwritingLifecyclePolicy.shouldCancelOnNewStroke()) handwritingJobs.cancel()
                 handwritingState.addStroke(points)
                 updateHandwritingResultRow(colors)
             }
@@ -1194,8 +1206,14 @@ class KeyboardService : InputMethodService() {
         row.removeAllViews()
         if (handwritingState.candidates.isNotEmpty()) {
             handwritingState.candidates.forEachIndexed { index, candidate ->
-                row.addView(chromeLabel(candidate, candidate, colors, selected = false).apply {
+                row.addView(chromeLabel(
+                    candidate,
+                    AccessibilityLabels.handwritingCandidate(candidate, primary = index == 0),
+                    colors,
+                    selected = false
+                ).apply {
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+                    contentDescription = AccessibilityLabels.handwritingCandidate(candidate, primary = index == 0)
                     setOnClickListener {
                         giveFeedback(KeyAction.TEXT)
                         insertHandwritingCandidate(index, colors)
@@ -1208,12 +1226,15 @@ class KeyboardService : InputMethodService() {
         val message = when (handwritingState.status) {
             HandwritingStatus.EMPTY -> R.string.handwriting_hint
             HandwritingStatus.READY -> R.string.handwriting_ready
+            HandwritingStatus.RECOGNIZING -> R.string.handwriting_recognizing
             HandwritingStatus.NO_MATCH -> R.string.handwriting_no_match
             HandwritingStatus.RECOGNIZER_UNAVAILABLE -> R.string.handwriting_unavailable
+            HandwritingStatus.BLOCKED -> R.string.handwriting_blocked
             HandwritingStatus.RESULTS -> R.string.handwriting_no_match
         }
         row.addView(TextView(this).apply {
             text = getString(message)
+            contentDescription = AccessibilityLabels.handwritingStatus(handwritingState.status)
             gravity = Gravity.CENTER
             textSize = 13f
             setTextColor(colors.secondaryText)
@@ -1221,13 +1242,42 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun insertHandwritingCandidate(index: Int, colors: KeyboardPalette) {
+        if (ImeLifecyclePolicy.shouldIgnoreInputWhenHidden(inputViewActive)) return
+        if (!HandwritingPrivacyPolicy.allowsRecognition(currentInputType)) {
+            handwritingState.blockSensitiveField()
+            updateHandwritingResultRow(colors)
+            return
+        }
         val candidate = handwritingState.confirm(index) ?: return
+        if (HandwritingSuggestionBridge.shouldAutoCommit(emptyList())) return
         InputConnectionCommitter.commit(currentInputConnection, candidate)
+        if (HandwritingPrivacyPolicy.shouldLearnCommitted(currentInputType, candidate)) {
+            rememberFinishedDirectWord(candidate, learnUnknown = false)
+        } else {
+            lastCommittedWord = candidate
+        }
+        suggestionQueryCache.invalidate()
         handwritingCanvas?.clearInk()
         updateHandwritingResultRow(colors)
+        updateSuggestionRow(colors)
+    }
+
+    private fun requestHandwritingRecognition() {
+        if (!HandwritingPrivacyPolicy.allowsRecognition(currentInputType)) {
+            handwritingJobs.cancel()
+            handwritingState.blockSensitiveField()
+            return
+        }
+        handwritingJobs.bump()
+        handwritingState.recognize(language)
     }
 
     private fun resetHandwriting() {
+        if (ImeLifecyclePolicy.shouldCancelHandwritingOnHide() ||
+            ImeLifecyclePolicy.shouldCancelHandwritingOnFieldChange()
+        ) {
+            handwritingJobs.cancel()
+        }
         handwritingState.clear()
         handwritingCanvas?.clearInk()
         handwritingResultRow = null
@@ -2105,10 +2155,12 @@ class KeyboardService : InputMethodService() {
             }
             KeyAction.HANDWRITING -> openHandwriting()
             KeyAction.HANDWRITING_UNDO -> {
+                handwritingJobs.cancel()
                 if (handwritingState.undo()) handwritingCanvas?.undoStroke()
                 updateHandwritingResultRow()
             }
             KeyAction.HANDWRITING_CLEAR -> {
+                handwritingJobs.cancel()
                 handwritingState.clear()
                 handwritingCanvas?.clearInk()
                 updateHandwritingResultRow()
@@ -2117,7 +2169,7 @@ class KeyboardService : InputMethodService() {
                 if (handwritingState.status == HandwritingStatus.RESULTS) {
                     insertHandwritingCandidate(0, keyboardColors())
                 } else {
-                    handwritingState.recognize()
+                    requestHandwritingRecognition()
                     updateHandwritingResultRow()
                 }
             }
@@ -2307,6 +2359,7 @@ class KeyboardService : InputMethodService() {
         if (layoutMode != LayoutMode.HANDWRITING) {
             modeHistory.remember(ModeSnapshot(language, layoutMode))
         }
+        handwritingJobs.cancel()
         handwritingState.clear()
         resetShift()
         layoutMode = LayoutMode.HANDWRITING

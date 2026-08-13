@@ -91,6 +91,15 @@ object AccessibilityLabels {
 
     fun emoji(glyph: String): String = if (glyph.isEmpty()) "Emoji" else "Emoji $glyph"
 
+    fun handwritingCanvas(language: KeyboardLanguage): String =
+        HandwritingUiState.showsLanguage(language)
+
+    fun handwritingStatus(status: HandwritingStatus): String =
+        HandwritingUiState.statusMessage(status)
+
+    fun handwritingCandidate(text: String, primary: Boolean = false): String =
+        if (primary) "Primary handwriting $text" else "Handwriting $text"
+
     fun longPress(label: String): String = "Alternates for $label"
 
     fun key(key: KeySpec): String = when (key.action) {

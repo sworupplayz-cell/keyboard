@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 31
+# Simple Nepali Keyboard — Phase 32
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 31 is an IME reliability pass: lifecycle hide/show, InputConnection safety, editor-type compatibility, and suggestion-cache fingerprints. Phases 25–30 stay in place.
+Phase 32 adds a real offline handwriting **pipeline** (stroke normalize/rasterize, model-loading boundary, cancellable jobs, password blocking). It does **not** bundle a recognizer model. Confirm still reports unavailable. Phases 25–31 stay in place.
 
 Floating IME and handwriting recognition remain unavailable. Prediction is deterministic and offline, not a cloud or neural model.
 
@@ -70,7 +70,7 @@ See [`docs/LANGUAGE.md`](docs/LANGUAGE.md) for offline intelligence, [`docs/QUAL
 
 ## Handwriting recognition limitation
 
-The handwriting UI and offline recognition interface are complete, but this build deliberately does **not** bundle a Nepali recognition model. Android has no lightweight public Nepali stroke recognizer. The evaluated ML Kit option requires an approximately 20 MB language-model download and native runtime, which conflicts with the no-download and lightweight requirements. Confirm therefore reports that recognition is unavailable and never changes existing text. See [`docs/HANDWRITING.md`](docs/HANDWRITING.md) for the size assessment and future integration contract.
+The handwriting canvas, preprocessing, model-loading boundary, and insertion path are in place, but this build deliberately does **not** bundle a Nepali or English recognition model. There is no legally licensed, word-level, offline Devanagari TFLite file that can be committed here, and this sandbox cannot train one. Confirm therefore reports that recognition is unavailable and never changes existing text. See [`docs/HANDWRITING.md`](docs/HANDWRITING.md) for the research, rejected options, and the exact asset contract for a future model.
 
 ## Floating keyboard limitation
 

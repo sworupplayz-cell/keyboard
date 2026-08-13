@@ -7,9 +7,11 @@ data class HandwritingInk(val strokes: List<InkStroke>)
 enum class HandwritingStatus {
     EMPTY,
     READY,
+    RECOGNIZING,
     RESULTS,
     NO_MATCH,
-    RECOGNIZER_UNAVAILABLE
+    RECOGNIZER_UNAVAILABLE,
+    BLOCKED
 }
 
 data class HandwritingRecognition(
@@ -44,6 +46,8 @@ class HandwritingInputState(
 
     val strokeCount: Int get() = strokes.size
 
+    fun snapshot(): HandwritingInk = HandwritingInk(strokes.map { InkStroke(it.points.toList()) })
+
     fun addStroke(points: List<InkPoint>): Boolean {
         if (points.size < 2) return false
         strokes += InkStroke(points.toList())
@@ -68,7 +72,7 @@ class HandwritingInputState(
 
     fun cancel() = clear()
 
-    fun recognize(): HandwritingRecognition {
+    fun recognize(language: KeyboardLanguage = KeyboardLanguage.NEPALI): HandwritingRecognition {
         if (strokes.isEmpty()) {
             status = HandwritingStatus.EMPTY
             candidates = emptyList()
@@ -80,19 +84,26 @@ class HandwritingInputState(
             return HandwritingRecognition(candidates, status)
         }
 
-        candidates = recognizer.recognize(HandwritingInk(strokes.toList()))
+        val prepared = HandwritingPreprocessor.prepare(snapshot())
+        if (prepared.empty) {
+            status = HandwritingStatus.NO_MATCH
+            candidates = emptyList()
+            return HandwritingRecognition(candidates, status)
+        }
+        candidates = recognizer.recognize(prepared.ink)
             .asSequence()
-            .map(String::trim)
-            .filter { candidate ->
-                candidate.isNotEmpty() && candidate.all { character ->
-                    character.isWhitespace() || character.code in DEVANAGARI_RANGE
-                }
-            }
+            .map(HandwritingUnicode::normalize)
+            .filter { candidate -> HandwritingUnicode.allowedForLanguage(candidate, language) }
             .distinct()
             .take(MAX_CANDIDATES)
             .toList()
         status = if (candidates.isEmpty()) HandwritingStatus.NO_MATCH else HandwritingStatus.RESULTS
         return HandwritingRecognition(candidates, status)
+    }
+
+    fun blockSensitiveField() {
+        candidates = emptyList()
+        status = HandwritingStatus.BLOCKED
     }
 
     fun confirm(candidateIndex: Int = 0): String? {
@@ -103,6 +114,5 @@ class HandwritingInputState(
 
     companion object {
         private const val MAX_CANDIDATES = 3
-        private val DEVANAGARI_RANGE = 0x0900..0x097F
     }
 }

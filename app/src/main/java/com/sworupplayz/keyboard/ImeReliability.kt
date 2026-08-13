@@ -87,6 +87,11 @@ object ImeLifecyclePolicy {
 
     fun shouldOpenNumberPadOnNewField(inputType: Int, restarting: Boolean): Boolean =
         !restarting && shouldPreferNumberPad(inputType)
+
+    fun shouldCancelHandwritingOnHide(): Boolean = HandwritingLifecyclePolicy.shouldCancelOnHide()
+
+    fun shouldCancelHandwritingOnFieldChange(): Boolean =
+        HandwritingLifecyclePolicy.shouldCancelOnFieldChange()
 }
 
 object ImeTouchLifecycle {
