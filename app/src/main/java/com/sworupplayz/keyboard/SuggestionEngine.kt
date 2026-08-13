@@ -101,10 +101,15 @@ class SuggestionEngine(
         if (!query.includeTypos) return compact
         val extras = (
             TypoCorrector.missingLetterCandidates(input, english::contains) +
+                TypoCorrector.extraCandidates(input, english::contains) +
                 TypoCorrector.commonCorrections(input, english::contains) +
                 TypoCorrector.commonCorrections(input) { true }
             ).distinct()
-            .filter { candidate -> compact.none { it.equals(candidate, ignoreCase = true) } }
+            .filter { candidate ->
+                compact.none { it.equals(candidate, ignoreCase = true) } &&
+                    (CorrectionPolicy.shouldOfferTypo(input, candidate) ||
+                        TypoCorrector.commonCorrections(input).any { it.equals(candidate, ignoreCase = true) })
+            }
         if (extras.isEmpty()) return compact
         if (!onlyTypedFallback && compact.size >= limit) return compact
         return SuggestionRanker.rank(

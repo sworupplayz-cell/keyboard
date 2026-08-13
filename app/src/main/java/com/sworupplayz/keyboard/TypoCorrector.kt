@@ -80,10 +80,26 @@ object TypoCorrector {
         if (isVowelDeletion(left, right) || isNearbySubstitution(left, right) || isAdjacentTransposition(left, right)) {
             return true
         }
+        if (isMissingLetter(left, right) && (right.length - left.length) == 1 && left.length >= 3) {
+            return true
+        }
+        if (isExtraCharacter(left, right)) {
+            return true
+        }
         if (left.length >= 5 && damerauDistance(left, right) == 1 && isNearbyInsertion(left, right)) {
             return true
         }
         return collapseRepeats(left) == right
+    }
+
+    fun isExtraCharacter(typed: String, candidate: String): Boolean {
+        val left = typed.lowercase(Locale.ENGLISH)
+        val right = candidate.lowercase(Locale.ENGLISH)
+        if (left.length != right.length + 1 || right.length < 3) return false
+        left.indices.forEach { index ->
+            if (left.removeRange(index, index + 1) == right) return true
+        }
+        return false
     }
 
     fun extraCandidates(input: String, known: (String) -> Boolean): List<String> {
@@ -103,6 +119,12 @@ object TypoCorrector {
                     val inserted = normalized.substring(0, index) + neighbor + normalized.substring(index)
                     if (known(inserted)) results += inserted
                 }
+            }
+        }
+        if (normalized.length >= 4) {
+            normalized.indices.forEach { index ->
+                val dropped = normalized.removeRange(index, index + 1)
+                if (known(dropped)) results += dropped
             }
         }
         COMMON_PHONETIC[normalized]?.forEach { if (known(it)) results += it }
@@ -164,17 +186,32 @@ object TypoCorrector {
 
     private val COMMON_PHONETIC = mapOf(
         "teh" to listOf("the"),
+        "taht" to listOf("that"),
+        "adn" to listOf("and"),
+        "whihc" to listOf("which"),
+        "thier" to listOf("their"),
         "recieve" to listOf("receive"),
         "recieved" to listOf("received"),
         "seperate" to listOf("separate"),
         "occured" to listOf("occurred"),
+        "definately" to listOf("definitely"),
+        "tommorrow" to listOf("tomorrow"),
+        "untill" to listOf("until"),
+        "wich" to listOf("which"),
         "becuase" to listOf("because"),
-        "nepai" to listOf("nepali")
+        "nepai" to listOf("nepali"),
+        "neplai" to listOf("nepali")
     )
 
     private val COMMON_CORRECTIONS = mapOf(
         "teh" to listOf("the"),
+        "taht" to listOf("that"),
+        "adn" to listOf("and"),
         "recieve" to listOf("receive"),
-        "nepai" to listOf("nepali")
+        "definately" to listOf("definitely"),
+        "seperate" to listOf("separate"),
+        "occured" to listOf("occurred"),
+        "nepai" to listOf("nepali"),
+        "neplai" to listOf("nepali")
     )
 }

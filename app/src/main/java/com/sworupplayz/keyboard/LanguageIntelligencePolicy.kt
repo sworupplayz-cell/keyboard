@@ -21,4 +21,7 @@ object LanguageIntelligencePolicy {
 
     fun allowMixedEnglish(language: KeyboardLanguage): Boolean =
         language == KeyboardLanguage.ROMAN || language == KeyboardLanguage.ENGLISH
+
+    fun staysInSelectedMode(current: KeyboardLanguage, typed: String): Boolean =
+        keepManualMode(current, typed) == current
 }

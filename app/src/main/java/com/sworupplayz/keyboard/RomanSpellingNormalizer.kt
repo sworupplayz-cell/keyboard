@@ -68,9 +68,23 @@ object RomanSpellingNormalizer {
         }
 
         if ("ee" in collapsed) add(collapsed.replace("ee", "i"))
+        if ("ii" in collapsed) add(collapsed.replace("ii", "ee"))
         if ("oo" in collapsed) add(collapsed.replace("oo", "u"))
+        if ("uu" in collapsed) add(collapsed.replace("uu", "oo"))
         if ("ph" in collapsed) add(collapsed.replace("ph", "f"))
         if ('f' in collapsed) add(collapsed.replace("f", "ph"))
+        if ("ny" in collapsed) {
+            add(collapsed.replace("ny", "n"))
+            add(collapsed.replace("ny", "ni"))
+        }
+        if ("ñ" in normalized) {
+            add(normalized.replace("ñ", "n"))
+            add(normalized.replace("ñ", "ny"))
+        }
+        if (collapsed.endsWith("chu") && !collapsed.endsWith("chhu")) {
+            add(collapsed.dropLast(3) + "chhu")
+        }
+        if (collapsed.endsWith("chhu")) add(collapsed.dropLast(4) + "chu")
 
         return forms.toList()
     }
@@ -113,6 +127,9 @@ object RomanSpellingNormalizer {
         if ("sh" in value) {
             add(value.replace("sh", "s"))
             add(value.replace("sh", "shh"))
+        } else if ('s' in value && "ss" !in value && "sh" !in value) {
+            add(value.replaceFirst("s", "sh"))
         }
+        if ("bh" in value) add(value.replace("bh", "b"))
     }
 }

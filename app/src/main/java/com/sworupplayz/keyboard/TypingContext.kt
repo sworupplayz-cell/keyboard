@@ -206,8 +206,15 @@ object MixedLanguagePolicy {
         if (normalized in keepEnglish && !hasNepaliEntry) return true
         if (!hasNepaliEntry) return false
         if (previous == null) return false
-        return normalized in keepEnglish && (previous in keepEnglish || previous in STRONG_ENGLISH_PREVIOUS)
+        if (normalized in keepEnglish && (previous in keepEnglish || previous in STRONG_ENGLISH_PREVIOUS)) {
+            return true
+        }
+        return normalized in keepEnglish && looksEnglish(previousWord.orEmpty()) && previous !in NEPALI_CONTEXT
     }
+
+    private val NEPALI_CONTEXT = setOf(
+        "ma", "mero", "malai", "timi", "tapai", "yo", "tyo", "ho", "cha", "chha", "ghar"
+    )
 
     fun looksEnglish(word: String): Boolean =
         word.isNotEmpty() && word.all { it in 'A'..'Z' || it in 'a'..'z' || it == '\'' }

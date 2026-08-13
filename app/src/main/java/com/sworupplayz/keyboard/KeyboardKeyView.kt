@@ -2,6 +2,7 @@ package com.sworupplayz.keyboard
 
 import android.content.Context
 import android.graphics.Typeface
+import android.graphics.drawable.InsetDrawable
 import android.util.TypedValue
 import android.view.Gravity
 import android.widget.LinearLayout
@@ -36,21 +37,26 @@ class KeyboardKeyView(context: Context) : TextView(context) {
         radiusPx: Float,
         shadowPx: Int,
         borderColor: Int? = null,
-        pressedEnabled: Boolean = true
+        pressedEnabled: Boolean = true,
+        edge: KeyEdge = KeyEdge.MIDDLE,
+        fontScale: Float = 1f
     ) {
         val role = KeyVisuals.role(key)
         text = key.label
         contentDescription = AccessibilityLabels.key(key)
         setTextSize(
             TypedValue.COMPLEX_UNIT_SP,
-            KeyVisuals.letterTextSizeSp(key.label, compactScreen, role)
+            KeyboardUiMetrics.cappedLetterTextSp(
+                KeyVisuals.letterTextSizeSp(key.label, compactScreen, role),
+                fontScale
+            )
         )
         setTypeface(
             Typeface.SANS_SERIF,
             if (role == KeyVisualRole.LETTER || role == KeyVisualRole.SPACE) Typeface.NORMAL else Typeface.BOLD
         )
         setTextColor(KeyboardTheme.textColor(role, palette, active))
-        background = KeyboardTheme.keyBackground(
+        val fill = KeyboardTheme.keyBackground(
             KeyboardTheme.fillColor(role, palette, active),
             radiusPx,
             palette.shadow,
@@ -58,9 +64,10 @@ class KeyboardKeyView(context: Context) : TextView(context) {
             borderColor,
             pressedEnabled
         )
+        val horizontal = KeyTouchPolicy.horizontalInsets(horizontalGapPx, edge)
+        val vertical = KeyTouchPolicy.verticalInsets(verticalGapPx)
+        background = InsetDrawable(fill, horizontal.first, vertical.first, horizontal.second, vertical.second)
         elevation = 0f
-        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, key.width).apply {
-            setMargins(horizontalGapPx, verticalGapPx, horizontalGapPx, verticalGapPx)
-        }
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, key.width)
     }
 }

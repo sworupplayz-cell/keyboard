@@ -76,6 +76,12 @@ object KeyboardUiMetrics {
 
     fun keyMarginDp(screenWidthDp: Int): Int = if (screenWidthDp < 360) 1 else 2
 
+    fun cappedLetterTextSp(baseSp: Float, fontScale: Float): Float {
+        val scale = if (fontScale <= 0f) 1f else fontScale
+        val cap = 1.15f
+        return if (scale <= cap) baseSp else baseSp * cap / scale
+    }
+
     fun maxToolbarItems(screenWidthDp: Int): Int = when {
         screenWidthDp < 340 -> 4
         screenWidthDp < 400 -> 5

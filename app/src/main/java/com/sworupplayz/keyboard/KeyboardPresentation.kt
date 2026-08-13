@@ -77,9 +77,19 @@ object AccessibilityLabels {
 
     fun panel(name: String): String = name
 
+    fun enter(imeOptions: Int = 0): String = EnterActionPolicy.spokenLabel(imeOptions)
+
+    fun language(language: KeyboardLanguage): String = when (language) {
+        KeyboardLanguage.ENGLISH -> "English"
+        KeyboardLanguage.NEPALI -> "Nepali"
+        KeyboardLanguage.ROMAN -> "Roman Nepali"
+    }
+
+    fun longPress(label: String): String = "Alternates for $label"
+
     fun key(key: KeySpec): String = when (key.action) {
         KeyAction.BACKSPACE -> "Backspace"
-        KeyAction.ENTER -> "Enter"
+        KeyAction.ENTER -> if (key.label.isNotBlank() && key.label != "↵") key.label else "Enter"
         KeyAction.SHIFT -> "Shift"
         KeyAction.SPACE -> "Space"
         KeyAction.LANGUAGE -> "Next language"

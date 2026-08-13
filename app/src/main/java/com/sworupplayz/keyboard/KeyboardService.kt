@@ -7,6 +7,8 @@ import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
 import android.media.AudioManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -137,6 +139,10 @@ class KeyboardService : InputMethodService() {
     private val toolbar = ToolbarController()
     private val languagePicker = LanguagePickerState()
     private val activationGuard = ActivationGuard()
+    private val keyBounce = ActivationGuard(KeyTouchPolicy.KEY_BOUNCE_MS)
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var backspaceRepeat: Runnable? = null
+    private val boundTypingKeys = ArrayList<BoundTypingKey>()
     private var lastSuggestionWords: List<String> = emptyList()
     private var overlayDismissView: View? = null
     private var clipboardHistory = ClipboardRepository()
@@ -209,6 +215,8 @@ class KeyboardService : InputMethodService() {
         toolbar.reset()
         languagePicker.dismiss()
         activationGuard.reset()
+        keyBounce.reset()
+        stopBackspaceRepeat()
         lastSuggestionWords = emptyList()
         captureClipboard()
         resetShift()
@@ -235,6 +243,7 @@ class KeyboardService : InputMethodService() {
     }
 
     override fun onFinishInput() {
+        stopBackspaceRepeat()
         if (romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()) {
             currentInputConnection?.finishComposingText()
             romanComposer.reset()
@@ -247,6 +256,11 @@ class KeyboardService : InputMethodService() {
         suggestionRow = null
         hideOverlays()
         super.onFinishInput()
+    }
+
+    override fun onDestroy() {
+        stopBackspaceRepeat()
+        super.onDestroy()
     }
 
     override fun onUpdateSelection(
@@ -418,7 +432,9 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun renderKeyboard() {
+        stopBackspaceRepeat()
         hideOverlays()
+        boundTypingKeys.clear()
         val colors = keyboardColors()
         applyPresentationPadding(colors)
         keyboardRoot.removeAllViews()
@@ -485,7 +501,15 @@ class KeyboardService : InputMethodService() {
                 row,
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(rowHeight))
             )
-            keys.forEach { key -> row.addView(createKeyButton(key, colors)) }
+            keys.forEachIndexed { index, key ->
+                val edge = when {
+                    keys.size == 1 -> KeyEdge.ALONE
+                    index == 0 -> KeyEdge.START
+                    index == keys.lastIndex -> KeyEdge.END
+                    else -> KeyEdge.MIDDLE
+                }
+                row.addView(createKeyButton(key, colors, edge))
+            }
         }
     }
 
@@ -1391,56 +1415,101 @@ class KeyboardService : InputMethodService() {
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun createKeyButton(key: KeySpec, colors: KeyboardPalette): View {
+    private fun createKeyButton(
+        rawKey: KeySpec,
+        colors: KeyboardPalette,
+        edge: KeyEdge = KeyEdge.MIDDLE
+    ): View {
         val compactScreen = resources.configuration.screenWidthDp < 360
-        val horizontalGap = if (key.compact) {
+        val horizontalGap = if (rawKey.compact) {
             dp(KeyboardTheme.COMPACT_HORIZONTAL_GAP_DP)
         } else {
             preferredKeyMargin()
         }
+        val imeOptions = currentInputEditorInfo?.imeOptions ?: 0
+        val stored = baseSpec(rawKey)
+        val key = displayKey(stored, ShiftPolicy.lettersUppercase(shiftState), imeOptions)
         return KeyboardKeyView(this).apply {
-            bind(
-                key = key,
-                palette = colors,
-                active = isActiveKey(key),
-                compactScreen = compactScreen,
-                horizontalGapPx = horizontalGap,
-                verticalGapPx = dp(KeyboardTheme.KEY_VERTICAL_GAP_DP / 2),
-                radiusPx = dp(KeyboardUiMetrics.cornerRadiusDp(keyCorner)).toFloat(),
-                shadowPx = if (themeStyle.shadows) dp(KeyboardTheme.SHADOW_DP) else 0,
-                borderColor = if (themeStyle.borders) colors.divider else null,
-                pressedEnabled = themeStyle.pressedHighlight
-            )
+            bindTypingKey(this, key, colors, compactScreen, horizontalGap, edge)
             if (key.action == KeyAction.SETTINGS) {
                 contentDescription = getString(R.string.settings_key_description)
             }
             if (key.action == KeyAction.SHIFT) {
                 contentDescription = AccessibilityLabels.shift(ShiftPolicy.isCapsLock(shiftState))
             }
+            if (key.action == KeyAction.ENTER) {
+                contentDescription = AccessibilityLabels.enter(imeOptions)
+            }
+            if (key.action == KeyAction.SPACE) {
+                contentDescription = AccessibilityLabels.space(language)
+            }
+            if (layoutMode == LayoutMode.LETTERS || layoutMode == LayoutMode.VOWELS ||
+                layoutMode == LayoutMode.NUMBERS || layoutMode == LayoutMode.SYMBOLS
+            ) {
+                boundTypingKeys += BoundTypingKey(this, stored, edge)
+            }
+            var cancelled = false
+            var handledOnDown = false
+            var feedbackGiven = false
+            var downX = 0f
+            var downY = 0f
+            fun liveKey(): KeySpec = displayKey(
+                stored,
+                ShiftPolicy.lettersUppercase(shiftState),
+                currentInputEditorInfo?.imeOptions ?: 0
+            )
             setOnClickListener {
                 if (consumeChooserTap()) return@setOnClickListener
+                if (handledOnDown || cancelled) return@setOnClickListener
                 hideOverlays()
-                giveFeedback(key.action)
-                handleKey(key)
+                val live = liveKey()
+                if (!feedbackGiven) giveFeedback(live.action)
+                handleKey(live)
             }
             setOnTouchListener { view, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
-                        if (KeyInteractionPolicy.showsPreview(key)) {
+                        cancelled = false
+                        handledOnDown = false
+                        feedbackGiven = false
+                        downX = event.x
+                        downY = event.y
+                        val live = liveKey()
+                        if (KeyInteractionPolicy.showsPreview(live)) {
                             val landscape = resources.configuration.orientation ==
                                 Configuration.ORIENTATION_LANDSCAPE
                             previewView?.showAbove(
                                 view,
                                 overlayHost,
-                                KeyInteractionPolicy.previewLabel(key),
-                                KeyInteractionPolicy.previewTextSizeSp(key.label, compactScreen),
+                                KeyInteractionPolicy.previewLabel(live),
+                                KeyInteractionPolicy.previewTextSizeSp(live.label, compactScreen),
                                 KeyboardUiMetrics.previewWidthDp(resources.configuration.screenWidthDp, landscape),
                                 KeyboardUiMetrics.previewHeightDp(resources.configuration.screenWidthDp, landscape)
                             )
                         }
+                        if (key.action != KeyAction.SETTINGS && key.action != KeyAction.TOOLBAR_MORE) {
+                            giveFeedback(key.action)
+                            feedbackGiven = true
+                        }
+                        if (KeyTouchPolicy.commitsOnDown(key.action)) {
+                            hideOverlays()
+                            handleKey(key)
+                            handledOnDown = true
+                            startBackspaceRepeat()
+                        }
                     }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_OUTSIDE ->
+                    MotionEvent.ACTION_MOVE -> {
+                        if (!KeyTouchPolicy.staysOnKey(downX, downY, event.x, event.y, view.width, view.height)) {
+                            cancelled = true
+                            previewView?.dismiss()
+                            stopBackspaceRepeat()
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_OUTSIDE -> {
                         previewView?.dismiss()
+                        stopBackspaceRepeat()
+                        if (event.actionMasked != MotionEvent.ACTION_UP) cancelled = true
+                    }
                 }
                 false
             }
@@ -1536,6 +1605,7 @@ class KeyboardService : InputMethodService() {
     private fun handleKey(key: KeySpec) {
         when (key.action) {
             KeyAction.TEXT -> {
+                if (!keyBounce.allow("text:${key.output}", SystemClock.uptimeMillis())) return
                 if (layoutMode == LayoutMode.EMOJI && emojiCategory == EmojiCategory.SEARCH &&
                     key.output.all(Char::isLetter)
                 ) {
@@ -1910,8 +1980,8 @@ class KeyboardService : InputMethodService() {
             return
         }
         applyRomanEdit(edit)
-        if (text.firstOrNull()?.isLetter() == true && consumeOneShotShift()) {
-            renderKeyboard()
+        if (ShiftPolicy.consumesOneShot(text) && consumeOneShotShift()) {
+            refreshTypingKeys()
         } else {
             updateSuggestionRow()
         }
@@ -1938,8 +2008,8 @@ class KeyboardService : InputMethodService() {
             internalSelectionChange = true
         }
         InputConnectionCommitter.commit(currentInputConnection, text)
-        if (language == KeyboardLanguage.ENGLISH && text.firstOrNull()?.isLetter() == true && consumeOneShotShift()) {
-            renderKeyboard()
+        if (language == KeyboardLanguage.ENGLISH && ShiftPolicy.consumesOneShot(text) && consumeOneShotShift()) {
+            refreshTypingKeys()
         }
     }
 
@@ -1965,18 +2035,115 @@ class KeyboardService : InputMethodService() {
 
     private fun sendEnter() {
         val connection = currentInputConnection ?: return
-        val action = currentInputEditorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION)
-            ?: EditorInfo.IME_ACTION_NONE
-        val supportsAction = action != EditorInfo.IME_ACTION_NONE &&
-            action != EditorInfo.IME_ACTION_UNSPECIFIED &&
-            currentInputEditorInfo?.imeOptions?.and(EditorInfo.IME_FLAG_NO_ENTER_ACTION) == 0
-
-        if (supportsAction) {
-            connection.performEditorAction(action)
+        val options = currentInputEditorInfo?.imeOptions ?: 0
+        if (EnterActionPolicy.shouldPerformAction(options)) {
+            connection.performEditorAction(EnterActionPolicy.actionId(options))
         } else {
             connection.commitText("\n", 1)
         }
     }
+
+    private fun startBackspaceRepeat() {
+        stopBackspaceRepeat()
+        val task = object : Runnable {
+            private var repeats = 0
+            override fun run() {
+                handleKey(KeySpec("⌫", KeyAction.BACKSPACE))
+                repeats = BackspaceRepeatPolicy.nextRepeatCount(repeats)
+                mainHandler.postDelayed(this, BackspaceRepeatPolicy.intervalMs(repeats))
+            }
+        }
+        backspaceRepeat = task
+        mainHandler.postDelayed(task, BackspaceRepeatPolicy.INITIAL_DELAY_MS)
+    }
+
+    private fun stopBackspaceRepeat() {
+        backspaceRepeat?.let(mainHandler::removeCallbacks)
+        backspaceRepeat = null
+    }
+
+    private fun displayKey(key: KeySpec, uppercase: Boolean, imeOptions: Int): KeySpec = when (key.action) {
+        KeyAction.SHIFT -> key.copy(label = ShiftPolicy.label(shiftState))
+        KeyAction.ENTER -> key.copy(label = EnterActionPolicy.label(imeOptions))
+        KeyAction.SPACE -> key.copy(label = language.spaceLabel(), output = " ")
+        KeyAction.TEXT -> {
+            if (key.output.length == 1 && key.output[0].isLetter() && key.output[0].code < 128) {
+                val text = if (uppercase) key.output.uppercase() else key.output.lowercase()
+                key.copy(label = text, output = text)
+            } else {
+                key
+            }
+        }
+        else -> key
+    }
+
+    private fun baseSpec(key: KeySpec): KeySpec {
+        if (key.action == KeyAction.TEXT && key.output.length == 1 && key.output[0].isLetter() && key.output[0].code < 128) {
+            val lower = key.output.lowercase()
+            return key.copy(label = lower, output = lower)
+        }
+        if (key.action == KeyAction.SHIFT) return key.copy(label = "⇧")
+        return key
+    }
+
+    private fun bindTypingKey(
+        view: KeyboardKeyView,
+        key: KeySpec,
+        colors: KeyboardPalette,
+        compactScreen: Boolean,
+        horizontalGap: Int,
+        edge: KeyEdge
+    ) {
+        view.bind(
+            key = key,
+            palette = colors,
+            active = isActiveKey(key),
+            compactScreen = compactScreen,
+            horizontalGapPx = horizontalGap,
+            verticalGapPx = dp(KeyboardTheme.KEY_VERTICAL_GAP_DP / 2),
+            radiusPx = dp(KeyboardUiMetrics.cornerRadiusDp(keyCorner)).toFloat(),
+            shadowPx = if (themeStyle.shadows) dp(KeyboardTheme.SHADOW_DP) else 0,
+            borderColor = if (themeStyle.borders) colors.divider else null,
+            pressedEnabled = themeStyle.pressedHighlight,
+            edge = edge,
+            fontScale = resources.configuration.fontScale
+        )
+    }
+
+    private fun refreshTypingKeys() {
+        if (boundTypingKeys.isEmpty() ||
+            (layoutMode != LayoutMode.LETTERS && layoutMode != LayoutMode.VOWELS)
+        ) {
+            renderKeyboard()
+            return
+        }
+        val colors = keyboardColors()
+        val compactScreen = resources.configuration.screenWidthDp < 360
+        val uppercase = ShiftPolicy.lettersUppercase(shiftState)
+        val imeOptions = currentInputEditorInfo?.imeOptions ?: 0
+        boundTypingKeys.forEach { bound ->
+            val horizontalGap = if (bound.spec.compact) {
+                dp(KeyboardTheme.COMPACT_HORIZONTAL_GAP_DP)
+            } else {
+                preferredKeyMargin()
+            }
+            val key = displayKey(bound.spec, uppercase, imeOptions)
+            bindTypingKey(bound.view, key, colors, compactScreen, horizontalGap, bound.edge)
+            when (key.action) {
+                KeyAction.SHIFT -> bound.view.contentDescription =
+                    AccessibilityLabels.shift(ShiftPolicy.isCapsLock(shiftState))
+                KeyAction.ENTER -> bound.view.contentDescription = AccessibilityLabels.enter(imeOptions)
+                KeyAction.SPACE -> bound.view.contentDescription = AccessibilityLabels.space(language)
+                else -> Unit
+            }
+        }
+    }
+
+    private data class BoundTypingKey(
+        val view: KeyboardKeyView,
+        val spec: KeySpec,
+        val edge: KeyEdge
+    )
 
     private fun giveFeedback(action: KeyAction, kind: FeedbackKind = FeedbackKind.KEY) {
         if (TouchFeedbackPolicy.shouldPlaySound(useSound, kind)) {

@@ -1,0 +1,41 @@
+# Core keyboard quality
+
+Phase 21 tightens the existing IME so everyday typing feels closer to a production keyboard. It does not replace English, Nepali, or Roman engines, and it does not change the Gboard-style appearance system.
+
+## Touch
+
+`KeyTouchPolicy` keeps the visual key the same size and lets the view fill its cell. Edge keys use a smaller outer inset so they stay reachable. The key that received `ACTION_DOWN` owns the gesture; sliding far enough cancels preview, backspace repeat, and the click. Letter keys ignore bounces shorter than 32 ms. Toolbar chrome still uses the longer activation guard.
+
+Feedback plays on press. Character keys still commit on lift unless the gesture was cancelled. Backspace commits on press so held delete can start immediately.
+
+## Backspace
+
+A single tap still deletes one grapheme (`GraphemeBackspace`): Devanagari clusters, combining marks, emoji, ZWJ sequences, flags, and skin tones. Holding backspace waits 400 ms, then repeats one grapheme at a time. The interval shortens after several repeats. `ACTION_UP`, `CANCEL`, leaving the key, hiding the IME, or destroying the service stop the `Handler` callback.
+
+The composing-word tracker uses the same grapheme rule so suggestions stay aligned with the editor.
+
+## Shift and Enter
+
+English is still one-shot shift, then double-tap caps lock. Punctuation, space, and backspace do not consume one-shot shift. Nepali never capitalizes. Roman stays one-shot only. After a letter consumes one-shot shift, letter labels refresh in place instead of rebuilding the whole keyboard.
+
+Enter follows the target field's `EditorInfo` action: Search, Go, Send, Next, Done, or a newline when the app asks for none. The key label and spoken name match that action. The space bar still shows English / नेपाली / Roman.
+
+## Suggestions and typos
+
+The strip still shows at most three candidates, with the strongest in the center. Ranking prefers exact prefixes, then context, learned/recent words, frequency, and only then high-confidence typos. Unknown text is never auto-replaced. Extra conservative typo shapes: nearby keys, missing/extra letters, transpositions, repeats, and a small common-mistake list.
+
+## Roman Nepali and mixed language
+
+`RomanSpellingNormalizer` now also maps `ee/i`, `oo/u`, `ii/ee`, `sh/s`, `ph/f`, `ny/n`, and informal `chu/chhu` endings. Mixed sentences stay in the user-selected mode:
+
+- `ma school jaanchu` → `म school जान्छु`
+- `I am ghar` → `I am घर`
+- `Nepali is awesome` stays English
+- `today ma school jaanchu` → `today म school जान्छु`
+- `mero phone good cha` → `मेरो phone good छ`
+
+## Punctuation and screens
+
+Comma, period, `?`, `!`, `:`, `;`, `%`, danda, quotes, and brackets still attach conservatively. URLs, emails, mentions, hashtags, and decimals are left alone.
+
+Narrow phones still skip one-handed gutters. Letter text is capped under large font scales so keys are not enlarged just for accessibility. Existing default height formulas are unchanged.

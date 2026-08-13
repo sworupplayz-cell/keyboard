@@ -33,6 +33,11 @@ object ShiftPolicy {
     fun afterLetter(current: ShiftLockState): ShiftLockState =
         if (current == ShiftLockState.ONE_SHOT) ShiftLockState.OFF else current
 
+    fun afterNonLetter(current: ShiftLockState): ShiftLockState = current
+
+    fun consumesOneShot(text: String): Boolean =
+        text.isNotEmpty() && text.first().isLetter()
+
     fun isActive(state: ShiftLockState): Boolean = state != ShiftLockState.OFF
 
     fun lettersUppercase(state: ShiftLockState): Boolean = state != ShiftLockState.OFF

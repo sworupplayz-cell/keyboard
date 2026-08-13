@@ -207,8 +207,7 @@ class DirectTypingState {
 
     fun backspace(): Boolean {
         if (currentWord.isEmpty()) return false
-        val lastCodePointStart = currentWord.offsetByCodePoints(currentWord.length, -1)
-        currentWord = currentWord.substring(0, lastCodePointStart)
+        currentWord = GraphemeBackspace.apply(currentWord)
         return true
     }
 
