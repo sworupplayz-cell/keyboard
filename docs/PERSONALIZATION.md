@@ -38,6 +38,10 @@ Tap cycles **EN → नेपाली → Roman**. Long-press opens a picker wi
 
 One-handed mode is padding-only. Suggestion, toolbar, and letter rows share the same width. Reset layout restores one-handed mode and the toolbar. Reset all settings does not delete learned words or clipboard history.
 
+## Custom words
+
+Uncommon but legitimate words — names, surnames, school names, slang — can be learned after a suggestion tap or two finishes. `PersonalDictionary.looksLegitimateCustomWord` rejects URLs, tokens, and vowel-less junk. Title-case tokens may be treated as personal names, but arbitrary text is never classified as a name just because it is unknown.
+
 ## Prediction personalization
 
 Phase 23 keeps learning on-device and bounded.

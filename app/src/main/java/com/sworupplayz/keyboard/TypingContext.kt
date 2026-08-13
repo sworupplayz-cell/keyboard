@@ -115,11 +115,28 @@ object CapitalizationPolicy {
     }
 
     fun applyToWord(word: String, textBeforeCursor: String, enabled: Boolean = true): String {
-        if (word.isEmpty() || !shouldCapitalize(textBeforeCursor, enabled)) return word
+        if (word.isEmpty()) return word
+        if (SpecialTokenPolicy.blocksCapitalization(textBeforeCursor)) return word
+        if (isProperNoun(word) && !shouldCapitalize(textBeforeCursor, enabled)) return word
+        if (!shouldCapitalize(textBeforeCursor, enabled)) return word
         val first = word.first()
         if (!first.isLetter() || first.isUpperCase()) return word
         return word.replaceFirstChar { it.titlecase(Locale.ENGLISH) }
     }
+
+    fun isProperNoun(word: String): Boolean {
+        val clean = word.trim()
+        if (clean.isEmpty() || clean.any { it.code in 0x0900..0x097F }) return false
+        val lower = clean.lowercase(Locale.ENGLISH)
+        if (lower in PROPER_NOUNS) return true
+        return clean.length > 1 && clean.first().isUpperCase() &&
+            clean.drop(1).all { !it.isLetter() || it.isLowerCase() }
+    }
+
+    private val PROPER_NOUNS = setOf(
+        "nepal", "nepali", "kathmandu", "pokhara", "lalitpur", "bhaktapur",
+        "google", "youtube", "facebook", "instagram", "whatsapp"
+    )
 
     fun applyIncomingLetter(letter: String, textBeforeCursor: String, enabled: Boolean = true): String {
         if (!enabled || letter.length != 1 || !letter[0].isLowerCase()) return letter
@@ -162,8 +179,9 @@ object PunctuationSpacing {
         if (incoming.length == 1 && mark in ATTACH_LEFT) {
             val protectedToken = SpecialTokenPolicy.isProtectedContext(textBeforeCursor.trimEnd())
             val decimal = mark == '.' && SpecialTokenPolicy.looksLikeNumber(SpecialTokenPolicy.tokenAtEnd(textBeforeCursor))
+            val username = mark == '.' && SpecialTokenPolicy.looksLikeMentionOrHashtag(SpecialTokenPolicy.tokenAtEnd(textBeforeCursor))
             val deleteBefore = if (textBeforeCursor.endsWith(' ') && !protectedToken && !decimal) 1 else 0
-            val trailing = mark in TRAILING_SPACE && !protectedToken && !decimal
+            val trailing = mark in TRAILING_SPACE && !protectedToken && !decimal && !username
             return SpacingPlan(deleteBefore = deleteBefore, insertTrailingSpace = trailing, text = incoming)
         }
         if (incoming.length == 1 && incoming[0].isLetter() && textBeforeCursor.isNotEmpty()) {
@@ -226,6 +244,9 @@ object MixedLanguagePolicy {
         if (normalized.isEmpty()) return false
         val original = originalWord ?: word
         val previous = previousWord?.trim()?.lowercase(Locale.ENGLISH)
+        if (isCapitalizedEnglish(original) && normalized in PROPER_NOUNS) {
+            return true
+        }
         if (isCapitalizedEnglish(original) && (previous == null || isEnglishContext(previous, keepEnglish))) {
             return true
         }
@@ -240,6 +261,12 @@ object MixedLanguagePolicy {
 
     private val NEPALI_CONTEXT = setOf(
         "ma", "mero", "malai", "timi", "tapai", "yo", "tyo", "ho", "cha", "chha", "ghar"
+    )
+
+    private val PROPER_NOUNS = setOf(
+        "kathmandu", "pokhara", "lalitpur", "bhaktapur", "nepal", "biratnagar",
+        "butwal", "dharan", "google", "facebook", "youtube", "instagram", "whatsapp",
+        "android", "iphone"
     )
 
     fun looksEnglish(word: String): Boolean =

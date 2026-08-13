@@ -111,9 +111,20 @@ object CandidateIdentity {
         )
     }
 
+    /** Collapses hello / hellos / hello's without merging hello / help / he'll. */
+    fun familyKey(word: String): String {
+        val canon = canonical(word)
+        if (canon.length <= 4) return canon
+        if (canon.endsWith("'s")) return canon.dropLast(2)
+        if (canon.endsWith('s') && !canon.endsWith("ss") && !canon.endsWith("us") && !canon.endsWith("is")) {
+            return canon.dropLast(1)
+        }
+        return canon
+    }
+
     fun sameConcept(first: String, second: String): Boolean {
-        val left = canonical(first)
-        val right = canonical(second)
+        val left = familyKey(first)
+        val right = familyKey(second)
         return left.isNotEmpty() && left == right
     }
 
@@ -235,7 +246,7 @@ object PredictionPipeline {
         val seen = LinkedHashSet<String>()
         val result = ArrayList<String>(limit)
         words.forEach { word ->
-            val key = CandidateIdentity.canonical(word)
+            val key = CandidateIdentity.familyKey(word)
             if (key.isEmpty() || key in seen) return@forEach
             seen += key
             result += word
@@ -249,6 +260,17 @@ object PredictionPipeline {
         if (clean.isEmpty()) return true
         return SpecialTokenPolicy.looksLikeUrl(clean) ||
             SpecialTokenPolicy.looksLikeEmail(clean) ||
+            SpecialTokenPolicy.looksLikeMentionOrHashtag(clean) ||
             ClipboardPolicy.looksSensitive(clean)
+    }
+
+    fun isLowConfidenceInput(input: String): Boolean {
+        val clean = input.trim()
+        if (clean.isEmpty()) return false
+        if (SpecialTokenPolicy.looksLikeUrl(clean) || SpecialTokenPolicy.looksLikeEmail(clean)) return true
+        if (SpecialTokenPolicy.looksLikeMentionOrHashtag(clean) || SpecialTokenPolicy.looksLikeNumber(clean)) {
+            return true
+        }
+        return ClipboardPolicy.looksSensitive(clean)
     }
 }

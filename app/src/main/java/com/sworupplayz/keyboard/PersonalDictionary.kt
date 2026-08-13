@@ -42,4 +42,26 @@ object PersonalDictionary {
         }
         return false
     }
+
+    /**
+     * Uncommon but legitimate user words: names, places, school names, slang.
+     * Never treats URLs, tokens, or random strings as names.
+     */
+    fun looksLegitimateCustomWord(word: String): Boolean {
+        val clean = word.trim()
+        if (!shouldAccept(clean)) return false
+        if (clean.length !in 3..24) return false
+        if (clean.any { it.isDigit() || it.isWhitespace() }) return false
+        if (clean.any { !it.isLetter() && it != '\'' && it.code !in 0x0900..0x097F }) return false
+        if (clean.all { it.code < 128 } && clean.none { it.lowercaseChar() in "aeiou" }) return false
+        return true
+    }
+
+    fun looksLikePersonalName(word: String): Boolean {
+        val clean = word.trim()
+        if (!looksLegitimateCustomWord(clean)) return false
+        if (clean.length < 4) return false
+        return clean.first().isUpperCase() &&
+            clean.drop(1).all { it.isLowerCase() || it.code in 0x0900..0x097F }
+    }
 }

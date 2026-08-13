@@ -162,7 +162,7 @@ class LearnedWordStore(
 
     fun record(word: String): Boolean {
         val clean = word.trim()
-        if (!isValid(clean)) return false
+        if (!isValid(clean) || WordLearningPolicy.isGarbage(clean)) return false
         val score = (scores.remove(clean) ?: 0) + 1
         scores[clean] = score
         trimToLimit()
@@ -450,6 +450,9 @@ object SuggestionRanker {
 
     private fun formatLikeInput(input: String, candidate: String): String {
         if (candidate.any { it.code in DEVANAGARI_RANGE } || candidate.any { !it.isLetter() && it != '\'' }) {
+            return candidate
+        }
+        if (CapitalizationPolicy.isProperNoun(candidate) && input.none { it.isUpperCase() }) {
             return candidate
         }
         val letters = input.filter { it.isLetter() }

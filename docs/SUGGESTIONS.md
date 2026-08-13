@@ -33,8 +33,11 @@ Examples:
 - `मलाई` → मन, नेपाली, थाहा
 - `मलाई मन` → पर्छ
 - `तिमी कहाँ` → छौ, जान्छौ
+- `thank you` → for, very
+- `see you` → soon, tomorrow
 - `ma` / `ma school` → घर, जान्छु, school / jaanchu
 - `ma ghar` → jaanchu
+- `ma college` → jaanchu
 
 Unknown or low-confidence input produces no forced phrase.
 
@@ -60,7 +63,9 @@ English, Nepali, and Romanized Nepali can sit in the same sentence.
 - `I am ghar` → `I am घर`
 - `Nepali is awesome` stays English because the first word is capitalized English
 
-A word is never rewritten into the other language just because the rest of the sentence converted. The selected mode stays where the user put it.
+A word is never rewritten into the other language just because the rest of the sentence converted. Capitalized place names such as `Kathmandu` stay Latin inside a Roman sentence. The selected mode stays where the user put it.
+
+Near-duplicate English forms (`hello` / `hellos` / `hello's`) collapse to one slot so the bar can keep useful neighbors such as `help` and `he'll`.
 
 ## Emoji suggestions
 

@@ -111,7 +111,8 @@ class PhrasePredictor(
             "want" to listOf("to"),
             "nice" to listOf("to", "day"),
             "happy" to listOf("birthday"),
-            "see you" to listOf("later", "soon", "tomorrow")
+            "see you" to listOf("soon", "tomorrow", "later"),
+            "thank you" to listOf("for", "very")
         )
 
         val NEPALI_PHRASES = mapOf(
@@ -141,7 +142,9 @@ class PhrasePredictor(
             "timi" to listOf("kaha", "kasto", "lai"),
             "timilai" to listOf("कस्तो छ"),
             "ghar" to listOf("jaanchu", "जान्छु"),
-            "mero" to listOf("ghar", "घर", "phone")
+            "mero" to listOf("ghar", "घर", "phone"),
+            "ma college" to listOf("jaanchu", "janchu"),
+            "ma kathmandu" to listOf("jaanchu", "janchu")
         )
 
         private fun normalize(value: String): String = value.trim().lowercase(Locale.ENGLISH)

@@ -61,7 +61,7 @@ class SuggestionEngine(
         val capped = limit.coerceAtMost(MAX_VISIBLE)
         if (capped <= 0) return SuggestionResult(emptyList())
         val input = query.input.trim()
-        if (input.isNotEmpty() && isProtectedToken(input)) {
+        if (input.isNotEmpty() && (isProtectedToken(input) || PredictionPipeline.isLowConfidenceInput(input))) {
             return SuggestionResult(listOf(input).take(capped))
         }
 

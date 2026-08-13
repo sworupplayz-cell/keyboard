@@ -1,6 +1,6 @@
 # Offline language intelligence
 
-Phase 23 strengthens the existing suggestion path. It is not cloud AI, not a neural language model, and it never uploads text.
+Phase 24 polishes everyday typing on the Phase 23 pipeline. It is not cloud AI, not a neural language model, and it never uploads text.
 
 The IME still has **one** prediction pipeline. `SuggestionEngine` is the only public facade. `PredictionPipeline` describes the stages that feed `SuggestionRanker`. There is no second competing engine.
 
@@ -58,7 +58,7 @@ Tapping a suggestion records the accepted word, bumps its personal frequency, an
 
 ## Roman Nepali
 
-`RomanSpellingNormalizer` collapses doubled letters/vowels and maps `ch/chh`, `sh/s`, `ph/f`, `ny/n`, and informal endings. Extra dictionary keys such as `jaanxu`, `malay`, `bigryo`, and `dhanyabaad` share the same Nepali targets. Unknown words still go through the phonetic engine. Conversion is not more aggressive: `school` stays English and `ma school jaanchu` is still `म school जान्छु`. The selected keyboard mode never auto-switches.
+`RomanSpellingNormalizer` collapses doubled letters/vowels and maps `ch/chh`, `sh/s`, `ph/f`, `ny/n`, `xa/cha`, `xu/chu`, and informal endings. Extra dictionary keys such as `jaanxu`, `malay`, `malaai`, `hunxa`, and `nepaali` share the same Nepali targets. Unknown words still go through the phonetic engine. Conversion is not more aggressive: `school` and `college` stay English, capitalized `Kathmandu` stays Latin, and `ma school jaanchu` is still `म school जान्छु`. The selected keyboard mode never auto-switches.
 
 ## Privacy
 

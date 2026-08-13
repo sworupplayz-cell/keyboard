@@ -85,6 +85,9 @@ object RomanSpellingNormalizer {
             add(collapsed.dropLast(3) + "chhu")
         }
         if (collapsed.endsWith("chhu")) add(collapsed.dropLast(4) + "chu")
+        if (collapsed.endsWith("xa")) add(collapsed.dropLast(2) + "cha")
+        if (collapsed.endsWith("xu")) add(collapsed.dropLast(2) + "chu")
+        if ("aa" in collapsed) add(collapsed.replace("aa", "a"))
 
         return forms.toList()
     }

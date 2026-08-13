@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 23
+# Simple Nepali Keyboard — Phase 24
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 23 strengthens the existing offline prediction pipeline: personalized unigram frequency, accepted-suggestion learning, bounded bigram/trigram context, contractions, and conservative mixed-language ranking. It is a deterministic on-device ranker, not a cloud AI model. Suggestions still show at most three items and never auto-replace unknown text. Phases 19–22 typing, appearance, and quality stay in place.
+Phase 24 polishes everyday typing on the existing offline pipeline: stronger prefix completion, next-word phrases, mixed-language proper nouns, Roman variants such as `hunxa`/`malaai`, and suggestion diversity that hides near-duplicates. It is still a deterministic on-device ranker, not a cloud AI model. Suggestions stay at most three items and never auto-replace unknown text. Phases 19–23 stay in place.
 
 ## Features
 

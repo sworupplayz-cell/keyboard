@@ -3206,3 +3206,18 @@ says
 saying
 tells
 telling
+
+# Phase 24 names, surnames, and harmless gaming terms
+sharma
+thapa
+karki
+adhikari
+gg
+wp
+ez
+noob
+lag
+ping
+ranked
+lobby
+clan

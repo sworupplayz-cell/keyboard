@@ -63,7 +63,7 @@ object VocabularyCatalog {
         "lol", "lmao", "rofl", "omg", "btw", "idk", "imo", "brb", "tbh", "smh",
         "gonna", "wanna", "gotta", "kinda", "sorta", "yup", "nope", "nah", "pls",
         "plz", "thx", "nvm", "fyi", "bro", "okay", "idc", "ikr", "lmk", "hmu",
-        "afaik", "tyvm", "rn"
+        "afaik", "tyvm", "rn", "gg", "wp", "ez", "noob", "lag", "ping"
     )
     private val TECH = setOf(
         "google", "youtube", "facebook", "instagram", "whatsapp", "wifi", "email",

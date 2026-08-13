@@ -85,6 +85,10 @@ object AccessibilityLabels {
         KeyboardLanguage.ROMAN -> "Roman Nepali"
     }
 
+    fun space(language: KeyboardLanguage): String = "Space ${language(language)}"
+
+    fun emoji(glyph: String): String = if (glyph.isEmpty()) "Emoji" else "Emoji $glyph"
+
     fun longPress(label: String): String = "Alternates for $label"
 
     fun key(key: KeySpec): String = when (key.action) {
@@ -122,7 +126,9 @@ object SuggestionBarState {
     fun display(suggestions: List<String>, typed: String, limit: Int = 3): List<String> {
         val clean = suggestions.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(limit)
         if (clean.isEmpty()) return emptyList()
-        if (clean.size == 1 && clean.first().equals(typed, ignoreCase = true) && WordLearningPolicy.isGarbage(typed)) {
+        if (clean.size == 1 && clean.first().equals(typed, ignoreCase = true) &&
+            (WordLearningPolicy.isGarbage(typed) || ClipboardPolicy.looksSensitive(typed))
+        ) {
             return emptyList()
         }
         return clean

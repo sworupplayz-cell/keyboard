@@ -988,7 +988,7 @@ class KeyboardService : InputMethodService() {
                 pressedEnabled = themeStyle.pressedHighlight
             )
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
-            contentDescription = emoji
+            contentDescription = AccessibilityLabels.emoji(emoji)
             setOnClickListener {
                 if (consumeChooserTap()) return@setOnClickListener
                 giveFeedback(KeyAction.EMOJI)

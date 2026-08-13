@@ -95,13 +95,15 @@ class ContextModel(
         val ENGLISH_SEED = mapOf(
             "the" to listOf("first", "same", "other", "world", "time"),
             "good" to listOf("morning", "night", "luck", "job"),
+            "good morning" to listOf("everyone", "guys"),
             "thank" to listOf("you"),
             "thanks" to listOf("for", "you"),
+            "thank you" to listOf("for", "very"),
             "how" to listOf("are", "to"),
             "how are" to listOf("you"),
             "how are you" to listOf("doing"),
             "i" to listOf("am", "have", "will", "can"),
-            "i am" to listOf("fine", "going", "घर"),
+            "i am" to listOf("going", "here", "fine"),
             "we" to listOf("are", "have", "will"),
             "going" to listOf("to"),
             "want" to listOf("to"),
@@ -110,26 +112,33 @@ class ContextModel(
             "in" to listOf("the"),
             "to" to listOf("the", "be", "do", "go"),
             "see" to listOf("you"),
-            "let" to listOf("me")
+            "let" to listOf("me"),
+            "see you" to listOf("soon", "tomorrow", "later")
         )
 
         val NEPALI_SEED = mapOf(
             "म" to listOf("लाई", "पनि", "जान्छु", "घर"),
-            "मलाई" to listOf("मन", "नेपाली", "मन पर्छ", "थाहा"),
+            "मलाई" to listOf("मन", "नेपाली", "थाहा"),
+            "मलाई मन" to listOf("पर्छ"),
             "तिमीलाई" to listOf("कस्तो छ"),
             "मेरो" to listOf("घर", "नाम"),
-            "तिमी" to listOf("लाई", "कहाँ", "कस्तो"),
+            "तिमी" to listOf("लाई", "कहाँ", "कस्तो", "कहिले"),
+            "तिमी कहाँ" to listOf("छौ", "जान्छौ"),
             "के" to listOf("छ", "गर्छौ"),
             "आज" to listOf("काम"),
-            "घर" to listOf("जान्छु", "घरमा")
+            "घर" to listOf("मा", "को", "बाट"),
+            "जान" to listOf("जान्छु", "जान्छ", "जानु")
         )
 
         val ROMAN_SEED = mapOf(
             "ma" to listOf("ghar", "jaanchu", "school"),
-            "ma school" to listOf("jaanchu"),
-            "mero" to listOf("ghar", "naam"),
-            "timi" to listOf("kaha", "lai"),
-            "malai" to listOf("manparcha"),
+            "ma school" to listOf("jaanchu", "gaye", "janchu"),
+            "ma ghar" to listOf("jaanchu", "janchu"),
+            "ma college" to listOf("jaanchu", "janchu"),
+            "ma kathmandu" to listOf("jaanchu", "janchu"),
+            "mero" to listOf("ghar", "naam", "phone"),
+            "timi" to listOf("kaha", "lai", "kasto"),
+            "malai" to listOf("man", "manparcha"),
             "ke" to listOf("cha", "garchau"),
             "aaja" to listOf("kaam"),
             "ghar" to listOf("jaanchu"),
