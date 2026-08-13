@@ -130,6 +130,10 @@ class KeyboardService : InputMethodService() {
     private var useEmojiRecents = true
     private var useToolbar = true
     private var useClipboardHistory = true
+    private var useLanguageButton = true
+    private var useTypoSuggestions = true
+    private var oneHanded = OneHandedAlignment.OFF
+    private var presentationMode = KeyboardPresentationMode.NORMAL
     private val toolbar = ToolbarController()
     private var clipboardHistory = ClipboardRepository()
     private var lastSpaceUptime = 0L
@@ -323,6 +327,11 @@ class KeyboardService : InputMethodService() {
         useEmojiRecents = settings.emojiRecents
         useToolbar = settings.toolbar
         useClipboardHistory = settings.clipboardHistory
+        useLanguageButton = settings.languageButton
+        useTypoSuggestions = settings.typoSuggestions
+        oneHanded = settings.oneHanded
+        presentationMode = settings.presentationMode
+        toolbar.configuration = applyLanguageButton(repository.toolbarConfiguration())
         showNumberRow = settings.numberRow
         keyboardHeight = settings.height
         clipboardHistory = ClipboardRepository.fromSerialized(
@@ -373,8 +382,7 @@ class KeyboardService : InputMethodService() {
     private fun renderKeyboard() {
         hideOverlays()
         val colors = keyboardColors()
-        if (::overlayHost.isInitialized) overlayHost.setBackgroundColor(colors.background)
-        keyboardRoot.setBackgroundColor(colors.background)
+        applyPresentationPadding(colors)
         keyboardRoot.removeAllViews()
         suggestionRow = null
         suggestionSettingsVisible = false
@@ -390,11 +398,18 @@ class KeyboardService : InputMethodService() {
             renderEmojiPanel(colors)
             return
         }
+        if (layoutMode == LayoutMode.CLIPBOARD) {
+            renderClipboardPanel(colors)
+            return
+        }
 
         val supportsSuggestions = layoutMode == LayoutMode.LETTERS ||
             (language == KeyboardLanguage.NEPALI && layoutMode == LayoutMode.VOWELS)
         val useCompactNepaliSuggestions = useSuggestions && supportsSuggestions &&
             language == KeyboardLanguage.NEPALI
+        if (useToolbar && toolbar.configuration.alwaysVisible && supportsSuggestions) {
+            addToolbarRow(colors)
+        }
         if (useSuggestions && supportsSuggestions) {
             addSuggestionRow(colors, includeSettings = useCompactNepaliSuggestions)
         }
@@ -439,7 +454,7 @@ class KeyboardService : InputMethodService() {
             LayoutMode.HANDWRITING -> ToolbarAction.HANDWRITING
             else -> null
         }
-        val items = toolbar.items(language, current)
+        val items = toolbar.items(language, current, resources.configuration.screenWidthDp)
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -461,9 +476,17 @@ class KeyboardService : InputMethodService() {
                     TypedValue.COMPLEX_UNIT_SP,
                     if (resources.configuration.screenWidthDp < 360 || items.size > 6) 11f else 13f
                 )
+                minHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
+                contentDescription = AccessibilityLabels.toolbar(item)
                 setOnClickListener {
                     giveFeedback(ToolbarController.keyAction(item.action))
                     handleToolbarAction(item.action)
+                }
+                if (item.action == ToolbarAction.LANGUAGE) {
+                    setOnLongClickListener { view ->
+                        showLanguagePicker(view)
+                        true
+                    }
                 }
             })
         }
@@ -497,6 +520,10 @@ class KeyboardService : InputMethodService() {
                 openHandwriting()
             }
             ToolbarAction.SETTINGS -> openSettings()
+            ToolbarAction.LANGUAGE -> {
+                toolbar.maybeAutoCollapse()
+                switchTypingMode(LanguageSwitcher.cycle(language))
+            }
             ToolbarAction.MODE_ENGLISH -> {
                 toolbar.collapse()
                 switchTypingMode(KeyboardLanguage.ENGLISH)
@@ -1015,6 +1042,7 @@ class KeyboardService : InputMethodService() {
             },
             learnedRoman = if (useLearning) learnedRomanWords.lookup(currentWord) else null,
             includeEmoji = language != KeyboardLanguage.NEPALI,
+            includeTypos = useTypoSuggestions,
             contextPredictions = when (language) {
                 KeyboardLanguage.ENGLISH -> englishContext.predictions(
                     previous.orEmpty(),
@@ -1038,7 +1066,7 @@ class KeyboardService : InputMethodService() {
         )
         val engineResult = suggestionEngine.suggest(query, MAX_SUGGESTIONS)
         val rawSuggestions = engineResult.visible(MAX_SUGGESTIONS)
-        val suggestions = if (language == KeyboardLanguage.ENGLISH) {
+        val mapped = if (language == KeyboardLanguage.ENGLISH) {
             rawSuggestions.map {
                 if (it.any { character -> character.code in 0x0900..0x097F } || EmojiCatalog.contains(it)) {
                     it
@@ -1049,6 +1077,8 @@ class KeyboardService : InputMethodService() {
         } else {
             rawSuggestions
         }
+        val suggestions = SuggestionBarState.display(mapped, currentWord, MAX_SUGGESTIONS)
+        row.setBackgroundColor(KeyboardThemeTokens.suggestionBackground(colors))
         if (suggestions.isEmpty()) {
             val hint = when (language) {
                 KeyboardLanguage.ENGLISH -> R.string.english_suggestion_hint
@@ -1069,17 +1099,21 @@ class KeyboardService : InputMethodService() {
             if (index > 0) row.addView(suggestionDivider(colors))
             row.addView(TextView(this).apply {
                 text = suggestion
-                contentDescription = suggestion
+                contentDescription = AccessibilityLabels.suggestion(suggestion)
                 isClickable = true
                 isFocusable = true
                 isAllCaps = false
                 includeFontPadding = false
                 gravity = Gravity.CENTER
+                minHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
                 setTextSize(
                     TypedValue.COMPLEX_UNIT_SP,
                     if (suggestion.length > 10) 13f else KeyboardTheme.SUGGESTION_TEXT_SP
                 )
-                setTextColor(if (index == 0) colors.text else colors.secondaryText)
+                setTextColor(
+                    if (index == 0) KeyboardThemeTokens.suggestionPrimary(colors)
+                    else KeyboardThemeTokens.suggestionSecondary(colors)
+                )
                 background = null
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
                 setOnClickListener {
@@ -1101,7 +1135,7 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun suggestionDivider(colors: KeyboardPalette): View = View(this).apply {
-        setBackgroundColor(colors.divider)
+        setBackgroundColor(KeyboardThemeTokens.suggestionDivider(colors))
         layoutParams = LinearLayout.LayoutParams(dp(1), LinearLayout.LayoutParams.MATCH_PARENT).apply {
             topMargin = dp(8)
             bottomMargin = dp(8)
@@ -1342,8 +1376,8 @@ class KeyboardService : InputMethodService() {
         isFocusable = true
         minWidth = 0
         minimumWidth = 0
-        minHeight = 0
-        minimumHeight = 0
+        minHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
+        minimumHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
         setPadding(0, 0, 0, 0)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, if (resources.configuration.screenWidthDp < 360) 12f else 13f)
         setTextColor(if (selected) Color.WHITE else colors.text)
@@ -1514,6 +1548,10 @@ class KeyboardService : InputMethodService() {
 
     private fun insertAlternate(text: String) {
         hideOverlays()
+        LanguageSwitcher.fromPickerLabel(text)?.let { selected ->
+            switchTypingMode(selected)
+            return
+        }
         giveFeedback(KeyAction.TEXT)
         if (layoutMode == LayoutMode.EMOJI || EmojiCatalog.contains(text)) {
             insertEmoji(text)
@@ -1794,6 +1832,41 @@ class KeyboardService : InputMethodService() {
         val configuration = resources.configuration
         return KeyboardUiMetrics.keyHeightDp(
             configuration.screenWidthDp,
+            configuration.screenHeightDp,
+            configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+            keyboardHeight
+        )
+    }
+
+    private fun systemUsesDarkTheme(): Boolean =
+        resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+            Configuration.UI_MODE_NIGHT_YES
+
+    private fun keyboardColors(): KeyboardPalette =
+        KeyboardTheme.palette(useDarkAppearance) { color(it) }
+
+    private fun preferredKeyMargin(): Int {
+        val compact = resources.configuration.screenWidthDp < 360
+        val gap = if (compact) KeyboardTheme.COMPACT_HORIZONTAL_GAP_DP else KeyboardTheme.KEY_HORIZONTAL_GAP_DP
+        return dp(maxOf(gap, KeyboardUiMetrics.keyMarginDp(resources.configuration.screenWidthDp)))
+    }
+
+    private fun color(resource: Int): Int = resources.getColor(resource, theme)
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
+
+    private data class ModeSnapshot(
+        val language: KeyboardLanguage,
+        val layout: LayoutMode
+    )
+
+    private companion object {
+        const val EMOJIS_PER_ROW = 8
+        const val EMOJI_VISIBLE_ROWS = 4
+        const val MAX_SUGGESTIONS = 3
+    }
+}
+           configuration.screenWidthDp,
             configuration.screenHeightDp,
             configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
             keyboardHeight

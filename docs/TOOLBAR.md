@@ -1,49 +1,41 @@
 # Toolbar and local clipboard
 
-Phase 16 adds a compact tools row above suggestions. The letter layout, suggestion strip, and existing panels stay as they are.
+The compact tools row sits above suggestions. The letter layout and existing panels stay as they are.
 
 ## Architecture
 
-- `ToolbarController` owns collapsed/expanded state and the button list.
-- `ClipboardRepository` and `ClipboardPolicy` own the local history.
-- `KeyboardService` only draws the row and routes taps to the existing emoji, number, symbol, handwriting, language, and settings paths.
+- `ToolbarConfiguration` persists order and enabled tools by enum ID
+- `ToolbarController` owns collapsed/expanded state and overflow
+- `ClipboardRepository` / `ClipboardPolicy` own the local history
+- `LanguageSwitcher` owns tap-cycle and long-press picker labels
+- `KeyboardService` only draws the row and routes taps
 
-## Collapsed tools
+## Default collapsed tools
 
-`😊` emoji · `📋` clipboard · `⚙` settings · `⋯` more
+`😊` emoji · `📋` clipboard · `EN`/`ने`/`Ro` language · `⚙` settings · `⋯` more
+
+Users can enable Numbers, Symbols, and Handwriting on the strip, or leave them under More.
 
 ## Expanded tools
 
-`123` numbers · `#+=` symbols · `✍` handwriting · `EN` / `नेपाली` / `Roman` · clipboard · settings · collapse
-
-Emoji is omitted from the expanded row because it is already on the collapsed strip. Mode chips stay in sync with the live keyboard language.
+Overflow items plus numbers, symbols, handwriting, EN / नेपाली / Roman, and collapse.
 
 ## Clipboard
 
-History is stored only in local preferences. Limit: **20** snippets, **500** characters each.
+History is local only. Limit: **20** snippets, **500** characters each.
 
-Not stored:
+Not stored: empty text, passwords, bearer/API tokens, JWT-like strings, huge pastes, binary blobs.
 
-- empty text
-- passwords / passcodes
-- bearer tokens, API keys, JWT-like strings
-- very long pastes
-- binary / control-character blobs
-
-Tap inserts the raw Unicode text after finishing the current composing word. Roman conversion is not applied to clipboard content. Delete removes one item. Clear removes the local list.
+Tap inserts raw Unicode after finishing the composing word. Roman conversion is not applied to clipboard content.
 
 ## Settings
 
-- Toolbar: default ON
-- Clipboard history: default ON
-- Clear clipboard history
-
-Turning clipboard history off stops new saves. Existing snippets can still be cleared from settings.
+- Always show toolbar (default ON)
+- Auto-collapse (default ON)
+- Customize / restore defaults
+- Clipboard history (default ON)
+- Clear clipboard
 
 ## Privacy
 
-No internet permission, upload, account, analytics, or cloud sync. Clipboard text never leaves the device.
-
-## Height
-
-The toolbar is 28–32 dp and shrinks on 320-wide and landscape screens so letter keys stay usable.
+No internet permission, upload, account, analytics, or cloud sync.

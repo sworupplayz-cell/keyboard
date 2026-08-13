@@ -85,6 +85,9 @@ class KeyboardUiMetricsTest {
         )
         assertTrue(withToolbar > withoutToolbar)
         assertTrue(withToolbar - withoutToolbar <= 36)
+        assertEquals(4, KeyboardUiMetrics.maxToolbarItems(320))
+        assertEquals(5, KeyboardUiMetrics.maxToolbarItems(360))
+        assertEquals(6, KeyboardUiMetrics.maxToolbarItems(412))
     }
 
     @Test

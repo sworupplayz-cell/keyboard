@@ -13,7 +13,8 @@ data class SuggestionQuery(
     val recent: List<String> = emptyList(),
     val contextPredictions: List<String> = emptyList(),
     val learnedRoman: String? = null,
-    val includeEmoji: Boolean = true
+    val includeEmoji: Boolean = true,
+    val includeTypos: Boolean = true
 )
 
 data class SuggestionResult(
@@ -93,7 +94,7 @@ class SuggestionEngine(
         val compact = merged.take(limit)
         val onlyTypedFallback = compact.isEmpty() ||
             (compact.size == 1 && compact.first().equals(input, ignoreCase = true))
-        if (!onlyTypedFallback) return compact
+        if (!onlyTypedFallback || !query.includeTypos) return compact
         val extras = TypoCorrector.missingLetterCandidates(input, english::contains)
             .filter { candidate -> ranked.none { it.equals(candidate, ignoreCase = true) } }
         if (extras.isEmpty()) return ranked

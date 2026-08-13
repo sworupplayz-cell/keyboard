@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 16
+# Simple Nepali Keyboard — Phase 17
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 16 keeps the Gboard-style chrome and all earlier typing engines. A compact toolbar above suggestions opens the existing emoji, number, symbol, handwriting, language, and settings surfaces, plus a local clipboard history. Suggestions still show at most three items and never auto-replace unknown text.
+Phase 17 keeps the Gboard-style chrome and all earlier typing engines. The compact toolbar is now customizable, language can be cycled or long-pressed from the strip, and one-handed layout is a padding-only presentation mode. Suggestions still show at most three items and never auto-replace unknown text.
 
 ## Features
 
@@ -50,7 +50,7 @@ The expandable Roman vocabulary is the tab-separated file at `app/src/main/res/r
 
 English suggestions use `app/src/main/res/raw/english_vocabulary.txt`. Nepali suggestions use `app/src/main/res/raw/nepali_vocabulary.txt` plus Nepali values from the Roman dictionary. Both are prefix-indexed, retain unusual input unchanged, and only replace a word after the user taps a suggestion.
 
-See [`docs/UI.md`](docs/UI.md) for the Phase A visual contract, [`docs/VOCABULARY.md`](docs/VOCABULARY.md) for the offline dictionaries, [`docs/ROMAN_ENGINE.md`](docs/ROMAN_ENGINE.md) for the Roman engine, [`docs/EMOJI.md`](docs/EMOJI.md) for emoji panels, and [`docs/SMART_TYPING.md`](docs/SMART_TYPING.md) for Phase 14 behavior.
+See [`docs/UI.md`](docs/UI.md) for the Phase A visual contract, [`docs/VOCABULARY.md`](docs/VOCABULARY.md) for the offline dictionaries, [`docs/SUGGESTIONS.md`](docs/SUGGESTIONS.md) for ranking, [`docs/TOOLBAR.md`](docs/TOOLBAR.md) and [`docs/PERSONALIZATION.md`](docs/PERSONALIZATION.md) for the tools row, [`docs/ROMAN_ENGINE.md`](docs/ROMAN_ENGINE.md) for the Roman engine, [`docs/EMOJI.md`](docs/EMOJI.md) for emoji panels, and [`docs/SMART_TYPING.md`](docs/SMART_TYPING.md) for Phase 14 behavior.
 
 ## Handwriting recognition limitation
 

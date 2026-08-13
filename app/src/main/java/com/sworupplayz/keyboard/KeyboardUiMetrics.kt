@@ -50,6 +50,12 @@ object KeyboardUiMetrics {
 
     fun keyMarginDp(screenWidthDp: Int): Int = if (screenWidthDp < 360) 1 else 2
 
+    fun maxToolbarItems(screenWidthDp: Int): Int = when {
+        screenWidthDp < 340 -> 4
+        screenWidthDp < 400 -> 5
+        else -> 6
+    }
+
     fun toolbarHeightDp(
         screenWidthDp: Int,
         landscape: Boolean,

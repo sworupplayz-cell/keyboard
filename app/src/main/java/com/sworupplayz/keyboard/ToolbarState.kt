@@ -6,6 +6,7 @@ enum class ToolbarPresentation { COLLAPSED, EXPANDED }
 enum class ToolbarAction {
     EMOJI,
     CLIPBOARD,
+    LANGUAGE,
     SETTINGS,
     MORE,
     COLLAPSE,
@@ -37,6 +38,7 @@ enum class ToolbarBackResult {
 class ToolbarController {
     var presentation: ToolbarPresentation = ToolbarPresentation.COLLAPSED
         private set
+    var configuration: ToolbarConfiguration = ToolbarConfiguration.defaults()
 
     val isExpanded: Boolean get() = presentation == ToolbarPresentation.EXPANDED
 
@@ -56,15 +58,26 @@ class ToolbarController {
         presentation = ToolbarPresentation.COLLAPSED
     }
 
+    fun maybeAutoCollapse() {
+        if (configuration.autoCollapse) collapse()
+    }
+
     fun items(
         language: KeyboardLanguage,
-        currentAction: ToolbarAction? = null
+        currentAction: ToolbarAction? = null,
+        screenWidthDp: Int = 360
     ): List<ToolbarItem> {
-        val expanded = isExpanded
-        val raw = if (expanded) expandedItems(language) else collapsedItems()
-        return raw
-            .distinctBy { it.action }
-            .map { item -> item.copy(selected = item.action == currentAction || isLanguageSelected(item.action, language)) }
+        val maxItems = KeyboardUiMetrics.maxToolbarItems(screenWidthDp)
+        val actions = if (isExpanded) {
+            expandedActions(maxItems)
+        } else {
+            configuration.visibleCollapsed(maxItems)
+        }
+        return actions.distinct().map { action ->
+            describe(action, language).copy(
+                selected = action == currentAction || isLanguageSelected(action, language)
+            )
+        }
     }
 
     fun consumeBack(panelOpen: Boolean): ToolbarBackResult {
@@ -81,30 +94,45 @@ class ToolbarController {
         ToolbarAction.NUMBERS,
         ToolbarAction.SYMBOLS,
         ToolbarAction.HANDWRITING,
-        ToolbarAction.SETTINGS
+        ToolbarAction.SETTINGS,
+        ToolbarAction.CLIPBOARD
     )
 
-    private fun collapsedItems(): List<ToolbarItem> = listOf(
-        ToolbarItem(ToolbarAction.EMOJI, "😊", "Emoji"),
-        ToolbarItem(ToolbarAction.CLIPBOARD, "📋", "Clipboard"),
-        ToolbarItem(ToolbarAction.SETTINGS, "⚙", "Settings"),
-        ToolbarItem(ToolbarAction.MORE, "⋯", "More tools")
-    )
+    private fun expandedActions(maxItems: Int): List<ToolbarAction> {
+        val overflow = configuration.overflow(maxItems)
+        val extras = listOf(
+            ToolbarAction.NUMBERS,
+            ToolbarAction.SYMBOLS,
+            ToolbarAction.HANDWRITING,
+            ToolbarAction.MODE_ENGLISH,
+            ToolbarAction.MODE_NEPALI,
+            ToolbarAction.MODE_ROMAN
+        )
+        return (overflow + extras + ToolbarAction.COLLAPSE).distinct()
+    }
 
-    private fun expandedItems(language: KeyboardLanguage): List<ToolbarItem> = listOf(
-        ToolbarItem(ToolbarAction.NUMBERS, "123", "Numbers"),
-        ToolbarItem(ToolbarAction.SYMBOLS, "#+=", "Symbols"),
-        ToolbarItem(ToolbarAction.HANDWRITING, "✍", "Handwriting"),
-        ToolbarItem(ToolbarAction.MODE_ENGLISH, "EN", "English", selected = language == KeyboardLanguage.ENGLISH),
-        ToolbarItem(ToolbarAction.MODE_NEPALI, "नेपाली", "Nepali", selected = language == KeyboardLanguage.NEPALI),
-        ToolbarItem(ToolbarAction.MODE_ROMAN, "Roman", "Roman", selected = language == KeyboardLanguage.ROMAN),
-        ToolbarItem(ToolbarAction.CLIPBOARD, "📋", "Clipboard"),
-        ToolbarItem(ToolbarAction.SETTINGS, "⚙", "Settings"),
-        ToolbarItem(ToolbarAction.COLLAPSE, "▴", "Hide extra tools")
-    )
+    private fun describe(action: ToolbarAction, language: KeyboardLanguage): ToolbarItem = when (action) {
+        ToolbarAction.EMOJI -> ToolbarItem(action, "😊", "Emoji")
+        ToolbarAction.CLIPBOARD -> ToolbarItem(action, "📋", "Clipboard")
+        ToolbarAction.LANGUAGE -> ToolbarItem(
+            action,
+            LanguageSwitcher.toolbarLabel(language),
+            LanguageSwitcher.toolbarDescription(language)
+        )
+        ToolbarAction.SETTINGS -> ToolbarItem(action, "⚙", "Settings")
+        ToolbarAction.MORE -> ToolbarItem(action, "⋯", "More tools")
+        ToolbarAction.COLLAPSE -> ToolbarItem(action, "▴", "Hide extra tools")
+        ToolbarAction.NUMBERS -> ToolbarItem(action, "123", "Numbers")
+        ToolbarAction.SYMBOLS -> ToolbarItem(action, "#+=", "Symbols")
+        ToolbarAction.HANDWRITING -> ToolbarItem(action, "✍", "Handwriting")
+        ToolbarAction.MODE_ENGLISH -> ToolbarItem(action, "EN", "English")
+        ToolbarAction.MODE_NEPALI -> ToolbarItem(action, "नेपाली", "Nepali")
+        ToolbarAction.MODE_ROMAN -> ToolbarItem(action, "Roman", "Roman Nepali")
+    }
 
     private fun isLanguageSelected(action: ToolbarAction, language: KeyboardLanguage): Boolean =
-        (action == ToolbarAction.MODE_ENGLISH && language == KeyboardLanguage.ENGLISH) ||
+        (action == ToolbarAction.LANGUAGE) ||
+            (action == ToolbarAction.MODE_ENGLISH && language == KeyboardLanguage.ENGLISH) ||
             (action == ToolbarAction.MODE_NEPALI && language == KeyboardLanguage.NEPALI) ||
             (action == ToolbarAction.MODE_ROMAN && language == KeyboardLanguage.ROMAN)
 
@@ -121,6 +149,7 @@ class ToolbarController {
             KeyAction.MODE_ENGLISH -> ToolbarAction.MODE_ENGLISH
             KeyAction.MODE_NEPALI -> ToolbarAction.MODE_NEPALI
             KeyAction.MODE_ROMAN -> ToolbarAction.MODE_ROMAN
+            KeyAction.LANGUAGE -> ToolbarAction.LANGUAGE
             else -> null
         }
 
@@ -136,6 +165,7 @@ class ToolbarController {
             ToolbarAction.MODE_ENGLISH -> KeyAction.MODE_ENGLISH
             ToolbarAction.MODE_NEPALI -> KeyAction.MODE_NEPALI
             ToolbarAction.MODE_ROMAN -> KeyAction.MODE_ROMAN
+            ToolbarAction.LANGUAGE -> KeyAction.LANGUAGE
         }
     }
 }

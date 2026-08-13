@@ -60,7 +60,12 @@ data class KeyboardSettings(
     val autoCapitalization: Boolean = true,
     val emojiRecents: Boolean = true,
     val toolbar: Boolean = true,
-    val clipboardHistory: Boolean = true
+    val clipboardHistory: Boolean = true,
+    val toolbarAutoCollapse: Boolean = true,
+    val languageButton: Boolean = true,
+    val typoSuggestions: Boolean = true,
+    val oneHanded: OneHandedAlignment = OneHandedAlignment.OFF,
+    val presentationMode: KeyboardPresentationMode = KeyboardPresentationMode.NORMAL
 )
 
 /** Minimal storage contract keeps preference behavior independently testable. */
@@ -88,7 +93,12 @@ class KeyboardSettingsRepository(private val storage: SettingsStorage) {
         autoCapitalization = storage.getBoolean(KeyboardPreferences.KEY_AUTO_CAPITALIZATION, true),
         emojiRecents = storage.getBoolean(KeyboardPreferences.KEY_EMOJI_RECENTS, true),
         toolbar = storage.getBoolean(KeyboardPreferences.KEY_TOOLBAR, true),
-        clipboardHistory = storage.getBoolean(KeyboardPreferences.KEY_CLIPBOARD_HISTORY, true)
+        clipboardHistory = storage.getBoolean(KeyboardPreferences.KEY_CLIPBOARD_HISTORY, true),
+        toolbarAutoCollapse = storage.getBoolean(KeyboardPreferences.KEY_TOOLBAR_AUTO_COLLAPSE, true),
+        languageButton = storage.getBoolean(KeyboardPreferences.KEY_LANGUAGE_BUTTON, true),
+        typoSuggestions = storage.getBoolean(KeyboardPreferences.KEY_TYPO_SUGGESTIONS, true),
+        oneHanded = OneHandedAlignment.fromStored(storage.getString(KeyboardPreferences.KEY_ONE_HANDED)),
+        presentationMode = KeyboardPresentationMode.fromStored(storage.getString(KeyboardPreferences.KEY_PRESENTATION_MODE))
     )
 
     fun savedDefaultMode(): DefaultKeyboardMode? =
@@ -135,6 +145,49 @@ class KeyboardSettingsRepository(private val storage: SettingsStorage) {
 
     fun setEmojiRecents(value: Boolean) =
         storage.putBoolean(KeyboardPreferences.KEY_EMOJI_RECENTS, value)
+
+    fun setToolbar(value: Boolean) =
+        storage.putBoolean(KeyboardPreferences.KEY_TOOLBAR, value)
+
+    fun setClipboardHistory(value: Boolean) =
+        storage.putBoolean(KeyboardPreferences.KEY_CLIPBOARD_HISTORY, value)
+
+    fun setToolbarAutoCollapse(value: Boolean) =
+        storage.putBoolean(KeyboardPreferences.KEY_TOOLBAR_AUTO_COLLAPSE, value)
+
+    fun setLanguageButton(value: Boolean) =
+        storage.putBoolean(KeyboardPreferences.KEY_LANGUAGE_BUTTON, value)
+
+    fun setTypoSuggestions(value: Boolean) =
+        storage.putBoolean(KeyboardPreferences.KEY_TYPO_SUGGESTIONS, value)
+
+    fun setOneHanded(value: OneHandedAlignment) =
+        storage.putString(KeyboardPreferences.KEY_ONE_HANDED, value.name)
+
+    fun setPresentationMode(value: KeyboardPresentationMode) =
+        storage.putString(KeyboardPreferences.KEY_PRESENTATION_MODE, value.name)
+
+    fun toolbarConfiguration(): ToolbarConfiguration = ToolbarConfiguration.fromSerialized(
+        orderValue = storage.getString(KeyboardPreferences.KEY_TOOLBAR_ORDER),
+        enabledValue = storage.getString(KeyboardPreferences.KEY_TOOLBAR_ENABLED_ITEMS),
+        alwaysVisible = storage.getBoolean(KeyboardPreferences.KEY_TOOLBAR, true),
+        autoCollapse = storage.getBoolean(KeyboardPreferences.KEY_TOOLBAR_AUTO_COLLAPSE, true)
+    )
+
+    fun saveToolbarConfiguration(value: ToolbarConfiguration) {
+        storage.putString(KeyboardPreferences.KEY_TOOLBAR_ORDER, value.serializeOrder())
+        storage.putString(KeyboardPreferences.KEY_TOOLBAR_ENABLED_ITEMS, value.serializeEnabled())
+        storage.putBoolean(KeyboardPreferences.KEY_TOOLBAR, value.alwaysVisible)
+        storage.putBoolean(KeyboardPreferences.KEY_TOOLBAR_AUTO_COLLAPSE, value.autoCollapse)
+    }
+
+    fun restoreDefaultToolbar() {
+        saveToolbarConfiguration(ToolbarConfiguration.defaults())
+    }
+
+    fun clearClipboardHistory() = storage.remove(setOf(KeyboardPreferences.KEY_CLIPBOARD_ITEMS))
+
+    fun clearLocalData() = storage.remove(KeyboardPreferences.LOCAL_DATA_KEYS)
 
     fun clearLearnedWords() = storage.remove(KeyboardPreferences.LEARNED_WORD_KEYS)
 

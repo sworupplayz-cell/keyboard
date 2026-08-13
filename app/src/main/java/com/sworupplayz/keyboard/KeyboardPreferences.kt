@@ -16,6 +16,13 @@ object KeyboardPreferences {
     const val KEY_AUTO_CAPITALIZATION = "auto_capitalization_enabled"
     const val KEY_EMOJI_RECENTS = "emoji_recents_enabled"
     const val KEY_TOOLBAR = "toolbar_enabled"
+    const val KEY_TOOLBAR_ORDER = "toolbar_order"
+    const val KEY_TOOLBAR_ENABLED_ITEMS = "toolbar_enabled_items"
+    const val KEY_TOOLBAR_AUTO_COLLAPSE = "toolbar_auto_collapse"
+    const val KEY_LANGUAGE_BUTTON = "language_button_enabled"
+    const val KEY_TYPO_SUGGESTIONS = "typo_suggestions_enabled"
+    const val KEY_ONE_HANDED = "one_handed_alignment"
+    const val KEY_PRESENTATION_MODE = "keyboard_presentation_mode"
     const val KEY_CLIPBOARD_HISTORY = "clipboard_history_enabled"
     const val KEY_CLIPBOARD_ITEMS = "clipboard_items"
 
@@ -39,5 +46,18 @@ object KeyboardPreferences {
         KEY_LEARNED_ROMAN,
         KEY_LEARNED_ENGLISH,
         KEY_LEARNED_NEPALI
+    )
+
+    val LOCAL_DATA_KEYS = LEARNED_WORD_KEYS + setOf(
+        KEY_RECENT_EMOJIS,
+        KEY_EMOJI_USAGE,
+        KEY_RECENT_SYMBOLS,
+        KEY_RECENT_ENGLISH,
+        KEY_RECENT_NEPALI,
+        KEY_RECENT_ROMAN,
+        KEY_CONTEXT_ENGLISH,
+        KEY_CONTEXT_NEPALI,
+        KEY_CONTEXT_ROMAN,
+        KEY_CLIPBOARD_ITEMS
     )
 }

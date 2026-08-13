@@ -10,9 +10,9 @@ class ToolbarAndClipboardTest {
     fun collapsedToolbarShowsOnlyAFewTools() {
         val toolbar = ToolbarController()
         val labels = toolbar.items(KeyboardLanguage.ENGLISH).map { it.label }
-        assertEquals(listOf("😊", "📋", "⚙", "⋯"), labels)
+        assertEquals(listOf("😊", "📋", "EN", "⚙", "⋯"), labels)
         assertFalse(toolbar.isExpanded)
-        assertTrue(toolbar.items(KeyboardLanguage.ENGLISH).size <= 4)
+        assertTrue(toolbar.items(KeyboardLanguage.ENGLISH).size <= 5)
     }
 
     @Test
