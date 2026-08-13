@@ -136,7 +136,7 @@ object ChatAbbreviation {
     private val KNOWN = setOf(
         "lol", "omg", "btw", "idk", "brb", "tbh", "ok", "okay", "pls", "plz",
         "imo", "imho", "smh", "fyi", "nvm", "thx", "ty", "lmk", "hmu", "afaik",
-        "idc", "ikr", "np", "tyvm", "rn", "gonna", "wanna", "gotta"
+        "idc", "ikr", "np", "tyvm", "rn", "gonna", "wanna", "gotta", "ur", "pls", "plz"
     )
 
     fun isKnown(word: String): Boolean = word.trim().lowercase(Locale.ENGLISH) in KNOWN
@@ -179,7 +179,13 @@ object ContractionExpander {
         "heres" to "here's",
         "aint" to "ain't",
         "havent" to "haven't",
-        "hasnt" to "hasn't"
+        "hasnt" to "hasn't",
+        "id" to "I'd",
+        "youll" to "you'll",
+        "youve" to "you've",
+        "youd" to "you'd",
+        "wed" to "we'd",
+        "theyd" to "they'd"
     )
 
     fun expand(input: String): List<String> {

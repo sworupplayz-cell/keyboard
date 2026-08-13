@@ -237,7 +237,7 @@ class RomanNepaliConverter private constructor(
             "can", "will", "just", "about", "like", "so", "what", "when", "who", "how", "all",
             "good", "new", "time", "day", "work", "home", "friend", "family", "food", "water",
             "app", "google", "facebook", "youtube", "instagram", "whatsapp", "wifi", "file", "man",
-            "i", "am", "awesome", "today", "because"
+            "i", "am", "awesome", "today", "because", "game", "going", "here", "fine"
         )
     }
 

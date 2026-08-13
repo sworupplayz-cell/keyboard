@@ -292,9 +292,14 @@ object RomanPhoneticEngine {
         "chu" to "छु",
         "chau" to "छौ",
         "chan" to "छन्",
-        "cha" to "छ"
+        "cha" to "छ",
+        "xau" to "छौ",
+        "xu" to "छु",
+        "xa" to "छ"
     )
-    private val CHA_FAMILY_ENDINGS = listOf("chhu", "chhau", "chhan", "chha", "chu", "chau", "chan", "cha")
+    private val CHA_FAMILY_ENDINGS = listOf(
+        "chhu", "chhau", "chhan", "chha", "chu", "chau", "chan", "cha", "xau", "xu", "xa"
+    )
 
     private data class Token(val type: TokenType, val value: String)
     private enum class TokenType { CONSONANT, VOWEL }

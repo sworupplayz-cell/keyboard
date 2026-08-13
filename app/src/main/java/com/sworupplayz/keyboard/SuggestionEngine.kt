@@ -250,7 +250,7 @@ class SuggestionEngine(
 
     private fun phrasesFor(query: SuggestionQuery, input: String): List<String> =
         predictor(query.language).predict(
-            previous = query.previousWord,
+            previous = PredictionPipeline.effectivePrevious(query.previousWord),
             previousTwo = query.previousTwoWords,
             prefix = input,
             limit = MAX_VISIBLE,

@@ -202,7 +202,9 @@ object TypoCorrector {
         "adress" to listOf("address"),
         "enviroment" to listOf("environment"),
         "goverment" to listOf("government"),
-        "langauge" to listOf("language")
+        "langauge" to listOf("language"),
+        "wierd" to listOf("weird"),
+        "neccessary" to listOf("necessary")
     )
 
     private val COMMON_CORRECTIONS = mapOf(
@@ -220,6 +222,8 @@ object TypoCorrector {
         "adress" to listOf("address"),
         "enviroment" to listOf("environment"),
         "goverment" to listOf("government"),
-        "langauge" to listOf("language")
+        "langauge" to listOf("language"),
+        "wierd" to listOf("weird"),
+        "neccessary" to listOf("necessary")
     )
 }

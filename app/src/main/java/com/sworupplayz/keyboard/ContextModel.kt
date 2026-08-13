@@ -102,8 +102,9 @@ class ContextModel(
             "how" to listOf("are", "to"),
             "how are" to listOf("you"),
             "how are you" to listOf("doing"),
-            "i" to listOf("am", "have", "will", "can"),
+            "i" to listOf("am", "have", "will", "want", "can"),
             "i am" to listOf("going", "here", "fine"),
+            "i am going" to listOf("to", "home"),
             "we" to listOf("are", "have", "will"),
             "going" to listOf("to"),
             "want" to listOf("to"),
@@ -117,7 +118,7 @@ class ContextModel(
         )
 
         val NEPALI_SEED = mapOf(
-            "म" to listOf("लाई", "पनि", "जान्छु", "घर"),
+            "म" to listOf("लाई", "पनि", "जान्छु", "घर", "स्कुल", "कलेज"),
             "मलाई" to listOf("मन", "नेपाली", "थाहा"),
             "मलाई मन" to listOf("पर्छ"),
             "तिमीलाई" to listOf("कस्तो छ"),
@@ -131,10 +132,13 @@ class ContextModel(
         )
 
         val ROMAN_SEED = mapOf(
-            "ma" to listOf("ghar", "jaanchu", "school"),
+            "ma" to listOf("ghar", "jaanchu", "school", "college"),
             "ma school" to listOf("jaanchu", "gaye", "janchu"),
             "ma ghar" to listOf("jaanchu", "janchu"),
             "ma college" to listOf("jaanchu", "janchu"),
+            "aaja school" to listOf("jaanu", "parcha"),
+            "malai game" to listOf("khelna", "manparcha"),
+            "i am going" to listOf("ghar"),
             "ma kathmandu" to listOf("jaanchu", "janchu"),
             "mero" to listOf("ghar", "naam", "phone"),
             "timi" to listOf("kaha", "lai", "kasto"),

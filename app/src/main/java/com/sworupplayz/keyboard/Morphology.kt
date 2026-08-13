@@ -75,7 +75,13 @@ object Morphology {
         "think" to listOf("think", "thinks", "thinking", "thought"),
         "want" to listOf("want", "wants", "wanted", "wanting"),
         "say" to listOf("say", "says", "saying", "said"),
-        "tell" to listOf("tell", "tells", "telling", "told")
+        "tell" to listOf("tell", "tells", "telling", "told"),
+        "walk" to listOf("walk", "walks", "walked", "walking"),
+        "study" to listOf("study", "studies", "studied", "studying"),
+        "eat" to listOf("eat", "eats", "ate", "eaten", "eating"),
+        "do" to listOf("do", "does", "did", "done", "doing"),
+        "have" to listOf("have", "has", "had", "having"),
+        "be" to listOf("be", "is", "are", "was", "were", "been", "being")
     ).let { families ->
         val expanded = linkedMapOf<String, List<String>>()
         families.forEach { (_, forms) ->
@@ -85,14 +91,18 @@ object Morphology {
     }
 
     private val NEPALI_FAMILIES = mapOf(
-        "घर" to listOf("घर", "घरमा", "घरको", "घरबाट", "घरलाई"),
-        "जानु" to listOf("जानु", "जान", "जान्छ", "जान्छु", "जान्छन्", "जान्छौ", "गयो", "गए", "जाने"),
-        "मन" to listOf("मन", "मनपर्छ", "मनपर्ने", "मनमा"),
+        "घर" to listOf("घर", "घरमा", "घरको", "घरबाट", "घरलाई", "घरहरू"),
+        "मान्छे" to listOf("मान्छे", "मान्छेहरू", "मान्छेको", "मान्छेलाई"),
+        "जानु" to listOf(
+            "जानु", "जान", "जान्छ", "जान्छु", "जान्छन्", "जान्छौ", "जानुहुन्छ",
+            "गयो", "गए", "गएँ", "गयौ", "गएको", "जाने", "जाँदै"
+        ),
+        "मन" to listOf("मन", "मनपर्छ", "मनपर्ने", "मनपरेको", "मनमा"),
         "मलाई" to listOf("मलाई", "मलाईको", "मलाईले"),
         "तिमी" to listOf("तिमी", "तिम्रो", "तिमीलाई", "तिमीले"),
-        "गर्नु" to listOf("गर्नु", "गर्न", "गर्छु", "गर्छ", "गर्छन्", "गरेको", "गर्दै"),
+        "गर्नु" to listOf("गर्नु", "गर्न", "गर्छु", "गर्छ", "गर्छन्", "गरे", "गरेको", "गर्दै"),
         "आउनु" to listOf("आउनु", "आउँछु", "आउँछ", "आयो", "आएँ"),
-        "खानु" to listOf("खानु", "खाना", "खान्छु", "खायो", "खाएँ")
+        "खानु" to listOf("खानु", "खाना", "खान्छु", "खायो", "खाएँ", "खाएको", "खाँदै")
     ).let { families ->
         val expanded = linkedMapOf<String, List<String>>()
         families.forEach { (_, forms) ->

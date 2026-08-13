@@ -239,6 +239,7 @@ object MixedLanguagePolicy {
         if (normalized.isEmpty()) return false
         val original = originalWord ?: word
         val previous = previousWord?.trim()?.lowercase(Locale.ENGLISH)
+        if (normalized in KEEP_ALWAYS) return true
         if (isCapitalizedEnglish(original) && normalized in PROPER_NOUNS) {
             return true
         }
@@ -256,6 +257,11 @@ object MixedLanguagePolicy {
 
     private val NEPALI_CONTEXT = setOf(
         "ma", "mero", "malai", "timi", "tapai", "yo", "tyo", "ho", "cha", "chha", "ghar"
+    )
+
+    private val KEEP_ALWAYS = setOf(
+        "school", "college", "computer", "internet", "game", "phone", "message",
+        "video", "photo", "email", "class", "office", "meeting", "homework"
     )
 
     private val PROPER_NOUNS = setOf(

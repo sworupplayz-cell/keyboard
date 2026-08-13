@@ -61,9 +61,9 @@ object VocabularyCatalog {
 
     private val SLANG = setOf(
         "lol", "lmao", "rofl", "omg", "btw", "idk", "imo", "brb", "tbh", "smh",
-        "gonna", "wanna", "gotta", "kinda", "sorta", "yup", "nope", "nah", "pls",
+        "gonna", "wanna", "gotta", "kinda", "sorta", "yup", "yep", "nope", "nah", "pls",
         "plz", "thx", "nvm", "fyi", "bro", "okay", "idc", "ikr", "lmk", "hmu",
-        "afaik", "tyvm", "rn", "gg", "wp", "ez", "noob", "lag", "ping"
+        "afaik", "tyvm", "rn", "gg", "wp", "ez", "noob", "lag", "ping", "ur", "gaming"
     )
     private val TECH = setOf(
         "google", "youtube", "facebook", "instagram", "whatsapp", "wifi", "email",
