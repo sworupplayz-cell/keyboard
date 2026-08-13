@@ -28,12 +28,14 @@ class SuggestionQueryCache {
         previous: String?,
         previousTwo: String?,
         includeTypos: Boolean,
-        includeEmoji: Boolean
+        includeEmoji: Boolean,
+        previousThree: String? = null
     ): String = listOf(
         language.name,
         input,
         previous.orEmpty(),
         previousTwo.orEmpty(),
+        previousThree.orEmpty(),
         if (includeTypos) "t" else "-",
         if (includeEmoji) "e" else "-"
     ).joinToString("\u0001")

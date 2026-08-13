@@ -222,11 +222,14 @@ class KeyboardService : InputMethodService() {
         fieldAllowsLearning = EditorFieldPolicy.shouldLearn(inputType)
         fieldAllowsSuggestions = EditorFieldPolicy.shouldSuggest(inputType)
         typingGeneration.bump()
-        if (!restarting) {
+        if (ProductionIntegrationPolicy.shouldResetSession(restarting)) {
             defaultMode?.let { language = it.toKeyboardLanguage() }
             layoutMode = LayoutMode.LETTERS
             lastCommittedWord = ""
             lastTwoCommittedWords = null
+            if (ProductionIntegrationPolicy.shouldResetRepeatLearningOnNewField(restarting)) {
+                repeatFinishes = RepeatFinishStore()
+            }
         }
         if (InputConnectionPolicy.shouldFinishComposingOnFieldChange() &&
             romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()
@@ -272,6 +275,15 @@ class KeyboardService : InputMethodService() {
     override fun onFinishInput() {
         typingGeneration.bump()
         stopBackspaceRepeat()
+        if (ProductionIntegrationPolicy.shouldInvalidateSuggestionsOnHide()) {
+            suggestionQueryCache.invalidate()
+            lastSuggestionWords = emptyList()
+        }
+        if (ProductionIntegrationPolicy.shouldResetGuardsOnHide()) {
+            activationGuard.reset()
+            keyBounce.reset()
+            suggestionBounce.reset()
+        }
         if (romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()) {
             currentInputConnection?.finishComposingText()
             romanComposer.reset()
@@ -1345,6 +1357,9 @@ class KeyboardService : InputMethodService() {
 
     private fun acceptSuggestion(suggestion: String, colors: KeyboardPalette) {
         if (!suggestionBounce.allow(suggestion, SystemClock.uptimeMillis())) return
+        if (ProductionIntegrationPolicy.shouldInvalidateSuggestionsOnAccept()) {
+            suggestionQueryCache.invalidate()
+        }
         val context = editorContext(
             if (language == KeyboardLanguage.ROMAN) romanComposer.currentWord else directTypingState.currentWord
         )

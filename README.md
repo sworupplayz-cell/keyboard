@@ -1,8 +1,10 @@
-# Simple Nepali Keyboard — Phase 29
+# Simple Nepali Keyboard — Phase 30
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 29 polishes everyday UX on the existing IME: a stable three-slot suggestion bar, clearer language labels, honest unavailable-feature notes, and a suggestion-query cache so identical context does not rerank. Phases 25–28 stay in place.
+Phase 30 is a production integration pass: field-change and hide/show reset, suggestion-cache invalidation, and privacy-safe local data clearing. Phases 25–29 stay in place.
+
+Floating IME and handwriting recognition remain unavailable. Prediction is deterministic and offline, not a cloud or neural model.
 
 ## Features
 
