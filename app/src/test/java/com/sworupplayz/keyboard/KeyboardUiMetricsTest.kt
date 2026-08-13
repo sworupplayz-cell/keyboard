@@ -103,4 +103,18 @@ class KeyboardUiMetricsTest {
         assertEquals(listOf("EN", "नेपाली", "Roman", "123", "😊", "✍"), labels)
         assertEquals("#+=", KeyboardLayouts.navigationControls("#+=")[3].label)
     }
+
+    @Test
+    fun heightAndWidthHelpersCoverPanelsAndPreviews() {
+        assertEquals(40, KeyboardUiMetrics.suggestionHeightDp())
+        assertEquals(38, KeyboardUiMetrics.suggestionHeightDp(landscape = false, KeyboardHeight.SMALL))
+        assertEquals(42, KeyboardUiMetrics.suggestionHeightDp(landscape = false, KeyboardHeight.LARGE))
+        assertEquals(36, KeyboardUiMetrics.suggestionHeightDp(landscape = true))
+        assertEquals(160, KeyboardUiMetrics.clipboardPanelHeightDp(800, landscape = false))
+        assertEquals(112, KeyboardUiMetrics.clipboardPanelHeightDp(360, landscape = true))
+        assertEquals(7, KeyboardUiMetrics.emojiColumns(320))
+        assertEquals(8, KeyboardUiMetrics.emojiColumns(400))
+        assertTrue(KeyboardUiMetrics.previewWidthDp(320, false) >= 44)
+        assertTrue(KeyboardUiMetrics.previewHeightDp(360, true) <= 54)
+    }
 }

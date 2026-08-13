@@ -48,7 +48,7 @@ object OneHandedLayoutPolicy {
     fun isActive(alignment: OneHandedAlignment): Boolean = alignment != OneHandedAlignment.OFF
 
     fun insets(screenWidthDp: Int, alignment: OneHandedAlignment): OneHandedInsets {
-        if (alignment == OneHandedAlignment.OFF || screenWidthDp < 320) {
+        if (alignment == OneHandedAlignment.OFF || screenWidthDp < 360) {
             return OneHandedInsets(0, 0, screenWidthDp)
         }
         val content = (screenWidthDp * WIDTH_RATIO).toInt().coerceIn(260, screenWidthDp)
@@ -63,13 +63,46 @@ object OneHandedLayoutPolicy {
 }
 
 object AccessibilityLabels {
+    const val MIN_TOUCH_DP = 40
+
     fun suggestion(word: String): String = "Suggestion $word"
 
     fun toolbar(item: ToolbarItem): String = item.description
 
-    fun languageOption(option: LanguageOption): String = option.description
+    fun languageOption(option: LanguageOption, selected: Boolean = false): String =
+        if (selected) "${option.description}, selected" else option.description
 
-    const val MIN_TOUCH_DP = 40
+    fun panel(name: String): String = name
+
+    fun key(key: KeySpec): String = when (key.action) {
+        KeyAction.BACKSPACE -> "Backspace"
+        KeyAction.ENTER -> "Enter"
+        KeyAction.SHIFT -> "Shift"
+        KeyAction.SPACE -> "Space"
+        KeyAction.LANGUAGE -> "Next language"
+        KeyAction.SETTINGS -> "Settings"
+        KeyAction.NUMBERS -> "Numbers"
+        KeyAction.SYMBOLS -> "Symbols"
+        KeyAction.EMOJI -> "Emoji"
+        KeyAction.HANDWRITING -> "Handwriting"
+        KeyAction.LETTERS -> "Letters"
+        KeyAction.RETURN_TO_PREVIOUS -> "Back"
+        KeyAction.VOWELS -> "Nepali vowels"
+        KeyAction.CONSONANTS -> "Nepali consonants"
+        KeyAction.MODE_ENGLISH -> "English"
+        KeyAction.MODE_NEPALI -> "Nepali"
+        KeyAction.MODE_ROMAN -> "Roman Nepali"
+        KeyAction.CLIPBOARD -> "Clipboard"
+        KeyAction.DIGIT_SCRIPT -> "Digit script"
+        KeyAction.SYMBOL_GROUP -> "More symbols"
+        KeyAction.TOOLBAR_MORE -> "More tools"
+        KeyAction.TOOLBAR_COLLAPSE -> "Hide extra tools"
+        KeyAction.HANDWRITING_UNDO -> "Undo stroke"
+        KeyAction.HANDWRITING_CLEAR -> "Clear handwriting"
+        KeyAction.HANDWRITING_CONFIRM -> "Confirm handwriting"
+        KeyAction.HANDWRITING_CANCEL -> "Cancel handwriting"
+        KeyAction.TEXT -> key.label
+    }
 }
 
 object SuggestionBarState {
@@ -83,4 +116,9 @@ object SuggestionBarState {
     }
 
     fun isEmpty(suggestions: List<String>): Boolean = suggestions.isEmpty()
+
+    fun unchanged(previous: List<String>, next: List<String>): Boolean = previous == next
+
+    fun cells(suggestions: List<String>, limit: Int = 3): List<String?> =
+        List(limit.coerceAtLeast(0)) { suggestions.getOrNull(it) }
 }

@@ -46,6 +46,8 @@ object KeyboardTheme {
     const val MODIFIER_TEXT_SP = 14f
     const val MINIMUM_CONTRAST = 4.5
     const val WHITE = -1
+    const val PRESS_FADE_MS = 50
+    const val RELEASE_FADE_MS = 70
 
     fun palette(dark: Boolean, color: (Int) -> Int): KeyboardPalette = if (dark) {
         KeyboardPalette(
@@ -104,6 +106,8 @@ object KeyboardTheme {
 
     fun keyBackground(color: Int, radiusPx: Float, shadowColor: Int, shadowPx: Int): StateListDrawable {
         return StateListDrawable().apply {
+            setEnterFadeDuration(PRESS_FADE_MS)
+            setExitFadeDuration(RELEASE_FADE_MS)
             addState(
                 intArrayOf(android.R.attr.state_pressed),
                 roundedKey(pressedColor(color), radiusPx, shadowColor, shadowPx)
@@ -113,6 +117,22 @@ object KeyboardTheme {
                 roundedKey(pressedColor(color), radiusPx, shadowColor, shadowPx)
             )
             addState(IntArray(0), roundedKey(color, radiusPx, shadowColor, shadowPx))
+        }
+    }
+
+    fun flatKeyBackground(color: Int, radiusPx: Float): StateListDrawable {
+        return StateListDrawable().apply {
+            setEnterFadeDuration(PRESS_FADE_MS)
+            setExitFadeDuration(RELEASE_FADE_MS)
+            addState(
+                intArrayOf(android.R.attr.state_pressed),
+                roundedRect(pressedColor(color), radiusPx)
+            )
+            addState(
+                intArrayOf(android.R.attr.state_focused),
+                roundedRect(pressedColor(color), radiusPx)
+            )
+            addState(IntArray(0), roundedRect(color, radiusPx))
         }
     }
 

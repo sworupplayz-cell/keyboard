@@ -5,7 +5,7 @@ Phase A restyles the existing IME so it reads like Gboard. It does not add cloud
 ## Visual contract
 
 - Light and dark palettes follow Gboard: pale gray board, white letter keys, darker modifier keys, blue Enter, no heavy key borders.
-- Keys are 6 dp rounded rectangles with a 1 dp contact shadow and a slightly darker pressed fill.
+- Keys are 6 dp rounded rectangles with a 1 dp contact shadow and a fast pressed-state fade.
 - The suggestion strip sits above the mode toolbar. Suggestions are plain labels with thin dividers, not chips.
 - The space bar shows the current language name. Letter keys show a preview balloon on press.
 - Long-pressing a letter or punctuation key opens a compact alternate row. Mode keys still long-press to the next system keyboard.

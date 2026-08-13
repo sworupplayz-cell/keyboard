@@ -38,7 +38,7 @@ class KeyboardKeyView(context: Context) : TextView(context) {
     ) {
         val role = KeyVisuals.role(key)
         text = key.label
-        contentDescription = key.label
+        contentDescription = AccessibilityLabels.key(key)
         setTextSize(
             TypedValue.COMPLEX_UNIT_SP,
             KeyVisuals.letterTextSizeSp(key.label, compactScreen, role)

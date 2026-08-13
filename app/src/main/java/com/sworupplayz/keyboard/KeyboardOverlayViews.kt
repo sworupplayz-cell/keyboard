@@ -4,7 +4,9 @@ import android.content.Context
 import android.graphics.Typeface
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 
@@ -19,17 +21,29 @@ class KeyPreviewView(context: Context) : TextView(context) {
         minWidth = dp(KeyboardTheme.PREVIEW_WIDTH_DP)
         minHeight = dp(KeyboardTheme.PREVIEW_HEIGHT_DP)
         elevation = 8f * resources.displayMetrics.density
+        isClickable = false
+        isFocusable = false
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
     }
 
     fun bind(palette: KeyboardPalette, radiusPx: Float) {
-        setTextColor(palette.popupText)
+        setTextColor(KeyboardThemeTokens.previewText(palette))
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
-        background = KeyboardTheme.roundedRect(palette.popupBackground, radiusPx)
+        background = KeyboardTheme.roundedRect(KeyboardThemeTokens.previewFill(palette), radiusPx)
     }
 
-    fun showAbove(anchor: View, host: View, label: String) {
+    fun showAbove(
+        anchor: View,
+        host: View,
+        label: String,
+        textSizeSp: Float = 22f,
+        widthDp: Int = KeyboardTheme.PREVIEW_WIDTH_DP,
+        heightDp: Int = KeyboardTheme.PREVIEW_HEIGHT_DP
+    ) {
         text = label
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, textSizeSp)
+        minWidth = dp(widthDp)
+        minHeight = dp(heightDp)
         visibility = VISIBLE
         measureAndPlace(this, anchor, host, extraLiftPx = dp(4))
     }
@@ -37,42 +51,68 @@ class KeyPreviewView(context: Context) : TextView(context) {
     fun dismiss() {
         visibility = GONE
     }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
 }
 
-/** Compact long-press row of alternate characters. */
-class AlternateChooserView(context: Context) : LinearLayout(context) {
+/** Compact long-press row of alternate characters or language options. */
+class AlternateChooserView(context: Context) : HorizontalScrollView(context) {
     var onPick: ((String) -> Unit)? = null
+    private val row = LinearLayout(context)
 
     init {
-        orientation = HORIZONTAL
-        gravity = Gravity.CENTER
+        isHorizontalScrollBarEnabled = false
+        isFillViewport = false
         visibility = GONE
         elevation = 10f * resources.displayMetrics.density
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
+        row.orientation = LinearLayout.HORIZONTAL
+        row.gravity = Gravity.CENTER
+        addView(
+            row,
+            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+        )
     }
+
+    fun isShowing(): Boolean = visibility == VISIBLE
 
     fun showAbove(
         anchor: View,
         host: View,
         options: List<String>,
         palette: KeyboardPalette,
-        radiusPx: Float
+        radiusPx: Float,
+        selected: String? = null
     ) {
-        removeAllViews()
+        row.removeAllViews()
         setPadding(dp(6), dp(4), dp(6), dp(4))
-        background = KeyboardTheme.roundedRect(palette.popupBackground, radiusPx)
+        background = KeyboardTheme.roundedRect(KeyboardThemeTokens.overlayFill(palette), radiusPx)
         options.forEach { option ->
-            addView(TextView(context).apply {
+            val isSelected = selected != null && option == selected
+            val language = LanguageSwitcher.fromPickerLabel(option)
+            row.addView(TextView(context).apply {
                 text = option
-                contentDescription = option
+                contentDescription = when {
+                    language != null -> AccessibilityLabels.languageOption(
+                        LanguageSwitcher.options().first { it.language == language },
+                        isSelected
+                    )
+                    isSelected -> "$option, selected"
+                    else -> option
+                }
                 isAllCaps = false
                 includeFontPadding = false
                 gravity = Gravity.CENTER
-                setTextColor(palette.popupText)
+                minHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
+                minimumHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
+                setTextColor(
+                    if (isSelected) KeyboardThemeTokens.selectedLabel(palette)
+                    else KeyboardThemeTokens.overlayText(palette)
+                )
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
                 setPadding(dp(10), dp(8), dp(10), dp(8))
                 background = KeyboardTheme.keyBackground(
-                    palette.key,
+                    if (isSelected) KeyboardThemeTokens.toolbarSelected(palette) else palette.key,
                     radiusPx,
                     palette.shadow,
                     dp(1)
@@ -88,7 +128,7 @@ class AlternateChooserView(context: Context) : LinearLayout(context) {
     }
 
     fun dismiss() {
-        removeAllViews()
+        row.removeAllViews()
         visibility = GONE
     }
 }

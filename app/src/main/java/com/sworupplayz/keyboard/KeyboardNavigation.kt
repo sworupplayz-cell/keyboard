@@ -18,3 +18,30 @@ class PreviousLayoutStack<T> {
         entries.clear()
     }
 }
+
+enum class PanelNavigationResult {
+    NONE,
+    CLOSED_OVERLAY,
+    COLLAPSED_TOOLS,
+    CLOSED_PANEL
+}
+
+/**
+ * Back hierarchy for the IME. Popups close first. More is chrome overlay, so
+ * it still collapses before a panel underneath (same contract as
+ * [ToolbarController.consumeBack]). Letters/vowels are not panels.
+ */
+object PanelNavigation {
+    fun isTemporaryPanel(letters: Boolean, vowels: Boolean): Boolean = !letters && !vowels
+
+    fun consume(
+        overlayOpen: Boolean,
+        toolbarExpanded: Boolean,
+        panelOpen: Boolean
+    ): PanelNavigationResult = when {
+        overlayOpen -> PanelNavigationResult.CLOSED_OVERLAY
+        toolbarExpanded -> PanelNavigationResult.COLLAPSED_TOOLS
+        panelOpen -> PanelNavigationResult.CLOSED_PANEL
+        else -> PanelNavigationResult.NONE
+    }
+}

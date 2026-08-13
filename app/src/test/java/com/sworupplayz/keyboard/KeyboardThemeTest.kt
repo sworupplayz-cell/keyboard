@@ -49,5 +49,7 @@ class KeyboardThemeTest {
         val dark = 0xFF3C4043.toInt()
         assertTrue(KeyboardTheme.pressedColor(white) != white)
         assertTrue(KeyboardTheme.pressedColor(dark) != dark)
+        assertTrue(KeyboardTheme.PRESS_FADE_MS in 30..80)
+        assertTrue(KeyboardTheme.RELEASE_FADE_MS in 40..100)
     }
 }

@@ -36,6 +36,10 @@ Tap inserts raw Unicode after finishing the composing word. Roman conversion is 
 - Clipboard history (default ON)
 - Clear clipboard
 
+## Back
+
+A popup or language picker closes first. Expanded More collapses next. An open emoji, clipboard, number, symbol, or handwriting panel then returns to the previous keyboard. Letters and vowels leave Back to Android.
+
 ## Privacy
 
 No internet permission, upload, account, analytics, or cloud sync.

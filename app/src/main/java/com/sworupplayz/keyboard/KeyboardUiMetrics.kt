@@ -10,6 +10,7 @@ object KeyboardUiMetrics {
     const val EMOJI_CATEGORY_HEIGHT_DP = 44
     const val EMOJI_KEY_HEIGHT_DP = 48
     const val HANDWRITING_RESULT_HEIGHT_DP = 40
+    const val EMOJI_VISIBLE_ROWS = 4
 
     fun keyHeightDp(
         screenWidthDp: Int,
@@ -69,6 +70,49 @@ object KeyboardUiMetrics {
         return adjust(normal, height, 2)
     }
 
+    fun suggestionHeightDp(
+        landscape: Boolean = false,
+        height: KeyboardHeight = KeyboardHeight.NORMAL
+    ): Int = adjust(if (landscape) 36 else SUGGESTION_HEIGHT_DP, height, 2)
+
+    fun navigationHeightDp(
+        landscape: Boolean = false,
+        height: KeyboardHeight = KeyboardHeight.NORMAL
+    ): Int = adjust(if (landscape) 40 else NAVIGATION_HEIGHT_DP, height, 2)
+
+    fun clipboardPanelHeightDp(
+        screenHeightDp: Int,
+        landscape: Boolean,
+        height: KeyboardHeight = KeyboardHeight.NORMAL
+    ): Int {
+        val normal = when {
+            landscape -> 112
+            screenHeightDp < 600 -> 140
+            else -> 160
+        }
+        return adjust(normal, height, 12)
+    }
+
+    fun emojiColumns(screenWidthDp: Int): Int = if (screenWidthDp < 340) 7 else 8
+
+    fun emojiCategoryWidthDp(screenWidthDp: Int): Int =
+        if (screenWidthDp < 360) AccessibilityLabels.MIN_TOUCH_DP else 40
+
+    fun previewWidthDp(screenWidthDp: Int, landscape: Boolean): Int = when {
+        landscape -> 44
+        screenWidthDp < 360 -> 46
+        else -> KeyboardTheme.PREVIEW_WIDTH_DP
+    }
+
+    fun previewHeightDp(screenWidthDp: Int, landscape: Boolean): Int = when {
+        landscape -> 50
+        screenWidthDp < 360 -> 54
+        else -> KeyboardTheme.PREVIEW_HEIGHT_DP
+    }
+
+    fun contentWidthDp(screenWidthDp: Int, alignment: OneHandedAlignment): Int =
+        OneHandedLayoutPolicy.insets(screenWidthDp, alignment).contentWidthDp
+
     fun estimatedStandardHeightDp(
         screenWidthDp: Int,
         screenHeightDp: Int,
@@ -80,10 +124,10 @@ object KeyboardUiMetrics {
         hasNumberRow: Boolean = false,
         hasToolbar: Boolean = false
     ): Int = ROOT_VERTICAL_PADDING_DP +
-        (if (includeNavigation) NAVIGATION_HEIGHT_DP else 0) +
+        (if (includeNavigation) navigationHeightDp(landscape, height) else 0) +
         (if (hasToolbar) toolbarHeightDp(screenWidthDp, landscape, height) else 0) +
         keyHeightDp(screenWidthDp, screenHeightDp, landscape, height) * rowCount +
-        (if (hasSuggestion) SUGGESTION_HEIGHT_DP else 0) +
+        (if (hasSuggestion) suggestionHeightDp(landscape, height) else 0) +
         (if (hasNumberRow) compactNumberRowHeightDp(height) else 0)
 
     fun equalKeyWidthDp(screenWidthDp: Int, keyCount: Int): Float {

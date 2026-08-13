@@ -86,6 +86,10 @@ class PersonalizationTest {
         assertTrue(right.startDp > 0)
         assertTrue(center.startDp > 0 && center.endDp > 0)
         assertTrue(left.contentWidthDp < 360)
+        val compact = OneHandedLayoutPolicy.insets(320, OneHandedAlignment.LEFT)
+        assertEquals(0, compact.startDp)
+        assertEquals(0, compact.endDp)
+        assertEquals(320, compact.contentWidthDp)
         assertEquals("hello", "hello")
         assertEquals("नमस्ते", "नमस्ते")
     }

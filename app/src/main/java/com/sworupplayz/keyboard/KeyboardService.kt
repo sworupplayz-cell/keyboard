@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.media.AudioManager
 import android.os.Build
@@ -135,6 +134,10 @@ class KeyboardService : InputMethodService() {
     private var oneHanded = OneHandedAlignment.OFF
     private var presentationMode = KeyboardPresentationMode.NORMAL
     private val toolbar = ToolbarController()
+    private val languagePicker = LanguagePickerState()
+    private val activationGuard = ActivationGuard()
+    private var lastSuggestionWords: List<String> = emptyList()
+    private var overlayDismissView: View? = null
     private var clipboardHistory = ClipboardRepository()
     private var lastSpaceUptime = 0L
     private var showNumberRow = false
@@ -194,6 +197,9 @@ class KeyboardService : InputMethodService() {
         resetHandwriting()
         modeHistory.clear()
         toolbar.reset()
+        languagePicker.dismiss()
+        activationGuard.reset()
+        lastSuggestionWords = emptyList()
         captureClipboard()
         shifted = false
         if (::keyboardRoot.isInitialized) {
@@ -287,17 +293,25 @@ class KeyboardService : InputMethodService() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK && event.repeatCount == 0) {
-            val panelOpen = layoutMode != LayoutMode.LETTERS && layoutMode != LayoutMode.VOWELS
-            when (toolbar.consumeBack(panelOpen)) {
-                ToolbarBackResult.COLLAPSED_TOOLS -> {
+            val panelOpen = PanelNavigation.isTemporaryPanel(
+                letters = layoutMode == LayoutMode.LETTERS,
+                vowels = layoutMode == LayoutMode.VOWELS
+            )
+            when (PanelNavigation.consume(isOverlayOpen(), toolbar.isExpanded, panelOpen)) {
+                PanelNavigationResult.CLOSED_OVERLAY -> {
+                    hideOverlays()
+                    return true
+                }
+                PanelNavigationResult.COLLAPSED_TOOLS -> {
+                    toolbar.collapse()
                     renderKeyboard()
                     return true
                 }
-                ToolbarBackResult.CLOSED_PANEL -> {
+                PanelNavigationResult.CLOSED_PANEL -> {
                     returnToPreviousLayout()
                     return true
                 }
-                ToolbarBackResult.NONE -> Unit
+                PanelNavigationResult.NONE -> Unit
             }
         }
         return super.onKeyDown(keyCode, event)
@@ -385,6 +399,7 @@ class KeyboardService : InputMethodService() {
         applyPresentationPadding(colors)
         keyboardRoot.removeAllViews()
         suggestionRow = null
+        lastSuggestionWords = emptyList()
         suggestionSettingsVisible = false
         handwritingResultRow = null
         handwritingCanvas = null
@@ -479,7 +494,9 @@ class KeyboardService : InputMethodService() {
                 minHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
                 contentDescription = AccessibilityLabels.toolbar(item)
                 setOnClickListener {
-                    giveFeedback(ToolbarController.keyAction(item.action))
+                    if (consumeChooserTap()) return@setOnClickListener
+                    if (!activationGuard.allow(item.action.name, SystemClock.uptimeMillis())) return@setOnClickListener
+                    giveFeedback(ToolbarController.keyAction(item.action), FeedbackKind.CHROME)
                     handleToolbarAction(item.action)
                 }
                 if (item.action == ToolbarAction.LANGUAGE) {
@@ -502,20 +519,27 @@ class KeyboardService : InputMethodService() {
                 toolbar.collapse()
                 renderKeyboard()
             }
-            ToolbarAction.CLIPBOARD -> openClipboard()
+            ToolbarAction.CLIPBOARD -> {
+                if (layoutMode == LayoutMode.CLIPBOARD) return
+                openClipboard()
+            }
             ToolbarAction.EMOJI -> {
+                if (layoutMode == LayoutMode.EMOJI) return
                 toolbar.collapse()
                 openPanel(LayoutMode.EMOJI)
             }
             ToolbarAction.NUMBERS -> {
+                if (layoutMode == LayoutMode.NUMBERS) return
                 toolbar.collapse()
                 openPanel(LayoutMode.NUMBERS)
             }
             ToolbarAction.SYMBOLS -> {
+                if (layoutMode == LayoutMode.SYMBOLS) return
                 toolbar.collapse()
                 openPanel(LayoutMode.SYMBOLS)
             }
             ToolbarAction.HANDWRITING -> {
+                if (layoutMode == LayoutMode.HANDWRITING) return
                 toolbar.collapse()
                 openHandwriting()
             }
@@ -546,7 +570,10 @@ class KeyboardService : InputMethodService() {
         }
         keyboardRoot.addView(
             row,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(KeyboardUiMetrics.NAVIGATION_HEIGHT_DP))
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(navigationRowHeightDp())
+            )
         )
         val numberLabel = if (layoutMode == LayoutMode.SYMBOLS) "#+=" else "123"
         KeyboardLayouts.navigationControls(numberLabel).forEach { key ->
@@ -570,19 +597,22 @@ class KeyboardService : InputMethodService() {
                 isClickable = true
                 isFocusable = true
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                setTextColor(if (selected) Color.WHITE else colors.text)
+                setTextColor(if (selected) KeyboardThemeTokens.selectedLabel(colors) else colors.text)
                 background = KeyboardTheme.keyBackground(
-                    if (selected) colors.accent else colors.specialKey,
+                    if (selected) KeyboardThemeTokens.toolbarSelected(colors) else KeyboardThemeTokens.toolbarFill(colors),
                     dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat(),
                     colors.shadow,
                     dp(KeyboardTheme.SHADOW_DP)
                 )
-                layoutParams = LinearLayout.LayoutParams(dp(36), LinearLayout.LayoutParams.MATCH_PARENT).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    dp(KeyboardUiMetrics.emojiCategoryWidthDp(resources.configuration.screenWidthDp)),
+                    LinearLayout.LayoutParams.MATCH_PARENT
+                ).apply {
                     val margin = preferredKeyMargin()
                     setMargins(margin, dp(2), margin, dp(2))
                 }
                 setOnClickListener {
-                    giveFeedback(KeyAction.EMOJI)
+                    giveFeedback(KeyAction.EMOJI, FeedbackKind.NAVIGATION)
                     emojiCategory = category
                     if (category != EmojiCategory.SEARCH) emojiQuery = ""
                     renderKeyboard()
@@ -631,7 +661,8 @@ class KeyboardService : InputMethodService() {
             }
         } else {
             val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-            emojis.chunked(EMOJIS_PER_ROW).forEach { emojiRow ->
+            val columns = KeyboardUiMetrics.emojiColumns(resources.configuration.screenWidthDp)
+            emojis.chunked(columns).forEach { emojiRow ->
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER
@@ -644,7 +675,7 @@ class KeyboardService : InputMethodService() {
                     )
                 )
                 emojiRow.forEach { emoji -> row.addView(createEmojiButton(emoji, colors)) }
-                repeat(EMOJIS_PER_ROW - emojiRow.size) {
+                repeat(columns - emojiRow.size) {
                     row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
                 }
             }
@@ -698,6 +729,7 @@ class KeyboardService : InputMethodService() {
                         dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat()
                     )
                 }
+                row.minHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
                 row.addView(TextView(this).apply {
                     text = ClipboardPolicy.preview(entry.text)
                     contentDescription = getString(R.string.clipboard_item_description)
@@ -705,6 +737,7 @@ class KeyboardService : InputMethodService() {
                     textSize = 14f
                     isClickable = true
                     isFocusable = true
+                    minHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
                     setOnClickListener {
                         giveFeedback(KeyAction.CLIPBOARD)
                         insertClipboardText(entry.text)
@@ -718,7 +751,10 @@ class KeyboardService : InputMethodService() {
                     setPadding(dp(10), 0, dp(4), 0)
                     isClickable = true
                     isFocusable = true
+                    minHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
+                    minWidth = dp(AccessibilityLabels.MIN_TOUCH_DP)
                     setOnClickListener {
+                        giveFeedback(KeyAction.CLIPBOARD, FeedbackKind.CHROME)
                         clipboardHistory.delete(entry.id)
                         persistClipboard()
                         renderKeyboard()
@@ -734,7 +770,10 @@ class KeyboardService : InputMethodService() {
                     isVerticalScrollBarEnabled = false
                     addView(list)
                 },
-                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(160))
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(clipboardPanelHeight())
+                )
             )
         }
 
@@ -754,7 +793,10 @@ class KeyboardService : InputMethodService() {
         }
         keyboardRoot.addView(
             controls,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(KeyboardUiMetrics.NAVIGATION_HEIGHT_DP))
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(navigationRowHeightDp())
+            )
         )
     }
 
@@ -835,7 +877,7 @@ class KeyboardService : InputMethodService() {
                     dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat()
                 )
                 setOnClickListener {
-                    giveFeedback(KeyAction.EMOJI)
+                    giveFeedback(KeyAction.EMOJI, FeedbackKind.NAVIGATION)
                     emojiQuery = keyword
                     renderKeyboard()
                 }
@@ -862,7 +904,9 @@ class KeyboardService : InputMethodService() {
                 shadowPx = dp(KeyboardTheme.SHADOW_DP)
             )
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+            contentDescription = emoji
             setOnClickListener {
+                if (consumeChooserTap()) return@setOnClickListener
                 giveFeedback(KeyAction.EMOJI)
                 insertEmoji(emoji)
             }
@@ -870,7 +914,8 @@ class KeyboardService : InputMethodService() {
             if (variants.isNotEmpty()) {
                 setOnLongClickListener { view ->
                     previewView?.dismiss()
-                    giveFeedback(KeyAction.EMOJI)
+                    giveFeedback(KeyAction.EMOJI, FeedbackKind.LONG_PRESS)
+                    showOverlayShield()
                     alternateChooser?.showAbove(
                         view,
                         overlayHost,
@@ -1004,16 +1049,19 @@ class KeyboardService : InputMethodService() {
             setPadding(dp(4), dp(2), dp(4), dp(2))
         }
         suggestionRow = row
+        lastSuggestionWords = emptyList()
         keyboardRoot.addView(
             row,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(KeyboardUiMetrics.SUGGESTION_HEIGHT_DP))
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(suggestionRowHeightDp())
+            )
         )
         updateSuggestionRow(colors)
     }
 
     private fun updateSuggestionRow(colors: KeyboardPalette = keyboardColors()) {
         val row = suggestionRow ?: return
-        row.removeAllViews()
         val currentWord = if (language == KeyboardLanguage.ROMAN) {
             romanComposer.currentWord
         } else {
@@ -1078,6 +1126,11 @@ class KeyboardService : InputMethodService() {
             rawSuggestions
         }
         val suggestions = SuggestionBarState.display(mapped, currentWord, MAX_SUGGESTIONS)
+        if (SuggestionBarState.unchanged(lastSuggestionWords, suggestions) && row.childCount > 0) {
+            return
+        }
+        lastSuggestionWords = suggestions
+        row.removeAllViews()
         row.setBackgroundColor(KeyboardThemeTokens.suggestionBackground(colors))
         if (suggestions.isEmpty()) {
             val hint = when (language) {
@@ -1095,8 +1148,12 @@ class KeyboardService : InputMethodService() {
             return
         }
 
-        suggestions.take(MAX_SUGGESTIONS).forEachIndexed { index, suggestion ->
+        SuggestionBarState.cells(suggestions, MAX_SUGGESTIONS).forEachIndexed { index, suggestion ->
             if (index > 0) row.addView(suggestionDivider(colors))
+            if (suggestion == null) {
+                row.addView(View(this), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+                return@forEachIndexed
+            }
             row.addView(TextView(this).apply {
                 text = suggestion
                 contentDescription = AccessibilityLabels.suggestion(suggestion)
@@ -1114,9 +1171,13 @@ class KeyboardService : InputMethodService() {
                     if (index == 0) KeyboardThemeTokens.suggestionPrimary(colors)
                     else KeyboardThemeTokens.suggestionSecondary(colors)
                 )
-                background = null
+                background = KeyboardTheme.flatKeyBackground(
+                    KeyboardThemeTokens.suggestionBackground(colors),
+                    dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat()
+                )
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
                 setOnClickListener {
+                    if (consumeChooserTap()) return@setOnClickListener
                     giveFeedback(KeyAction.TEXT)
                     acceptSuggestion(suggestion, colors)
                 }
@@ -1313,6 +1374,7 @@ class KeyboardService : InputMethodService() {
                 contentDescription = getString(R.string.settings_key_description)
             }
             setOnClickListener {
+                if (consumeChooserTap()) return@setOnClickListener
                 hideOverlays()
                 giveFeedback(key.action)
                 handleKey(key)
@@ -1320,20 +1382,31 @@ class KeyboardService : InputMethodService() {
             setOnTouchListener { view, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
-                        if (KeyVisuals.showsPreview(key)) {
-                            previewView?.showAbove(view, overlayHost, key.label)
+                        if (KeyInteractionPolicy.showsPreview(key)) {
+                            val landscape = resources.configuration.orientation ==
+                                Configuration.ORIENTATION_LANDSCAPE
+                            previewView?.showAbove(
+                                view,
+                                overlayHost,
+                                KeyInteractionPolicy.previewLabel(key),
+                                KeyInteractionPolicy.previewTextSizeSp(key.label, compactScreen),
+                                KeyboardUiMetrics.previewWidthDp(resources.configuration.screenWidthDp, landscape),
+                                KeyboardUiMetrics.previewHeightDp(resources.configuration.screenWidthDp, landscape)
+                            )
                         }
                     }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> previewView?.dismiss()
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_OUTSIDE ->
+                        previewView?.dismiss()
                 }
                 false
             }
             val alternates = KeyVisuals.alternates(key.label)
             when {
-                alternates.isNotEmpty() && key.action == KeyAction.TEXT -> {
+                KeyInteractionPolicy.allowsLongPressAlternates(key) -> {
                     setOnLongClickListener { view ->
                         previewView?.dismiss()
-                        giveFeedback(KeyAction.TEXT)
+                        giveFeedback(KeyAction.TEXT, FeedbackKind.LONG_PRESS)
+                        showOverlayShield()
                         alternateChooser?.showAbove(
                             view,
                             overlayHost,
@@ -1380,9 +1453,9 @@ class KeyboardService : InputMethodService() {
         minimumHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
         setPadding(0, 0, 0, 0)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, if (resources.configuration.screenWidthDp < 360) 12f else 13f)
-        setTextColor(if (selected) Color.WHITE else colors.text)
+        setTextColor(if (selected) KeyboardThemeTokens.selectedLabel(colors) else colors.text)
         background = KeyboardTheme.keyBackground(
-            if (selected) colors.accent else colors.specialKey,
+            if (selected) KeyboardThemeTokens.toolbarSelected(colors) else KeyboardThemeTokens.toolbarFill(colors),
             dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat(),
             colors.shadow,
             dp(KeyboardTheme.SHADOW_DP)
@@ -1548,6 +1621,10 @@ class KeyboardService : InputMethodService() {
 
     private fun insertAlternate(text: String) {
         hideOverlays()
+        languagePicker.select(text)?.let { selected ->
+            switchTypingMode(selected)
+            return
+        }
         LanguageSwitcher.fromPickerLabel(text)?.let { selected ->
             switchTypingMode(selected)
             return
@@ -1570,9 +1647,104 @@ class KeyboardService : InputMethodService() {
     private fun hideOverlays() {
         previewView?.dismiss()
         alternateChooser?.dismiss()
+        languagePicker.dismiss()
+        overlayDismissView?.let { shield ->
+            if (::overlayHost.isInitialized) overlayHost.removeView(shield)
+        }
+        overlayDismissView = null
     }
 
+    private fun isOverlayOpen(): Boolean =
+        languagePicker.isOpen ||
+            alternateChooser?.isShowing() == true ||
+            previewView?.visibility == View.VISIBLE
+
+    private fun isChooserOpen(): Boolean =
+        languagePicker.isOpen || alternateChooser?.isShowing() == true
+
+    private fun consumeChooserTap(): Boolean {
+        if (!isChooserOpen()) return false
+        hideOverlays()
+        return true
+    }
+
+    private fun showOverlayShield() {
+        if (overlayDismissView != null || !::overlayHost.isInitialized) return
+        val shield = View(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            setOnClickListener { hideOverlays() }
+        }
+        overlayHost.addView(shield, 1)
+        overlayDismissView = shield
+    }
+
+    private fun applyPresentationPadding(colors: KeyboardPalette) {
+        val screenWidth = resources.configuration.screenWidthDp
+        val alignment = if (
+            OneHandedLayoutPolicy.presentation(oneHanded, presentationMode) ==
+            KeyboardPresentationMode.ONE_HANDED
+        ) {
+            oneHanded
+        } else {
+            OneHandedAlignment.OFF
+        }
+        val insets = OneHandedLayoutPolicy.insets(screenWidth, alignment)
+        if (::overlayHost.isInitialized) {
+            overlayHost.setBackgroundColor(KeyboardThemeTokens.gutter(colors))
+        }
+        keyboardRoot.setBackgroundColor(KeyboardThemeTokens.gutter(colors))
+        keyboardRoot.setPadding(
+            dp(KeyboardUiMetrics.ROOT_HORIZONTAL_PADDING_DP + insets.startDp),
+            dp(KeyboardUiMetrics.ROOT_VERTICAL_PADDING_DP / 2),
+            dp(KeyboardUiMetrics.ROOT_HORIZONTAL_PADDING_DP + insets.endDp),
+            dp(KeyboardUiMetrics.ROOT_VERTICAL_PADDING_DP / 2)
+        )
+    }
+
+    private fun applyLanguageButton(config: ToolbarConfiguration): ToolbarConfiguration {
+        val enabled = config.enabled.toMutableSet()
+        if (useLanguageButton) enabled += ToolbarAction.LANGUAGE else enabled -= ToolbarAction.LANGUAGE
+        if (enabled.isEmpty()) enabled += ToolbarAction.MORE
+        return config.copy(enabled = enabled)
+    }
+
+    private fun showLanguagePicker(anchor: View) {
+        val colors = keyboardColors()
+        previewView?.dismiss()
+        languagePicker.open(language)
+        showOverlayShield()
+        alternateChooser?.showAbove(
+            anchor = anchor,
+            host = overlayHost,
+            options = LanguageSwitcher.pickerLabels(),
+            palette = colors,
+            radiusPx = dp(KeyboardTheme.PREVIEW_CORNER_RADIUS_DP).toFloat(),
+            selected = LanguageSwitcher.pickerLabel(language)
+        )
+    }
+
+    private fun suggestionRowHeightDp(): Int = KeyboardUiMetrics.suggestionHeightDp(
+        resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+        keyboardHeight
+    )
+
+    private fun navigationRowHeightDp(): Int = KeyboardUiMetrics.navigationHeightDp(
+        resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+        keyboardHeight
+    )
+
+    private fun clipboardPanelHeight(): Int = KeyboardUiMetrics.clipboardPanelHeightDp(
+        resources.configuration.screenHeightDp,
+        resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+        keyboardHeight
+    )
+
     private fun openPanel(target: LayoutMode) {
+        if (layoutMode == target) return
         if (language == KeyboardLanguage.ROMAN) {
             applyRomanEdit(finishRomanWord())
         }
@@ -1607,6 +1779,7 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun openHandwriting() {
+        if (layoutMode == LayoutMode.HANDWRITING) return
         if (language == KeyboardLanguage.ROMAN) {
             applyRomanEdit(finishRomanWord())
         }
@@ -1759,23 +1932,31 @@ class KeyboardService : InputMethodService() {
         }
     }
 
-    private fun giveFeedback(action: KeyAction) {
-        if (useSound) {
-            val sound = when (action) {
-                KeyAction.BACKSPACE -> AudioManager.FX_KEYPRESS_DELETE
-                KeyAction.ENTER -> AudioManager.FX_KEYPRESS_RETURN
-                KeyAction.SPACE -> AudioManager.FX_KEYPRESS_SPACEBAR
-                else -> AudioManager.FX_KEYPRESS_STANDARD
+    private fun giveFeedback(action: KeyAction, kind: FeedbackKind = FeedbackKind.KEY) {
+        if (TouchFeedbackPolicy.shouldPlaySound(useSound, kind)) {
+            val sound = when (TouchFeedbackPolicy.soundFor(action)) {
+                KeyClickSound.DELETE -> AudioManager.FX_KEYPRESS_DELETE
+                KeyClickSound.RETURN -> AudioManager.FX_KEYPRESS_RETURN
+                KeyClickSound.SPACE -> AudioManager.FX_KEYPRESS_SPACEBAR
+                KeyClickSound.NONE -> null
+                KeyClickSound.STANDARD -> AudioManager.FX_KEYPRESS_STANDARD
             }
-            (getSystemService(Context.AUDIO_SERVICE) as AudioManager).playSoundEffect(sound)
+            if (sound != null) {
+                (getSystemService(Context.AUDIO_SERVICE) as AudioManager).playSoundEffect(sound)
+            }
         }
-        if (useVibration) vibrator()?.let { deviceVibrator ->
-            if (!deviceVibrator.hasVibrator()) return@let
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                deviceVibrator.vibrate(VibrationEffect.createOneShot(18, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                deviceVibrator.vibrate(18)
+        val duration = TouchFeedbackPolicy.vibrationDurationMs(kind)
+        if (TouchFeedbackPolicy.shouldVibrate(useVibration, kind) && duration > 0) {
+            vibrator()?.let { deviceVibrator ->
+                if (!deviceVibrator.hasVibrator()) return@let
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    deviceVibrator.vibrate(
+                        VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE)
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    deviceVibrator.vibrate(duration)
+                }
             }
         }
     }
@@ -1861,43 +2042,7 @@ class KeyboardService : InputMethodService() {
     )
 
     private companion object {
-        const val EMOJIS_PER_ROW = 8
-        const val EMOJI_VISIBLE_ROWS = 4
-        const val MAX_SUGGESTIONS = 3
-    }
-}
-           configuration.screenWidthDp,
-            configuration.screenHeightDp,
-            configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
-            keyboardHeight
-        )
-    }
-
-    private fun systemUsesDarkTheme(): Boolean =
-        resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
-            Configuration.UI_MODE_NIGHT_YES
-
-    private fun keyboardColors(): KeyboardPalette =
-        KeyboardTheme.palette(useDarkAppearance) { color(it) }
-
-    private fun preferredKeyMargin(): Int {
-        val compact = resources.configuration.screenWidthDp < 360
-        val gap = if (compact) KeyboardTheme.COMPACT_HORIZONTAL_GAP_DP else KeyboardTheme.KEY_HORIZONTAL_GAP_DP
-        return dp(maxOf(gap, KeyboardUiMetrics.keyMarginDp(resources.configuration.screenWidthDp)))
-    }
-
-    private fun color(resource: Int): Int = resources.getColor(resource, theme)
-
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
-
-    private data class ModeSnapshot(
-        val language: KeyboardLanguage,
-        val layout: LayoutMode
-    )
-
-    private companion object {
-        const val EMOJIS_PER_ROW = 8
-        const val EMOJI_VISIBLE_ROWS = 4
+        const val EMOJI_VISIBLE_ROWS = KeyboardUiMetrics.EMOJI_VISIBLE_ROWS
         const val MAX_SUGGESTIONS = 3
     }
 }
