@@ -80,7 +80,11 @@ class KeyboardSettingsRepository(private val storage: SettingsStorage) {
         numberRow = storage.getBoolean(KeyboardPreferences.KEY_NUMBER_ROW, false),
         keySound = storage.getBoolean(KeyboardPreferences.KEY_SOUND, false),
         keyVibration = storage.getBoolean(KeyboardPreferences.KEY_VIBRATION, false),
-        height = KeyboardHeight.fromStored(storage.getString(KeyboardPreferences.KEY_HEIGHT))
+        height = KeyboardHeight.fromStored(storage.getString(KeyboardPreferences.KEY_HEIGHT)),
+        smartPunctuation = storage.getBoolean(KeyboardPreferences.KEY_SMART_PUNCTUATION, true),
+        doubleSpacePeriod = storage.getBoolean(KeyboardPreferences.KEY_DOUBLE_SPACE_PERIOD, true),
+        autoCapitalization = storage.getBoolean(KeyboardPreferences.KEY_AUTO_CAPITALIZATION, true),
+        emojiRecents = storage.getBoolean(KeyboardPreferences.KEY_EMOJI_RECENTS, true)
     )
 
     fun savedDefaultMode(): DefaultKeyboardMode? =

@@ -34,7 +34,7 @@ the be to of and a in that have i it for not on with he hello help her here hear
 as you do at this but his by from they we say she or an will my one all would
 are was were am been being
 there their what so if about who get which when make can like time no just him
-know take people into year your good some could them see other than then now
+know take people into year your good going Google some could them see other than then now
 look only come its over think also back after use two how our work first well
 way even new want because any these give day most us
 where why who whose whom
@@ -489,6 +489,13 @@ curl currency current currently curriculum curtain curve cushion custom
 customer cut cute cycle cycling cylinder
 """.split()
 
+ENGLISH_PHASE15 = """
+he'll she'll we'll they'll it'll I'm you're they're it's that's what's
+don't can't won't didn't doesn't isn't aren't wasn't weren't
+going gone goes Google
+went came said got made knew took saw thought told asked
+""".split()
+
 ENGLISH_NAMES = """
 ram sita hari gita krishna shiva laxmi saraswati
 suman bikash prakash santosh anish manish roshan
@@ -507,13 +514,14 @@ def english_words():
         + ENGLISH_MORE
         + ENGLISH_CHAT
         + ENGLISH_NEPAL
+        + ENGLISH_PHASE15
         + ENGLISH_NAMES
     )
 
 
 NEPALI_PRIORITY = """
 म मैले मलाई मेरो मेरी हामी हामीले हामीलाई हाम्रो
-तिमी तिमीले तिमीलाई तिम्रो तपाईं तपाईंले तपाईंलाई तपाईंको
+तिमी तिमीले तिमीलाई तिम्रो तपाईं तपाईँ तपाईंले तपाईंलाई तपाईंको तपाईँलाई तपाईँको तपाईँले
 ऊ उसले उसलाई उसको उनी उनीहरू यो त्यो को कसले कसलाई आफू आफ्नो
 हो होइन हैन छ छु छौ छन् थियो थिएँ थियौ थिए
 हुन्छ हुँदैन भयो भो हुनुहुन्छ भनेको भन्ने भन्दा भनेर
@@ -530,7 +538,7 @@ NEPALI_PRIORITY = """
 भेट्नु राख्नु चाहन्छु चाहिन्छ पर्छ पर्दैन सक्छु सक्दिनँ मिल्छ लाग्छ लाग्यो
 आज भोलि हिजो अहिले चाँडै ढिलो सधैँ एक दुई तीन चार पाँच छः सात आठ नौ दस
 धेरै थोरै सबै केही अलि एकदम
-काठमाडौं पोखरा नेपाल नेपाली गाउँ सहर घर कोठा बाटो पसल बजार अस्पताल
+काठमाडौं पोखरा नेपाल नेपाली गाउँ सहर घर घरमा घरको घरबाट कोठा बाटो पसल बजार अस्पताल
 पैसा रुपैयाँ पानी चिया कफी भात दाल तरकारी रोटी मोमो मिठो नराम्रो राम्रो
 ठूलो सानो नयाँ पुरानो सजिलो गाह्रो चिसो तातो सफा माया मन कुरा काम नाम
 ठाउँ दिन हप्ता महिना वर्ष समय

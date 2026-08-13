@@ -23,9 +23,12 @@ class LocalWordSuggester private constructor(words: List<String>) {
         val substitutionBuckets = linkedMapOf<String, LinkedHashSet<String>>()
         vocabulary.forEach { word ->
             val normalized = normalize(word)
-            for (length in 1..normalized.length) {
-                prefixBuckets.getOrPut(normalized.substring(0, length)) { LinkedHashSet() }
-                    .addBounded(word)
+            val prefixForms = linkedSetOf(normalized, normalized.filter { it != '\'' })
+            prefixForms.forEach { form ->
+                for (length in 1..form.length) {
+                    prefixBuckets.getOrPut(form.substring(0, length)) { LinkedHashSet() }
+                        .addBounded(word)
+                }
             }
             if (normalized.length >= MIN_TYPO_LENGTH) {
                 val isLatinWord = normalized.all { it in 'a'..'z' }
@@ -45,6 +48,8 @@ class LocalWordSuggester private constructor(words: List<String>) {
     }
 
     fun contains(word: String): Boolean = normalize(word) in knownWords
+
+    fun rankOf(word: String): Int = frequencyRank[normalize(word)] ?: Int.MAX_VALUE
 
     fun suggestions(
         input: String,
@@ -333,12 +338,19 @@ object SuggestionRanker {
             .take(limit)
     }
 
-    private fun formatLikeInput(input: String, candidate: String): String =
-        if (input.firstOrNull()?.isUpperCase() == true) {
-            candidate.replaceFirstChar { it.uppercaseChar() }
-        } else {
-            candidate
+    private fun formatLikeInput(input: String, candidate: String): String {
+        if (candidate.any { it.code in DEVANAGARI_RANGE } || candidate.any { !it.isLetter() && it != '\'' }) {
+            return candidate
         }
+        val letters = input.filter { it.isLetter() }
+        if (letters.isNotEmpty() && letters.all { it.isUpperCase() }) {
+            return candidate.uppercase(Locale.ENGLISH)
+        }
+        if (input.firstOrNull()?.isUpperCase() == true) {
+            return candidate.replaceFirstChar { it.uppercaseChar() }
+        }
+        return candidate
+    }
 
     private fun matchesRankedInput(word: String, normalizedInput: String): Boolean {
         val trimmed = word.trim()
@@ -393,6 +405,7 @@ class RecentWordStore(
 
 object WordLearningPolicy {
     const val MIN_TEACHABLE_LENGTH = 3
+    const val REPEATS_TO_LEARN = 2
 
     fun shouldLearnUnknown(word: String, known: (String) -> Boolean): Boolean {
         val clean = word.trim()
@@ -401,6 +414,9 @@ object WordLearningPolicy {
 
     fun shouldLearnAccepted(word: String): Boolean = !isGarbage(word.trim())
 
+    fun shouldLearnRepeated(word: String, finishCount: Int, known: (String) -> Boolean): Boolean =
+        finishCount >= REPEATS_TO_LEARN && shouldLearnUnknown(word, known)
+
     fun isGarbage(word: String): Boolean {
         val clean = word.trim()
         if (clean.length < MIN_TEACHABLE_LENGTH) return true
@@ -408,6 +424,8 @@ object WordLearningPolicy {
         if (clean.none { it.isLetter() || it.code in 0x0900..0x097F }) return true
         if (SpecialTokenPolicy.looksLikeUrl(clean) || SpecialTokenPolicy.looksLikeEmail(clean)) return true
         if (SpecialTokenPolicy.looksLikeMentionOrHashtag(clean)) return true
+        if (SpecialTokenPolicy.looksLikeNumber(clean)) return true
+        if (clean.takeLastWhile { it.isDigit() }.length >= 3) return true
         return false
     }
 }

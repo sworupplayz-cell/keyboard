@@ -68,9 +68,11 @@ class ContextModel(
             "the" to listOf("first", "same", "other", "world", "time"),
             "good" to listOf("morning", "night", "luck", "job"),
             "thank" to listOf("you"),
-            "thanks" to listOf("for"),
+            "thanks" to listOf("for", "you"),
             "how" to listOf("are", "to"),
+            "how are" to listOf("you"),
             "i" to listOf("am", "have", "will", "can"),
+            "i am" to listOf("fine", "going", "घर"),
             "we" to listOf("are", "have", "will"),
             "going" to listOf("to"),
             "want" to listOf("to"),
@@ -83,22 +85,26 @@ class ContextModel(
         )
 
         val NEPALI_SEED = mapOf(
-            "म" to listOf("लाई", "पनि"),
+            "म" to listOf("लाई", "पनि", "जान्छु", "घर"),
+            "मलाई" to listOf("मन पर्छ", "थाहा"),
+            "तिमीलाई" to listOf("कस्तो छ"),
             "मेरो" to listOf("घर", "नाम"),
-            "तिमी" to listOf("लाई"),
+            "तिमी" to listOf("लाई", "कहाँ"),
             "के" to listOf("छ", "गर्छौ"),
             "आज" to listOf("काम"),
-            "घर" to listOf("जान्छु")
+            "घर" to listOf("जान्छु", "घरमा")
         )
 
         val ROMAN_SEED = mapOf(
-            "ma" to listOf("ghar", "pani", "ni"),
+            "ma" to listOf("ghar", "jaanchu", "school"),
+            "ma school" to listOf("jaanchu"),
             "mero" to listOf("ghar", "naam"),
             "timi" to listOf("kaha", "lai"),
-            "malai" to listOf("nepali"),
+            "malai" to listOf("manparcha"),
             "ke" to listOf("cha", "garchau"),
             "aaja" to listOf("kaam"),
             "ghar" to listOf("jaanchu"),
+            "i am" to listOf("fine", "going", "ghar"),
             "nepali" to listOf("manparcha")
         )
 

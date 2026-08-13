@@ -224,7 +224,7 @@ class RomanNepaliConverter private constructor(
         )
         private val VOWEL_CHARACTERS = setOf('a', 'e', 'i', 'o', 'u')
         private val DEVANAGARI_RANGE = 0x0900..0x097F
-        private const val MAX_PREFIX_CANDIDATES = 5
+        private const val MAX_PREFIX_CANDIDATES = 8
         private const val PHONETIC_CACHE_LIMIT = 256
         private val PREFERRED_ENGLISH_WORDS = setOf(
             "unknown", "school", "college", "class", "office", "job", "meeting", "homework",

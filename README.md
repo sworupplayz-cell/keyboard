@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 13
+# Simple Nepali Keyboard — Phase 15
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 13 keeps the Gboard-style chrome, Roman Nepali Engine 2.0, and earlier typing intelligence. The focus is a larger offline emoji catalog with search and recents, a clearer number pad with Latin/Devanagari digits, and grouped symbols.
+Phase 15 keeps the Gboard-style chrome and all earlier typing engines. The focus is a compact offline suggestion engine: prefix completions, phrase prediction, mixed English/Nepali ranking, conservative typos, local learning, and high-confidence emoji suggestions. The strip still shows at most three items and never auto-replaces unknown text.
 
 ## Features
 
@@ -12,7 +12,9 @@ Phase 13 keeps the Gboard-style chrome, Roman Nepali Engine 2.0, and earlier typ
 - Roman mode with an English QWERTY layout, reusable phonetic rules, and offline Nepali conversion
 - Large offline English, Nepali Devanagari, and Romanized Nepali vocabularies that can be edited as plain files
 - Context-aware, frequency-weighted suggestions that also prefer recent and learned words
-- Conservative typo correction using nearby keys, vowel deletions, and adjacent transpositions
+- Previous-word and two-word phrase prediction from a small offline seed plus bounded local pairs
+- High-confidence emoji suggestions for clear keywords such as heart, happy, sad, fire, and football
+- Conservative typo correction using nearby keys, vowel deletions, missing letters, and adjacent transpositions
 - Sentence capitalization and punctuation spacing without auto-replacing uncertain text
 - Rule-generated Devanagari for unknown names, slang, and made-up Roman words
 - Alternate Roman spellings such as `cha/chha`, `aja/aaja`, and lengthened vowels
@@ -40,7 +42,7 @@ Phase 13 keeps the Gboard-style chrome, Roman Nepali Engine 2.0, and earlier typ
 - Long-press a mode key to move to the next system keyboard
 - Optional key sound and vibration
 - System-default, light, or dark keyboard appearance
-- No internet permission, account, cloud service, GIF, sticker, text collection, AI, or sentence prediction
+- No internet permission, account, cloud service, GIF, sticker, text collection, AI, or large language model
 
 The expandable Roman vocabulary is the tab-separated file at `app/src/main/res/raw/roman_nepali_dictionary.tsv`. Vocabulary and learned mappings improve ranking, while the phonetic engine remains the fallback for every unknown Roman word. Known and unknown Romanized Nepali words convert on boundaries such as space, punctuation, or Enter. Common mixed-language terms such as `school` remain Roman by default, and every word also offers its original Roman spelling as a compact suggestion.
 

@@ -102,6 +102,17 @@ class KeyboardService : InputMethodService() {
         }
     }
     private val romanComposer: RomanInputComposer get() = romanComposerDelegate.value
+    private val suggestionEngine: SuggestionEngine by lazy {
+        SuggestionEngine(
+            english = englishSuggester,
+            nepali = nepaliSuggester,
+            roman = romanConverter,
+            englishPhrases = PhrasePredictor(seed = PhrasePredictor.ENGLISH_PHRASES),
+            nepaliPhrases = PhrasePredictor(seed = PhrasePredictor.NEPALI_PHRASES),
+            romanPhrases = PhrasePredictor(seed = PhrasePredictor.ROMAN_PHRASES)
+        )
+    }
+    private var repeatFinishes = RepeatFinishStore()
     private var language = KeyboardLanguage.ENGLISH
     private var layoutMode = LayoutMode.LETTERS
     private var shifted = false
@@ -723,36 +734,58 @@ class KeyboardService : InputMethodService() {
             directTypingState.currentWord
         }
         val context = editorContext(currentWord)
-        val rawSuggestions = if (currentWord.isEmpty()) emptyList() else when (language) {
-            KeyboardLanguage.ENGLISH -> englishSuggester.suggestions(
-                currentWord,
-                if (useLearning) learnedEnglishWords.suggestions(currentWord) else emptyList(),
-                MAX_SUGGESTIONS,
-                recentEnglishWords.matches(currentWord),
-                englishContext.predictions(context.previousWord.orEmpty(), currentWord)
-            )
-            KeyboardLanguage.NEPALI -> nepaliSuggester.suggestions(
-                currentWord,
-                if (useLearning) learnedNepaliWords.suggestions(currentWord) else emptyList(),
-                MAX_SUGGESTIONS,
-                recentNepaliWords.matches(currentWord),
-                nepaliContext.predictions(context.previousWord.orEmpty(), currentWord)
-            )
-            KeyboardLanguage.ROMAN -> romanConverter.suggestions(
-                currentWord,
-                if (useLearning) learnedRomanWords.lookup(currentWord) else null,
-                MAX_SUGGESTIONS,
-                recent = recentRomanWords.matches(currentWord),
-                previousWord = context.previousWord ?: lastCommittedWord.ifEmpty { null },
-                contextPredictions = romanContext.predictions(
-                    (context.previousWord ?: lastCommittedWord).orEmpty(),
-                    currentWord
+        val previous = context.previousWord ?: lastCommittedWord.ifEmpty { null }
+        val query = SuggestionQuery(
+            input = currentWord,
+            language = when (language) {
+                KeyboardLanguage.ENGLISH -> SuggestionLanguage.ENGLISH
+                KeyboardLanguage.NEPALI -> SuggestionLanguage.NEPALI
+                KeyboardLanguage.ROMAN -> SuggestionLanguage.ROMAN
+            },
+            previousWord = previous,
+            previousTwoWords = context.previousTwoWords,
+            learned = when (language) {
+                KeyboardLanguage.ENGLISH -> if (useLearning) learnedEnglishWords.suggestions(currentWord) else emptyList()
+                KeyboardLanguage.NEPALI -> if (useLearning) learnedNepaliWords.suggestions(currentWord) else emptyList()
+                KeyboardLanguage.ROMAN -> emptyList()
+            },
+            recent = when (language) {
+                KeyboardLanguage.ENGLISH -> recentEnglishWords.matches(currentWord)
+                KeyboardLanguage.NEPALI -> recentNepaliWords.matches(currentWord)
+                KeyboardLanguage.ROMAN -> recentRomanWords.matches(currentWord)
+            },
+            learnedRoman = if (useLearning) learnedRomanWords.lookup(currentWord) else null,
+            includeEmoji = language != KeyboardLanguage.NEPALI,
+            contextPredictions = when (language) {
+                KeyboardLanguage.ENGLISH -> englishContext.predictions(
+                    previous.orEmpty(),
+                    currentWord,
+                    MAX_SUGGESTIONS,
+                    context.previousTwoWords
                 )
-            )
-        }
+                KeyboardLanguage.NEPALI -> nepaliContext.predictions(
+                    previous.orEmpty(),
+                    currentWord,
+                    MAX_SUGGESTIONS,
+                    context.previousTwoWords
+                )
+                KeyboardLanguage.ROMAN -> romanContext.predictions(
+                    previous.orEmpty(),
+                    currentWord,
+                    MAX_SUGGESTIONS,
+                    context.previousTwoWords
+                )
+            }
+        )
+        val engineResult = suggestionEngine.suggest(query, MAX_SUGGESTIONS)
+        val rawSuggestions = engineResult.visible(MAX_SUGGESTIONS)
         val suggestions = if (language == KeyboardLanguage.ENGLISH) {
             rawSuggestions.map {
-                CapitalizationPolicy.applyToWord(it, context.textBeforeCursor, useAutoCapitalization)
+                if (it.any { character -> character.code in 0x0900..0x097F } || EmojiCatalog.contains(it)) {
+                    it
+                } else {
+                    CapitalizationPolicy.applyToWord(it, context.textBeforeCursor, useAutoCapitalization)
+                }
             }
         } else {
             rawSuggestions
@@ -819,6 +852,12 @@ class KeyboardService : InputMethodService() {
     private fun acceptSuggestion(suggestion: String, colors: KeyboardPalette) {
         if (language == KeyboardLanguage.ROMAN) {
             val romanWord = romanComposer.currentWord
+            if (romanWord.isEmpty()) {
+                applyRomanEdit(RomanEdit.Commit(suggestion))
+                lastCommittedWord = suggestion
+                updateSuggestionRow(colors)
+                return
+            }
             if (useLearning && learnedRomanWords.learn(romanWord, suggestion)) {
                 getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
                     .edit()
@@ -834,6 +873,13 @@ class KeyboardService : InputMethodService() {
 
         val typedWord = directTypingState.currentWord
         val connection = currentInputConnection ?: return
+        if (typedWord.isEmpty()) {
+            commitText(suggestion)
+            rememberFinishedDirectWord(suggestion, learnUnknown = false)
+            if (useLearning && WordLearningPolicy.shouldLearnAccepted(suggestion)) persistLearnedWord(suggestion)
+            updateSuggestionRow(colors)
+            return
+        }
         val replacement = SuggestionSelectionPlan.create(
             typedWord,
             suggestion,
@@ -866,7 +912,11 @@ class KeyboardService : InputMethodService() {
                 recentEnglishWords.record(word)
                 persistRecentWords(KeyboardPreferences.KEY_RECENT_ENGLISH, recentEnglishWords)
                 if (useLearning && learnUnknown &&
-                    WordLearningPolicy.shouldLearnUnknown(word, englishSuggester::contains)
+                    WordLearningPolicy.shouldLearnRepeated(
+                        word,
+                        repeatFinishes.record(word),
+                        englishSuggester::contains
+                    )
                 ) {
                     persistLearnedWord(word)
                 }
@@ -876,7 +926,11 @@ class KeyboardService : InputMethodService() {
                 recentNepaliWords.record(word)
                 persistRecentWords(KeyboardPreferences.KEY_RECENT_NEPALI, recentNepaliWords)
                 if (useLearning && learnUnknown &&
-                    WordLearningPolicy.shouldLearnUnknown(word, nepaliSuggester::contains)
+                    WordLearningPolicy.shouldLearnRepeated(
+                        word,
+                        repeatFinishes.record(word),
+                        nepaliSuggester::contains
+                    )
                 ) {
                     persistLearnedWord(word)
                 }

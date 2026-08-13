@@ -283,6 +283,17 @@ class EmojiSearchIndex(entries: List<EmojiEntry>) {
     companion object {
         private val WHITESPACE = Regex("\\s+")
     }
+
+    private fun expandToken(token: String): List<String> {
+        val forms = LinkedHashSet<String>()
+        forms += token
+        when {
+            token.endsWith("ies") && token.length > 4 -> forms += token.dropLast(3) + "y"
+            token.endsWith("es") && token.length > 4 -> forms += token.dropLast(2)
+            token.endsWith("s") && !token.endsWith("ss") && token.length > 3 -> forms += token.dropLast(1)
+        }
+        return forms.toList()
+    }
 }
 
 class RecentEmojiList(

@@ -105,7 +105,35 @@ object TypoCorrector {
                 }
             }
         }
+        COMMON_PHONETIC[normalized]?.forEach { if (known(it)) results += it }
         return results.toList()
+    }
+
+    fun isMissingLetter(typed: String, candidate: String): Boolean {
+        val left = typed.lowercase(Locale.ENGLISH)
+        val right = candidate.lowercase(Locale.ENGLISH)
+        if (right.length != left.length + 1) return false
+        right.indices.forEach { index ->
+            if (right.removeRange(index, index + 1) == left) return true
+        }
+        return false
+    }
+
+    fun missingLetterCandidates(input: String, known: (String) -> Boolean, limit: Int = 3): List<String> {
+        val normalized = input.lowercase(Locale.ENGLISH)
+        if (normalized.length !in 3..12) return emptyList()
+        val results = LinkedHashSet<String>()
+        normalized.indices.forEach { index ->
+            val doubled = normalized.substring(0, index + 1) + normalized[index] + normalized.substring(index + 1)
+            if (known(doubled)) results += doubled
+        }
+        LATIN_VOWELS.forEach { vowel ->
+            for (index in 0..normalized.length) {
+                val inserted = normalized.substring(0, index) + vowel + normalized.substring(index)
+                if (known(inserted)) results += inserted
+            }
+        }
+        return results.take(limit)
     }
 
     private fun isNearbyInsertion(typed: String, candidate: String): Boolean {

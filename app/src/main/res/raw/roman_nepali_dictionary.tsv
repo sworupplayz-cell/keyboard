@@ -1,9 +1,11 @@
 # Common offline Romanized Nepali vocabulary. Alternatives use |.
 # Pronouns and people
-ma	म
+ma	म|मा|मलाई
+maa	मा
 maile	मैले
 mailey	मैले
 malai	मलाई
+mal	मलाई|मैले
 mero	मेरो
 meri	मेरी
 hami	हामी
@@ -174,6 +176,7 @@ gardai	गर्दै
 garirako	गरिरहेको
 nagarnu	नगर्नु
 janu	जानु
+jaan	जान|जान्छु|जानु
 jaanu	जानु
 janchu	जान्छु
 jaanchu	जान्छु
@@ -293,7 +296,8 @@ gaun	गाउँ
 gau	गाउँ
 sahar	सहर
 shahar	सहर
-ghar	घर
+ghar	घर|घरमा
+gharma	घरमा
 kotha	कोठा
 bato	बाटो
 pasal	पसल
@@ -693,3 +697,6 @@ kahaa	कहाँ
 kahaan	कहाँ
 meroo	मेरो
 ramrooo	राम्रो
+
+# Phase 15 compact Roman prefixes
+tim	तिमी|तिम्रो

@@ -8,17 +8,20 @@ data class EditorContext(
     val currentWord: String,
     val previousWord: String?,
     val shouldCapitalize: Boolean,
-    val endsWithSpace: Boolean
+    val endsWithSpace: Boolean,
+    val previousTwoWords: String? = null
 ) {
     companion object {
         fun from(textBeforeCursor: String, composingWord: String = ""): EditorContext {
             val current = composingWord.ifEmpty { wordAtEnd(textBeforeCursor) }
+            val previous = previousWord(textBeforeCursor, current)
             return EditorContext(
                 textBeforeCursor = textBeforeCursor,
                 currentWord = current,
-                previousWord = previousWord(textBeforeCursor, current),
+                previousWord = previous,
                 shouldCapitalize = CapitalizationPolicy.shouldCapitalize(textBeforeCursor),
-                endsWithSpace = textBeforeCursor.endsWith(' ')
+                endsWithSpace = textBeforeCursor.endsWith(' '),
+                previousTwoWords = previousTwoWords(textBeforeCursor, current, previous)
             )
         }
 
@@ -40,6 +43,27 @@ data class EditorContext(
             while (start > 0 && isWordChar(textBeforeCursor[start - 1])) start--
             val word = textBeforeCursor.substring(start, end)
             return word.takeIf { it.isNotEmpty() && !it.all { character -> character in SENTENCE_PUNCTUATION } }
+        }
+
+        fun previousTwoWords(
+            textBeforeCursor: String,
+            currentWord: String = wordAtEnd(textBeforeCursor),
+            previous: String? = previousWord(textBeforeCursor, currentWord)
+        ): String? {
+            val last = previous ?: return null
+            var end = textBeforeCursor.length
+            if (currentWord.isNotEmpty() && textBeforeCursor.endsWith(currentWord)) {
+                end -= currentWord.length
+            }
+            while (end > 0 && textBeforeCursor[end - 1].isWhitespace()) end--
+            end -= last.length
+            while (end > 0 && textBeforeCursor[end - 1].isWhitespace()) end--
+            if (end <= 0) return null
+            var start = end
+            while (start > 0 && isWordChar(textBeforeCursor[start - 1])) start--
+            val older = textBeforeCursor.substring(start, end)
+            if (older.isEmpty() || older.all { character -> character in SENTENCE_PUNCTUATION }) return null
+            return "$older $last"
         }
 
         private fun isWordChar(character: Char): Boolean =
@@ -134,20 +158,37 @@ object CorrectionPolicy {
 }
 
 object MixedLanguagePolicy {
+    private val STRONG_ENGLISH_PREVIOUS = setOf(
+        "i", "am", "is", "are", "was", "were", "the", "a", "an", "to", "of", "and",
+        "you", "we", "they", "my", "your", "this", "that", "it"
+    )
+
     fun keepAsEnglish(
         word: String,
         previousWord: String?,
         keepEnglish: Set<String>,
-        hasNepaliEntry: Boolean
+        hasNepaliEntry: Boolean,
+        originalWord: String? = null
     ): Boolean {
         val normalized = word.trim().lowercase(Locale.ENGLISH)
         if (normalized.isEmpty()) return false
+        val original = originalWord ?: word
+        val previous = previousWord?.trim()?.lowercase(Locale.ENGLISH)
+        if (isCapitalizedEnglish(original) && (previous == null || isEnglishContext(previous, keepEnglish))) {
+            return true
+        }
         if (normalized in keepEnglish && !hasNepaliEntry) return true
         if (!hasNepaliEntry) return false
-        val previous = previousWord?.trim()?.lowercase(Locale.ENGLISH) ?: return false
-        return normalized in keepEnglish && previous in keepEnglish
+        if (previous == null) return false
+        return normalized in keepEnglish && (previous in keepEnglish || previous in STRONG_ENGLISH_PREVIOUS)
     }
 
     fun looksEnglish(word: String): Boolean =
         word.isNotEmpty() && word.all { it in 'A'..'Z' || it in 'a'..'z' || it == '\'' }
+
+    private fun isCapitalizedEnglish(word: String): Boolean =
+        looksEnglish(word) && word.first().isUpperCase()
+
+    private fun isEnglishContext(previous: String, keepEnglish: Set<String>): Boolean =
+        previous in keepEnglish || previous in STRONG_ENGLISH_PREVIOUS
 }
