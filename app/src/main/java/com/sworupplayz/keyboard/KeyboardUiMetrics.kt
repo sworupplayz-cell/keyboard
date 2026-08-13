@@ -16,7 +16,8 @@ object KeyboardUiMetrics {
         screenWidthDp: Int,
         screenHeightDp: Int,
         landscape: Boolean,
-        height: KeyboardHeight = KeyboardHeight.NORMAL
+        height: KeyboardHeight = KeyboardHeight.NORMAL,
+        density: KeyDensity = KeyDensity.NORMAL
     ): Int {
         val normal = when {
             landscape -> 42
@@ -24,7 +25,31 @@ object KeyboardUiMetrics {
             screenWidthDp < 360 -> 46
             else -> 48
         }
-        return adjust(normal, height, 4)
+        return (adjust(normal, height, 4) + densityDelta(density)).coerceAtLeast(40)
+    }
+
+    fun keyGapDp(
+        screenWidthDp: Int,
+        spacing: KeySpacing = KeySpacing.NORMAL
+    ): Int {
+        val base = if (screenWidthDp < 360) 1 else 2
+        return when (spacing) {
+            KeySpacing.COMPACT -> (base - 1).coerceAtLeast(1)
+            KeySpacing.NORMAL -> base
+            KeySpacing.COMFORTABLE -> base + 1
+        }
+    }
+
+    fun cornerRadiusDp(style: KeyCornerStyle = KeyCornerStyle.NORMAL): Int = when (style) {
+        KeyCornerStyle.TIGHT -> 3
+        KeyCornerStyle.NORMAL -> KeyboardTheme.KEY_CORNER_RADIUS_DP
+        KeyCornerStyle.ROUND -> 10
+    }
+
+    fun densityDelta(density: KeyDensity): Int = when (density) {
+        KeyDensity.COMPACT -> -2
+        KeyDensity.NORMAL -> 0
+        KeyDensity.COMFORTABLE -> 3
     }
 
     fun compactNumberRowHeightDp(height: KeyboardHeight = KeyboardHeight.NORMAL): Int = when (height) {

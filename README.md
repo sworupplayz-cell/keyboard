@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 19
+# Simple Nepali Keyboard — Phase 20
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 19 makes everyday typing feel closer to Gboard: a center-primary suggestion strip, stronger next-word and emoji predictions, a bounded personal dictionary, conservative typos, richer Roman Nepali, English caps lock, and reorganized settings. Existing English, Nepali, and Roman engines stay in place. Suggestions still show at most three items and never auto-replace unknown text.
+Phase 20 adds real appearance and layout customization on the existing keyboard: named themes, safe color overlays, Short/Normal/Tall height, key density and spacing, shadows/borders/pressed highlight, sound volume, haptic strength, a live settings preview, and confirmed resets. Floating is stored but not implemented. Existing English, Nepali, and Roman typing, suggestions, emoji, clipboard, and handwriting stay in place. Suggestions still show at most three items and never auto-replace unknown text.
 
 ## Features
 
@@ -23,7 +23,16 @@ Phase 19 makes everyday typing feel closer to Gboard: a center-primary suggestio
 - Compact offline English and Nepali prefix suggestions with conservative typo alternatives
 - Local learned English and Nepali words, ranked only after explicit suggestion selection
 - Suggestions never auto-replace normal English or Nepali typing
-- A simple local settings screen for default mode, System/Light/Dark appearance, suggestions, learning, compact number row, brief feedback, and Small/Normal/Large height
+- Named keyboard themes (Default Light/Dark, Blue, Green, Purple, High Contrast) plus System/Light/Dark
+- Safe Paper / Ink / Midnight color overlays with unreadable combinations rejected
+- Short / Normal / Tall keyboard height that actually changes the rendered IME
+- Compact / Normal / Comfortable key size, spacing, and corner radius
+- Optional number row, key shadows, borders, and pressed highlight
+- Key sound on/off with Low / Medium / High system-click volume
+- Haptic on/off with Light / Medium / Strong; long-press vibrates once
+- Live mini-keyboard preview in settings
+- Confirmed reset appearance, reset layout, and reset all settings without deleting learned words or clipboard
+- One-handed Left / Center / Right padding; floating is reserved and labeled unavailable
 - Confirmed clearing of learned English, Nepali, and Roman mappings without touching built-in vocabularies
 - Mode cycle: **EN → नेपाली → Roman → EN**
 - `✍` handwriting mode with a compact finger/stylus canvas
@@ -50,11 +59,15 @@ The expandable Roman vocabulary is the tab-separated file at `app/src/main/res/r
 
 English suggestions use `app/src/main/res/raw/english_vocabulary.txt`. Nepali suggestions use `app/src/main/res/raw/nepali_vocabulary.txt` plus Nepali values from the Roman dictionary. Both are prefix-indexed, retain unusual input unchanged, and only replace a word after the user taps a suggestion.
 
-See [`docs/UX.md`](docs/UX.md) for interaction and Back behavior, [`docs/UI.md`](docs/UI.md) for the visual contract, [`docs/VOCABULARY.md`](docs/VOCABULARY.md) for the offline dictionaries, [`docs/SUGGESTIONS.md`](docs/SUGGESTIONS.md) for ranking, [`docs/TOOLBAR.md`](docs/TOOLBAR.md) and [`docs/PERSONALIZATION.md`](docs/PERSONALIZATION.md) for the tools row, [`docs/ROMAN_ENGINE.md`](docs/ROMAN_ENGINE.md) for the Roman engine, [`docs/EMOJI.md`](docs/EMOJI.md) for emoji panels, and [`docs/SMART_TYPING.md`](docs/SMART_TYPING.md) for Phase 14 behavior.
+See [`docs/APPEARANCE.md`](docs/APPEARANCE.md) for themes and customization, [`docs/UX.md`](docs/UX.md) for interaction and Back behavior, [`docs/UI.md`](docs/UI.md) for the visual contract, [`docs/VOCABULARY.md`](docs/VOCABULARY.md) for the offline dictionaries, [`docs/SUGGESTIONS.md`](docs/SUGGESTIONS.md) for ranking, [`docs/TOOLBAR.md`](docs/TOOLBAR.md) and [`docs/PERSONALIZATION.md`](docs/PERSONALIZATION.md) for the tools row, [`docs/ROMAN_ENGINE.md`](docs/ROMAN_ENGINE.md) for the Roman engine, [`docs/EMOJI.md`](docs/EMOJI.md) for emoji panels, and [`docs/SMART_TYPING.md`](docs/SMART_TYPING.md) for Phase 14 behavior.
 
 ## Handwriting recognition limitation
 
 The handwriting UI and offline recognition interface are complete, but this build deliberately does **not** bundle a Nepali recognition model. Android has no lightweight public Nepali stroke recognizer. The evaluated ML Kit option requires an approximately 20 MB language-model download and native runtime, which conflicts with the no-download and lightweight requirements. Confirm therefore reports that recognition is unavailable and never changes existing text. See [`docs/HANDWRITING.md`](docs/HANDWRITING.md) for the size assessment and future integration contract.
+
+## Floating keyboard limitation
+
+Floating is a stored presentation value only. This build does not create a `WindowManager` overlay IME, so settings describe it as unavailable and do not expose a working toggle.
 
 ## Build
 

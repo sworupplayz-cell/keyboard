@@ -40,8 +40,8 @@ object OneHandedLayoutPolicy {
         alignment: OneHandedAlignment,
         requested: KeyboardPresentationMode
     ): KeyboardPresentationMode = when {
-        requested == KeyboardPresentationMode.FLOATING -> KeyboardPresentationMode.NORMAL
         alignment != OneHandedAlignment.OFF -> KeyboardPresentationMode.ONE_HANDED
+        requested == KeyboardPresentationMode.FLOATING -> KeyboardPresentationMode.NORMAL
         else -> KeyboardPresentationMode.NORMAL
     }
 
@@ -65,7 +65,10 @@ object OneHandedLayoutPolicy {
 object AccessibilityLabels {
     const val MIN_TOUCH_DP = 40
 
-    fun suggestion(word: String): String = "Suggestion $word"
+    fun suggestion(word: String, primary: Boolean = false): String =
+        if (primary) "Primary suggestion $word" else "Suggestion $word"
+
+    fun shift(capsLock: Boolean): String = if (capsLock) "Caps lock on" else "Shift"
 
     fun toolbar(item: ToolbarItem): String = item.description
 

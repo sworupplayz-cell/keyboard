@@ -34,7 +34,9 @@ class KeyboardKeyView(context: Context) : TextView(context) {
         horizontalGapPx: Int,
         verticalGapPx: Int,
         radiusPx: Float,
-        shadowPx: Int
+        shadowPx: Int,
+        borderColor: Int? = null,
+        pressedEnabled: Boolean = true
     ) {
         val role = KeyVisuals.role(key)
         text = key.label
@@ -52,7 +54,9 @@ class KeyboardKeyView(context: Context) : TextView(context) {
             KeyboardTheme.fillColor(role, palette, active),
             radiusPx,
             palette.shadow,
-            shadowPx
+            shadowPx,
+            borderColor,
+            pressedEnabled
         )
         elevation = 0f
         layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, key.width).apply {

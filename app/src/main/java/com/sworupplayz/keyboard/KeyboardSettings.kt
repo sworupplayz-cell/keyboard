@@ -65,7 +65,17 @@ data class KeyboardSettings(
     val languageButton: Boolean = true,
     val typoSuggestions: Boolean = true,
     val oneHanded: OneHandedAlignment = OneHandedAlignment.OFF,
-    val presentationMode: KeyboardPresentationMode = KeyboardPresentationMode.NORMAL
+    val presentationMode: KeyboardPresentationMode = KeyboardPresentationMode.NORMAL,
+    val visualTheme: KeyboardVisualTheme = KeyboardVisualTheme.FOLLOW_APPEARANCE,
+    val colorPreset: ColorPreset = ColorPreset.THEME,
+    val keyDensity: KeyDensity = KeyDensity.NORMAL,
+    val keySpacing: KeySpacing = KeySpacing.NORMAL,
+    val keyCorner: KeyCornerStyle = KeyCornerStyle.NORMAL,
+    val keyShadows: Boolean = true,
+    val keyBorders: Boolean = false,
+    val pressedHighlight: Boolean = true,
+    val soundVolume: SoundVolume = SoundVolume.MEDIUM,
+    val hapticStrength: HapticStrength = HapticStrength.MEDIUM
 )
 
 /** Minimal storage contract keeps preference behavior independently testable. */
@@ -98,7 +108,17 @@ class KeyboardSettingsRepository(private val storage: SettingsStorage) {
         languageButton = storage.getBoolean(KeyboardPreferences.KEY_LANGUAGE_BUTTON, true),
         typoSuggestions = storage.getBoolean(KeyboardPreferences.KEY_TYPO_SUGGESTIONS, true),
         oneHanded = OneHandedAlignment.fromStored(storage.getString(KeyboardPreferences.KEY_ONE_HANDED)),
-        presentationMode = KeyboardPresentationMode.fromStored(storage.getString(KeyboardPreferences.KEY_PRESENTATION_MODE))
+        presentationMode = KeyboardPresentationMode.fromStored(storage.getString(KeyboardPreferences.KEY_PRESENTATION_MODE)),
+        visualTheme = KeyboardVisualTheme.fromStored(storage.getString(KeyboardPreferences.KEY_VISUAL_THEME)),
+        colorPreset = ColorPreset.fromStored(storage.getString(KeyboardPreferences.KEY_COLOR_PRESET)),
+        keyDensity = KeyDensity.fromStored(storage.getString(KeyboardPreferences.KEY_DENSITY)),
+        keySpacing = KeySpacing.fromStored(storage.getString(KeyboardPreferences.KEY_SPACING)),
+        keyCorner = KeyCornerStyle.fromStored(storage.getString(KeyboardPreferences.KEY_CORNER)),
+        keyShadows = storage.getBoolean(KeyboardPreferences.KEY_SHADOWS, true),
+        keyBorders = storage.getBoolean(KeyboardPreferences.KEY_BORDERS, false),
+        pressedHighlight = storage.getBoolean(KeyboardPreferences.KEY_PRESSED_HIGHLIGHT, true),
+        soundVolume = SoundVolume.fromStored(storage.getString(KeyboardPreferences.KEY_SOUND_VOLUME)),
+        hapticStrength = HapticStrength.fromStored(storage.getString(KeyboardPreferences.KEY_HAPTIC_STRENGTH))
     )
 
     fun savedDefaultMode(): DefaultKeyboardMode? =
@@ -166,6 +186,45 @@ class KeyboardSettingsRepository(private val storage: SettingsStorage) {
 
     fun setPresentationMode(value: KeyboardPresentationMode) =
         storage.putString(KeyboardPreferences.KEY_PRESENTATION_MODE, value.name)
+
+    fun setVisualTheme(value: KeyboardVisualTheme) =
+        storage.putString(KeyboardPreferences.KEY_VISUAL_THEME, value.name)
+
+    fun setColorPreset(value: ColorPreset) =
+        storage.putString(KeyboardPreferences.KEY_COLOR_PRESET, value.name)
+
+    fun setKeyDensity(value: KeyDensity) =
+        storage.putString(KeyboardPreferences.KEY_DENSITY, value.name)
+
+    fun setKeySpacing(value: KeySpacing) =
+        storage.putString(KeyboardPreferences.KEY_SPACING, value.name)
+
+    fun setKeyCorner(value: KeyCornerStyle) =
+        storage.putString(KeyboardPreferences.KEY_CORNER, value.name)
+
+    fun setKeyShadows(value: Boolean) =
+        storage.putBoolean(KeyboardPreferences.KEY_SHADOWS, value)
+
+    fun setKeyBorders(value: Boolean) =
+        storage.putBoolean(KeyboardPreferences.KEY_BORDERS, value)
+
+    fun setPressedHighlight(value: Boolean) =
+        storage.putBoolean(KeyboardPreferences.KEY_PRESSED_HIGHLIGHT, value)
+
+    fun setSoundVolume(value: SoundVolume) =
+        storage.putString(KeyboardPreferences.KEY_SOUND_VOLUME, value.name)
+
+    fun setHapticStrength(value: HapticStrength) =
+        storage.putString(KeyboardPreferences.KEY_HAPTIC_STRENGTH, value.name)
+
+    fun resetAppearance() = storage.remove(KeyboardPreferences.APPEARANCE_KEYS)
+
+    fun resetLayout() {
+        storage.remove(KeyboardPreferences.LAYOUT_KEYS)
+        restoreDefaultToolbar()
+    }
+
+    fun resetAllSettings() = storage.remove(KeyboardPreferences.ALL_SETTING_KEYS)
 
     fun toolbarConfiguration(): ToolbarConfiguration = ToolbarConfiguration.fromSerialized(
         orderValue = storage.getString(KeyboardPreferences.KEY_TOOLBAR_ORDER),

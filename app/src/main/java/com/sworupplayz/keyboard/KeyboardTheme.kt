@@ -104,19 +104,26 @@ object KeyboardTheme {
         )
     }
 
-    fun keyBackground(color: Int, radiusPx: Float, shadowColor: Int, shadowPx: Int): StateListDrawable {
+    fun keyBackground(
+        color: Int,
+        radiusPx: Float,
+        shadowColor: Int,
+        shadowPx: Int,
+        borderColor: Int? = null,
+        pressedEnabled: Boolean = true
+    ): StateListDrawable {
         return StateListDrawable().apply {
             setEnterFadeDuration(PRESS_FADE_MS)
             setExitFadeDuration(RELEASE_FADE_MS)
-            addState(
-                intArrayOf(android.R.attr.state_pressed),
-                roundedKey(pressedColor(color), radiusPx, shadowColor, shadowPx)
-            )
-            addState(
-                intArrayOf(android.R.attr.state_focused),
-                roundedKey(pressedColor(color), radiusPx, shadowColor, shadowPx)
-            )
-            addState(IntArray(0), roundedKey(color, radiusPx, shadowColor, shadowPx))
+            val rest = surface(color, radiusPx, shadowColor, shadowPx, borderColor)
+            val pressed = if (pressedEnabled) {
+                surface(pressedColor(color), radiusPx, shadowColor, shadowPx, borderColor)
+            } else {
+                rest
+            }
+            addState(intArrayOf(android.R.attr.state_pressed), pressed)
+            addState(intArrayOf(android.R.attr.state_focused), pressed)
+            addState(IntArray(0), rest)
         }
     }
 
@@ -153,21 +160,23 @@ object KeyboardTheme {
         return max(fg, bg) / max(minOf(fg, bg), 0.0001)
     }
 
-    private fun roundedKey(color: Int, radiusPx: Float, shadowColor: Int, shadowPx: Int): LayerDrawable {
+    private fun surface(
+        color: Int,
+        radiusPx: Float,
+        shadowColor: Int,
+        shadowPx: Int,
+        borderColor: Int?
+    ): android.graphics.drawable.Drawable {
+        val fill = roundedRect(color, radiusPx, borderColor, if (borderColor != null) 1 else 0)
+        if (shadowPx <= 0) return fill
         val shadow = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = radiusPx
             setColor(shadowColor)
         }
-        val fill = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = radiusPx
-            setColor(color)
-        }
         return LayerDrawable(arrayOf(shadow, fill)).apply {
-            val lift = shadowPx.coerceAtLeast(1)
-            setLayerInset(0, 0, lift, 0, 0)
-            setLayerInset(1, 0, 0, 0, lift)
+            setLayerInset(0, 0, shadowPx, 0, 0)
+            setLayerInset(1, 0, 0, 0, shadowPx)
         }
     }
 

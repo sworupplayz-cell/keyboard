@@ -40,7 +40,8 @@ More is treated as chrome overlay, so it still collapses before a panel undernea
 - Off / Left / Center / Right insets come from `OneHandedLayoutPolicy`.
 - Screens narrower than 360 dp stay full width so keys are not clipped.
 - Floating remains a stored preference only; it is not drawn.
-- Small / Normal / Large height scales letter, number, symbol, emoji, clipboard, handwriting, suggestion, toolbar, and navigation rows through `KeyboardUiMetrics`.
+- Short / Normal / Tall height (`KeyboardHeight.SMALL` / `NORMAL` / `LARGE`) scales letter, number, symbol, emoji, clipboard, handwriting, suggestion, toolbar, and navigation rows through `KeyboardUiMetrics`. Compact / Comfortable density adds a bounded delta on top.
+- Sound volume and haptic strength are local only. Disabled means completely off. Long-press vibrates once.
 
 ## Accessibility and feedback
 

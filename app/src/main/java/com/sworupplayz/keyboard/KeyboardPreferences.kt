@@ -25,6 +25,16 @@ object KeyboardPreferences {
     const val KEY_PRESENTATION_MODE = "keyboard_presentation_mode"
     const val KEY_CLIPBOARD_HISTORY = "clipboard_history_enabled"
     const val KEY_CLIPBOARD_ITEMS = "clipboard_items"
+    const val KEY_VISUAL_THEME = "keyboard_visual_theme"
+    const val KEY_COLOR_PRESET = "keyboard_color_preset"
+    const val KEY_DENSITY = "keyboard_key_density"
+    const val KEY_SPACING = "keyboard_key_spacing"
+    const val KEY_CORNER = "keyboard_key_corner"
+    const val KEY_SHADOWS = "keyboard_key_shadows"
+    const val KEY_BORDERS = "keyboard_key_borders"
+    const val KEY_PRESSED_HIGHLIGHT = "keyboard_pressed_highlight"
+    const val KEY_SOUND_VOLUME = "key_sound_volume"
+    const val KEY_HAPTIC_STRENGTH = "key_haptic_strength"
 
     // Read only for migration from Phase 1–7 installations.
     const val KEY_DARK_LEGACY = "dark_appearance"
@@ -60,4 +70,50 @@ object KeyboardPreferences {
         KEY_CONTEXT_ROMAN,
         KEY_CLIPBOARD_ITEMS
     )
+
+    val APPEARANCE_KEYS = setOf(
+        KEY_APPEARANCE,
+        KEY_DARK_LEGACY,
+        KEY_VISUAL_THEME,
+        KEY_COLOR_PRESET,
+        KEY_HEIGHT,
+        KEY_DENSITY,
+        KEY_SPACING,
+        KEY_CORNER,
+        KEY_SHADOWS,
+        KEY_BORDERS,
+        KEY_PRESSED_HIGHLIGHT,
+        KEY_NUMBER_ROW
+    )
+
+    val SOUND_KEYS = setOf(
+        KEY_SOUND,
+        KEY_VIBRATION,
+        KEY_SOUND_VOLUME,
+        KEY_HAPTIC_STRENGTH
+    )
+
+    val LAYOUT_KEYS = setOf(
+        KEY_ONE_HANDED,
+        KEY_PRESENTATION_MODE,
+        KEY_TOOLBAR,
+        KEY_TOOLBAR_ORDER,
+        KEY_TOOLBAR_ENABLED_ITEMS,
+        KEY_TOOLBAR_AUTO_COLLAPSE
+    )
+
+    val TYPING_SETTING_KEYS = setOf(
+        KEY_DEFAULT_MODE,
+        KEY_SUGGESTIONS,
+        KEY_LEARNING,
+        KEY_SMART_PUNCTUATION,
+        KEY_DOUBLE_SPACE_PERIOD,
+        KEY_AUTO_CAPITALIZATION,
+        KEY_EMOJI_RECENTS,
+        KEY_LANGUAGE_BUTTON,
+        KEY_TYPO_SUGGESTIONS,
+        KEY_CLIPBOARD_HISTORY
+    )
+
+    val ALL_SETTING_KEYS = APPEARANCE_KEYS + SOUND_KEYS + LAYOUT_KEYS + TYPING_SETTING_KEYS
 }

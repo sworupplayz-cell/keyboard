@@ -16,7 +16,11 @@ object KeyVisuals {
     }
 
     fun showsPreview(key: KeySpec): Boolean =
-        key.action == KeyAction.TEXT && key.label.isNotBlank() && key.label.length <= 3
+        key.action == KeyAction.TEXT &&
+            key.label.isNotBlank() &&
+            key.label.length <= 3 &&
+            !KeyInteractionPolicy.looksLikeEmoji(key.label) &&
+            !KeyInteractionPolicy.looksLikeEmoji(key.output)
 
     fun isImeSwitchKey(key: KeySpec): Boolean = key.action == KeyAction.LANGUAGE ||
         key.action == KeyAction.MODE_ENGLISH ||

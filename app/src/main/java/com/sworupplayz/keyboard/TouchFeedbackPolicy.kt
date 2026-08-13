@@ -28,8 +28,29 @@ object TouchFeedbackPolicy {
     fun shouldVibrate(vibrationEnabled: Boolean, kind: FeedbackKind): Boolean =
         vibrationEnabled && (kind == FeedbackKind.KEY || kind == FeedbackKind.LONG_PRESS)
 
-    fun vibrationDurationMs(kind: FeedbackKind): Long =
-        if (shouldVibrate(true, kind)) KEY_VIBRATION_MS else 0L
+    fun vibrationDurationMs(
+        kind: FeedbackKind,
+        strength: HapticStrength = HapticStrength.MEDIUM
+    ): Long {
+        if (!shouldVibrate(true, kind)) return 0L
+        return when (strength) {
+            HapticStrength.LIGHT -> 12L
+            HapticStrength.MEDIUM -> KEY_VIBRATION_MS
+            HapticStrength.STRONG -> 28L
+        }
+    }
+
+    fun vibrationAmplitude(strength: HapticStrength): Int = when (strength) {
+        HapticStrength.LIGHT -> 70
+        HapticStrength.MEDIUM -> -1
+        HapticStrength.STRONG -> 255
+    }
+
+    fun soundVolume(volume: SoundVolume): Float = when (volume) {
+        SoundVolume.LOW -> 0.35f
+        SoundVolume.MEDIUM -> 0.7f
+        SoundVolume.HIGH -> 1f
+    }
 
     fun soundFor(action: KeyAction): KeyClickSound = when (action) {
         KeyAction.BACKSPACE -> KeyClickSound.DELETE

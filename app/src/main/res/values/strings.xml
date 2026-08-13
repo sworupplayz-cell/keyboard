@@ -12,6 +12,8 @@
 
     <string name="section_general">GENERAL</string>
     <string name="section_appearance">APPEARANCE</string>
+    <string name="section_sound">SOUND &amp; HAPTICS</string>
+    <string name="section_layout">LAYOUT</string>
     <string name="section_languages">LANGUAGES</string>
     <string name="section_typing">TYPING</string>
     <string name="section_suggestions">SUGGESTIONS</string>
@@ -31,11 +33,28 @@
     <string name="mode_nepali">नेपाली</string>
     <string name="mode_roman">Roman</string>
 
-    <string name="appearance_setting">Keyboard appearance</string>
-    <string name="appearance_description">Follow the phone theme or choose a fixed appearance.</string>
+    <string name="appearance_setting">Light or dark</string>
+    <string name="appearance_description">Follow the phone theme or choose a fixed light or dark base.</string>
     <string name="appearance_system">System default</string>
     <string name="appearance_light">Light</string>
     <string name="appearance_dark">Dark</string>
+
+    <string name="theme_setting">Keyboard theme</string>
+    <string name="theme_description">Choose a palette. The live preview above updates immediately.</string>
+    <string name="theme_follow">Match light or dark</string>
+    <string name="theme_light">Default light</string>
+    <string name="theme_dark">Default dark</string>
+    <string name="theme_blue">Blue</string>
+    <string name="theme_green">Green</string>
+    <string name="theme_purple">Purple</string>
+    <string name="theme_high_contrast">High contrast</string>
+
+    <string name="color_preset_setting">Color overlay</string>
+    <string name="color_preset_description">Safe background and key overlays. Unreadable combinations are rejected.</string>
+    <string name="color_preset_theme">Theme colors</string>
+    <string name="color_preset_paper">Paper</string>
+    <string name="color_preset_ink">Ink</string>
+    <string name="color_preset_midnight">Midnight</string>
 
     <string name="suggestions_setting">Suggestions</string>
     <string name="suggestions_description">Show compact local suggestions.</string>
@@ -91,10 +110,47 @@
     <string name="vibration_description">Use brief, light vibration for key taps.</string>
 
     <string name="keyboard_height_setting">Keyboard height</string>
-    <string name="keyboard_height_description">Choose a comfortable, bounded key size.</string>
-    <string name="height_small">Small</string>
+    <string name="keyboard_height_description">Short, Normal, or Tall. The rendered keyboard height changes, including landscape and one-handed.</string>
+    <string name="height_small">Short</string>
     <string name="height_normal">Normal</string>
-    <string name="height_large">Large</string>
+    <string name="height_large">Tall</string>
+
+    <string name="key_size_setting">Key size</string>
+    <string name="key_size_description">Compact, Normal, or Comfortable density. Heights stay bounded.</string>
+    <string name="density_compact">Compact</string>
+    <string name="density_normal">Normal</string>
+    <string name="density_comfortable">Comfortable</string>
+    <string name="key_spacing_setting">Key spacing</string>
+    <string name="key_spacing_description">Gap between keys. Compact stays at least 1 dp.</string>
+    <string name="key_corner_setting">Key corners</string>
+    <string name="key_corner_description">Tight, Normal, or Round corners.</string>
+    <string name="corner_tight">Tight</string>
+    <string name="corner_normal">Normal</string>
+    <string name="corner_round">Round</string>
+    <string name="key_borders_setting">Key borders</string>
+    <string name="key_borders_description">Draw a thin outline on letter and modifier keys.</string>
+    <string name="key_shadows_setting">Key shadows</string>
+    <string name="key_shadows_description">Show a small contact shadow under keys.</string>
+    <string name="pressed_highlight_setting">Pressed highlight</string>
+    <string name="pressed_highlight_description">Darken or lighten a key while it is held.</string>
+    <string name="reset_appearance">Reset appearance</string>
+    <string name="reset_appearance_confirmation">Reset theme, colors, height, key size, spacing, corners, number row, borders, shadows, and pressed highlight?</string>
+    <string name="reset_layout">Reset layout</string>
+    <string name="reset_layout_confirmation">Reset one-handed mode and the toolbar layout? Learned words and clipboard stay.</string>
+    <string name="reset_all_settings">Reset all settings</string>
+    <string name="reset_all_settings_confirmation">Reset appearance, sound, layout, language, typing, emoji, and clipboard switches? Learned words, recents, and clipboard history are kept.</string>
+    <string name="reset_action">Reset</string>
+    <string name="floating_unavailable">Floating keyboard is not available in this build. The preference is stored for later, but there is no working floating toggle.</string>
+    <string name="sound_volume_setting">Key sound volume</string>
+    <string name="sound_volume_description">Local system key sounds only. No downloaded or online audio.</string>
+    <string name="volume_low">Low</string>
+    <string name="volume_medium">Medium</string>
+    <string name="volume_high">High</string>
+    <string name="haptic_strength_setting">Haptic strength</string>
+    <string name="haptic_strength_description">Light, Medium, or Strong. Long-press vibrates once, not repeatedly.</string>
+    <string name="haptic_light">Light</string>
+    <string name="haptic_medium">Medium</string>
+    <string name="haptic_strong">Strong</string>
 
     <string name="clear_learned_words">Clear learned words</string>
     <string name="clear_learned_description">Remove locally learned English, Nepali, and Roman mappings. Built-in vocabularies are kept.</string>

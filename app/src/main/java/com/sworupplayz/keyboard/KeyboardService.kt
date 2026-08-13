@@ -143,6 +143,15 @@ class KeyboardService : InputMethodService() {
     private var lastSpaceUptime = 0L
     private var showNumberRow = false
     private var keyboardHeight = KeyboardHeight.NORMAL
+    private var visualTheme = KeyboardVisualTheme.FOLLOW_APPEARANCE
+    private var colorPreset = ColorPreset.THEME
+    private var keyDensity = KeyDensity.NORMAL
+    private var keySpacing = KeySpacing.NORMAL
+    private var keyCorner = KeyCornerStyle.NORMAL
+    private var themeStyle = ThemeStyle()
+    private var soundVolume = SoundVolume.MEDIUM
+    private var hapticStrength = HapticStrength.MEDIUM
+    private var cachedPalette: KeyboardPalette? = null
     private var defaultMode: DefaultKeyboardMode? = null
     private var internalSelectionChange = false
     private var keyHeightDp = 48
@@ -349,6 +358,20 @@ class KeyboardService : InputMethodService() {
         toolbar.configuration = applyLanguageButton(repository.toolbarConfiguration())
         showNumberRow = settings.numberRow
         keyboardHeight = settings.height
+        visualTheme = settings.visualTheme
+        colorPreset = settings.colorPreset
+        keyDensity = settings.keyDensity
+        keySpacing = settings.keySpacing
+        keyCorner = settings.keyCorner
+        themeStyle = ThemeStyle(settings.keyShadows, settings.keyBorders, settings.pressedHighlight)
+        soundVolume = settings.soundVolume
+        hapticStrength = settings.hapticStrength
+        cachedPalette = AppearanceCatalog.resolve(
+            visualTheme,
+            settings.appearance,
+            systemUsesDarkTheme(),
+            colorPreset
+        )
         clipboardHistory = ClipboardRepository.fromSerialized(
             preferences.getString(KeyboardPreferences.KEY_CLIPBOARD_ITEMS, null)
         )
@@ -454,7 +477,7 @@ class KeyboardService : InputMethodService() {
                 gravity = Gravity.CENTER
             }
             val rowHeight = if (keys.isNotEmpty() && keys.all { it.compact }) {
-                KeyboardUiMetrics.compactNumberRowHeightDp(keyboardHeight)
+                (KeyboardUiMetrics.compactNumberRowHeightDp(keyboardHeight) + KeyboardUiMetrics.densityDelta(keyDensity)).coerceAtLeast(30)
             } else {
                 keyHeightDp
             }
@@ -606,9 +629,11 @@ class KeyboardService : InputMethodService() {
                 setTextColor(if (selected) KeyboardThemeTokens.selectedLabel(colors) else colors.text)
                 background = KeyboardTheme.keyBackground(
                     if (selected) KeyboardThemeTokens.toolbarSelected(colors) else KeyboardThemeTokens.toolbarFill(colors),
-                    dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat(),
+                    dp(KeyboardUiMetrics.cornerRadiusDp(keyCorner)).toFloat(),
                     colors.shadow,
-                    dp(KeyboardTheme.SHADOW_DP)
+                    if (themeStyle.shadows) dp(KeyboardTheme.SHADOW_DP) else 0,
+                    if (themeStyle.borders) colors.divider else null,
+                    themeStyle.pressedHighlight
                 )
                 layoutParams = LinearLayout.LayoutParams(
                     dp(KeyboardUiMetrics.emojiCategoryWidthDp(resources.configuration.screenWidthDp)),
@@ -906,8 +931,10 @@ class KeyboardService : InputMethodService() {
                 compactScreen = resources.configuration.screenWidthDp < 360,
                 horizontalGapPx = preferredKeyMargin(),
                 verticalGapPx = dp(2),
-                radiusPx = dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat(),
-                shadowPx = dp(KeyboardTheme.SHADOW_DP)
+                radiusPx = dp(KeyboardUiMetrics.cornerRadiusDp(keyCorner)).toFloat(),
+                shadowPx = if (themeStyle.shadows) dp(KeyboardTheme.SHADOW_DP) else 0,
+                borderColor = if (themeStyle.borders) colors.divider else null,
+                pressedEnabled = themeStyle.pressedHighlight
             )
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
             contentDescription = emoji
@@ -1379,8 +1406,10 @@ class KeyboardService : InputMethodService() {
                 compactScreen = compactScreen,
                 horizontalGapPx = horizontalGap,
                 verticalGapPx = dp(KeyboardTheme.KEY_VERTICAL_GAP_DP / 2),
-                radiusPx = dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat(),
-                shadowPx = dp(KeyboardTheme.SHADOW_DP)
+                radiusPx = dp(KeyboardUiMetrics.cornerRadiusDp(keyCorner)).toFloat(),
+                shadowPx = if (themeStyle.shadows) dp(KeyboardTheme.SHADOW_DP) else 0,
+                borderColor = if (themeStyle.borders) colors.divider else null,
+                pressedEnabled = themeStyle.pressedHighlight
             )
             if (key.action == KeyAction.SETTINGS) {
                 contentDescription = getString(R.string.settings_key_description)
@@ -1471,9 +1500,11 @@ class KeyboardService : InputMethodService() {
         setTextColor(if (selected) KeyboardThemeTokens.selectedLabel(colors) else colors.text)
         background = KeyboardTheme.keyBackground(
             if (selected) KeyboardThemeTokens.toolbarSelected(colors) else KeyboardThemeTokens.toolbarFill(colors),
-            dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat(),
+            dp(KeyboardUiMetrics.cornerRadiusDp(keyCorner)).toFloat(),
             colors.shadow,
-            dp(KeyboardTheme.SHADOW_DP)
+            if (themeStyle.shadows) dp(KeyboardTheme.SHADOW_DP) else 0,
+            if (themeStyle.borders) colors.divider else null,
+            themeStyle.pressedHighlight
         )
         layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
             val margin = preferredKeyMargin()
@@ -1957,16 +1988,20 @@ class KeyboardService : InputMethodService() {
                 KeyClickSound.STANDARD -> AudioManager.FX_KEYPRESS_STANDARD
             }
             if (sound != null) {
-                (getSystemService(Context.AUDIO_SERVICE) as AudioManager).playSoundEffect(sound)
+                (getSystemService(Context.AUDIO_SERVICE) as AudioManager)
+                    .playSoundEffect(sound, TouchFeedbackPolicy.soundVolume(soundVolume))
             }
         }
-        val duration = TouchFeedbackPolicy.vibrationDurationMs(kind)
+        val duration = TouchFeedbackPolicy.vibrationDurationMs(kind, hapticStrength)
         if (TouchFeedbackPolicy.shouldVibrate(useVibration, kind) && duration > 0) {
             vibrator()?.let { deviceVibrator ->
                 if (!deviceVibrator.hasVibrator()) return@let
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     deviceVibrator.vibrate(
-                        VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE)
+                        VibrationEffect.createOneShot(
+                            duration,
+                            TouchFeedbackPolicy.vibrationAmplitude(hapticStrength)
+                        )
                     )
                 } else {
                     @Suppress("DEPRECATION")
@@ -2042,7 +2077,8 @@ class KeyboardService : InputMethodService() {
             configuration.screenWidthDp,
             configuration.screenHeightDp,
             configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
-            keyboardHeight
+            keyboardHeight,
+            keyDensity
         )
     }
 
@@ -2051,12 +2087,15 @@ class KeyboardService : InputMethodService() {
             Configuration.UI_MODE_NIGHT_YES
 
     private fun keyboardColors(): KeyboardPalette =
-        KeyboardTheme.palette(useDarkAppearance) { color(it) }
+        cachedPalette ?: AppearanceCatalog.resolve(
+            visualTheme,
+            if (useDarkAppearance) KeyboardAppearance.DARK else KeyboardAppearance.LIGHT,
+            useDarkAppearance,
+            colorPreset
+        ).also { cachedPalette = it }
 
     private fun preferredKeyMargin(): Int {
-        val compact = resources.configuration.screenWidthDp < 360
-        val gap = if (compact) KeyboardTheme.COMPACT_HORIZONTAL_GAP_DP else KeyboardTheme.KEY_HORIZONTAL_GAP_DP
-        return dp(maxOf(gap, KeyboardUiMetrics.keyMarginDp(resources.configuration.screenWidthDp)))
+        return dp(KeyboardUiMetrics.keyGapDp(resources.configuration.screenWidthDp, keySpacing))
     }
 
     private fun color(resource: Int): Int = resources.getColor(resource, theme)

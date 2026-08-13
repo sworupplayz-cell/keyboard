@@ -34,9 +34,9 @@ Tap cycles **EN → नेपाली → Roman**. Long-press opens a picker wi
 
 - `NORMAL` — full width
 - `ONE_HANDED` — 82% width, aligned left / center / right
-- `FLOATING` — stored only; not applied (no WindowManager overlay)
+- `FLOATING` — stored only; not applied (no WindowManager overlay). Settings labels it unavailable and does not show a working toggle.
 
-One-handed mode is padding-only. Suggestion, toolbar, and letter rows share the same width.
+One-handed mode is padding-only. Suggestion, toolbar, and letter rows share the same width. Reset layout restores one-handed mode and the toolbar. Reset all settings does not delete learned words or clipboard history.
 
 ## Privacy
 
