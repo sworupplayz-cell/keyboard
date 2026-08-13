@@ -1,6 +1,6 @@
 # Core keyboard quality
 
-Phase 21 tightens the existing IME so everyday typing feels closer to a production keyboard. Phase 25 adds adaptive hit-testing on that same path. It does not replace English, Nepali, or Roman engines, and it does not change the Gboard-style appearance system.
+Phase 21 tightens the existing IME so everyday typing feels closer to a production keyboard. Phase 25 adds adaptive hit-testing on that same path. Phase 26 polishes the real typing pipeline — composing text, word boundaries, backspace, space, punctuation, shift, Enter, suggestion acceptance, and field privacy — without adding a second engine. It does not replace English, Nepali, or Roman engines, and it does not change the Gboard-style appearance system.
 
 ## Touch
 
@@ -37,6 +37,14 @@ The strip still shows at most three candidates, with the strongest in the center
 - `Nepali is awesome` stays English
 - `today ma school jaanchu` → `today म school जान्छु`
 - `mero phone good cha` → `मेरो phone good छ`
+
+## Phase 26 typing pipeline
+
+`CoreTypingPolicy` reuses the Phase 25 bounce window so alternating keys and fast space/punctuation are kept, while a 32 ms same-key bounce still drops accidental repeats. `TypingGeneration` cancels held-backspace ticks when the field, cursor, or language changes.
+
+`WordBoundaryPolicy` treats apostrophes and hyphens as word characters, so `can't` and `mother-in-law` stay one token. Emails, URLs, mentions, and hashtags are still protected whole tokens and are never suggestion-replaced. `SuggestionSelectionPlan` can now look after the cursor so `I am go|ing` + *going* becomes `I am going`, not `I am goinging`.
+
+Opening numbers, symbols, emoji, clipboard, or handwriting finishes composing first. Language switches commit the in-progress Roman or direct word and never rewrite already committed text. Password and PIN fields hide suggestions and skip learning. Shift still refreshes letter labels in place.
 
 ## Punctuation and screens
 

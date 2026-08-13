@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 25
+# Simple Nepali Keyboard — Phase 26
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 25 makes taps more forgiving on the existing Phase 21 touch path: larger logical hitboxes, trajectory-aware drift vs slide, one-pointer multi-touch safety, and bounded local neighbor weighting. Drawn keys stay the same size. Phase 24 language intelligence and Phases 19–23 stay in place.
+Phase 26 polishes everyday typing on the existing IME: faster consecutive taps, safer composing text, grapheme backspace, hyphen/contraction word boundaries, cursor-safe suggestion replacement, and password-field privacy. Phase 25 touch recognition and Phases 19–24 stay in place.
 
 ## Features
 
@@ -52,6 +52,9 @@ Phase 25 makes taps more forgiving on the existing Phase 21 touch path: larger l
 - Previous-layout return behavior for temporary panels
 - Long-press a mode key to move to the next system keyboard
 - Held backspace deletes one grapheme at a time after a short delay
+- Contractions and hyphenated words stay one token; emails and URLs are not suggestion-replaced
+- Suggestion taps replace only the current word, including when the cursor is inside it
+- Password and PIN fields hide suggestions and never learn typed text
 - Enter follows the target app's Search / Go / Send / Next / Done action
 - Optional key sound and vibration
 - System-default, light, or dark keyboard appearance

@@ -1,6 +1,6 @@
 # Smart typing behavior
 
-Phase 14 adds everyday keyboard polish without changing the Gboard-style letter layout.
+Phase 14 adds everyday keyboard polish without changing the Gboard-style letter layout. Phase 26 keeps those rules and tightens the shared typing pipeline around them.
 
 ## Punctuation
 

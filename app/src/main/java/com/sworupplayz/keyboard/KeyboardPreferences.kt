@@ -75,7 +75,8 @@ object KeyboardPreferences {
         KEY_PHRASE_ENGLISH,
         KEY_PHRASE_NEPALI,
         KEY_PHRASE_ROMAN,
-        KEY_CLIPBOARD_ITEMS
+        KEY_CLIPBOARD_ITEMS,
+        KEY_TOUCH_ADAPTATION
     )
 
     val APPEARANCE_KEYS = setOf(

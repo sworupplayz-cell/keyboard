@@ -27,12 +27,8 @@ data class EditorContext(
             )
         }
 
-        fun wordAtEnd(textBeforeCursor: String): String {
-            if (textBeforeCursor.isEmpty() || textBeforeCursor.last().isWhitespace()) return ""
-            var start = textBeforeCursor.length
-            while (start > 0 && isWordChar(textBeforeCursor[start - 1])) start--
-            return textBeforeCursor.substring(start)
-        }
+        fun wordAtEnd(textBeforeCursor: String): String =
+            WordBoundaryPolicy.wordBeforeCursor(textBeforeCursor)
 
         fun previousWord(textBeforeCursor: String, currentWord: String = wordAtEnd(textBeforeCursor)): String? {
             var end = textBeforeCursor.length
@@ -91,9 +87,8 @@ data class EditorContext(
         }
 
         private fun isWordChar(character: Char): Boolean =
-            character.isLetterOrDigit() || character == '\'' || character.code in DEVANAGARI_RANGE
+            WordBoundaryPolicy.isWordChar(character)
 
-        private val DEVANAGARI_RANGE = 0x0900..0x097F
         private val SENTENCE_PUNCTUATION = setOf('.', '!', '?', '।', '…')
     }
 }

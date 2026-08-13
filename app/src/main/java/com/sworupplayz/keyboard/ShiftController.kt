@@ -49,4 +49,13 @@ object ShiftPolicy {
 
     fun label(state: ShiftLockState): String =
         if (state == ShiftLockState.CAPS_LOCK) "⇪" else "⇧"
+
+    fun consumesOnSpace(): Boolean = false
+
+    fun consumesOnBackspace(): Boolean = false
+
+    fun consumesOnPunctuation(): Boolean = false
+
+    fun refreshLabelsOnly(previous: ShiftLockState, next: ShiftLockState): Boolean =
+        previous != next
 }

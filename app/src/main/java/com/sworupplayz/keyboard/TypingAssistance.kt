@@ -233,7 +233,7 @@ class DirectTypingState {
 
     fun append(text: String, language: DirectTypingLanguage): Boolean {
         val isWordText = when (language) {
-            DirectTypingLanguage.ENGLISH -> text.all { it in 'A'..'Z' || it in 'a'..'z' }
+            DirectTypingLanguage.ENGLISH -> text.isNotEmpty() && text.all(WordBoundaryPolicy::isEnglishWordContinue)
             DirectTypingLanguage.NEPALI -> isNepaliWordText(text)
         }
         if (!isWordText) {
@@ -284,7 +284,8 @@ data class SuggestionReplacement(
     val deleteCodePoints: Int,
     val deleteCodeUnits: Int,
     val replacement: String,
-    val changesText: Boolean
+    val changesText: Boolean,
+    val deleteAfterCodeUnits: Int = 0
 )
 
 object SuggestionSelectionPlan {
@@ -292,17 +293,32 @@ object SuggestionSelectionPlan {
         if (currentWord.isEmpty() || !textBeforeCursor.endsWith(currentWord)) return false
         if (textBeforeCursor.length == currentWord.length) return true
         val boundary = textBeforeCursor[textBeforeCursor.length - currentWord.length - 1]
-        return !boundary.isLetterOrDigit() && boundary.code !in 0x0900..0x097F
+        return !WordBoundaryPolicy.isWordChar(boundary)
     }
 
-    fun create(currentWord: String, suggestion: String, textBeforeCursor: String): SuggestionReplacement? {
-        if (!matchesCurrentWord(textBeforeCursor, currentWord)) return null
-        val replacement = preserveCapitalization(currentWord, suggestion)
+    fun create(
+        currentWord: String,
+        suggestion: String,
+        textBeforeCursor: String,
+        textAfterCursor: String = ""
+    ): SuggestionReplacement? {
+        val trackedMatches = matchesCurrentWord(textBeforeCursor, currentWord)
+        val editorWord = WordBoundaryPolicy.wordBeforeCursor(textBeforeCursor)
+        val word = when {
+            trackedMatches -> currentWord
+            currentWord.isEmpty() && editorWord.isNotEmpty() -> editorWord
+            else -> return null
+        }
+        if (WordBoundaryPolicy.blocksSuggestionReplacement(textBeforeCursor, word)) return null
+        val after = WordBoundaryPolicy.wordAfterCursor(textAfterCursor)
+        val replacement = preserveCapitalization(word, suggestion)
+        val typed = word + after
         return SuggestionReplacement(
-            deleteCodePoints = currentWord.codePointCount(0, currentWord.length),
-            deleteCodeUnits = currentWord.length,
+            deleteCodePoints = word.codePointCount(0, word.length),
+            deleteCodeUnits = word.length,
             replacement = replacement,
-            changesText = currentWord != replacement
+            changesText = typed != replacement,
+            deleteAfterCodeUnits = after.length
         )
     }
 

@@ -23,6 +23,7 @@ object GraphemeBackspace {
     fun codeUnitsToDelete(textBeforeCursor: String): Int {
         if (textBeforeCursor.isEmpty()) return 0
         specialSequenceUnits(textBeforeCursor)?.let { return it }
+        devanagariClusterUnits(textBeforeCursor)?.let { return it }
         val iterator = BreakIterator.getCharacterInstance(Locale.ROOT)
         iterator.setText(textBeforeCursor)
         val end = iterator.last()
@@ -102,4 +103,44 @@ object GraphemeBackspace {
         }
         return text.length - start + extra
     }
+
+    private fun devanagariClusterUnits(text: String): Int? {
+        val points = ArrayList<Int>()
+        var offset = 0
+        while (offset < text.length) {
+            val code = text.codePointAt(offset)
+            points += code
+            offset += Character.charCount(code)
+        }
+        if (points.isEmpty()) return null
+        var index = points.lastIndex
+        if (!isDevanagariMark(points[index]) && !isDevanagariLetter(points[index])) return null
+        var consumed = 0
+
+        fun take(): Boolean {
+            if (index < 0) return false
+            consumed += Character.charCount(points[index])
+            index--
+            return true
+        }
+
+        while (index >= 0 && isDevanagariMark(points[index])) take()
+        if (index >= 0 && isDevanagariLetter(points[index])) {
+            take()
+            while (index >= 0 && points[index] == VIRAMA) {
+                take()
+                if (index >= 0 && isDevanagariLetter(points[index])) take() else break
+            }
+        }
+        return consumed.takeIf { it > 0 }
+    }
+
+    private fun isDevanagariMark(code: Int): Boolean =
+        code in DEVANAGARI_MARKS || code == VIRAMA
+
+    private fun isDevanagariLetter(code: Int): Boolean =
+        code in DEVANAGARI_LETTERS && code !in DEVANAGARI_MARKS && code != VIRAMA
+
+    private const val VIRAMA = 0x094D
+    private val DEVANAGARI_LETTERS = 0x0900..0x097F
 }

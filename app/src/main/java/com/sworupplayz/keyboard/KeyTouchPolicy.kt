@@ -145,4 +145,8 @@ object EnterActionPolicy {
         ACTION_PREVIOUS -> "Previous"
         else -> "Enter"
     }
+
+    fun shouldInsertNewline(imeOptions: Int): Boolean = !shouldPerformAction(imeOptions)
+
+    fun resolve(imeOptions: Int?): Int = imeOptions ?: 0
 }
