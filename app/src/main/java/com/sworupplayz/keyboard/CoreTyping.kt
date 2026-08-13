@@ -68,15 +68,15 @@ object WordBoundaryPolicy {
         character in 'A'..'Z' || character in 'a'..'z' ||
             character == '\'' || character == '\u2019' || character == '-'
 
-    fun isEmojiChar(character: Char): Boolean {
-        val code = character.code
-        return code in 0x1F300..0x1FAFF ||
+    fun isEmojiCodePoint(code: Int): Boolean =
+        code in 0x1F300..0x1FAFF ||
             code in 0x1F1E6..0x1F1FF ||
             code in 0x2600..0x27BF ||
             code in 0xFE00..0xFE0F ||
             code == 0x200D ||
             code in 0x1F3FB..0x1F3FF
-    }
+
+    fun isEmojiChar(character: Char): Boolean = isEmojiCodePoint(character.code)
 
     fun wordBeforeCursor(textBeforeCursor: String): String {
         if (textBeforeCursor.isEmpty() || textBeforeCursor.last().isWhitespace()) return ""
@@ -140,6 +140,8 @@ object InputConnectionPolicy {
 
     fun shouldFinishComposingOnFieldChange(): Boolean = true
 
+    fun shouldFinishComposingOnHide(): Boolean = true
+
     fun shouldInvalidateOnCursorMove(hadComposing: Boolean, movedAway: Boolean): Boolean =
         hadComposing && movedAway
 
@@ -194,6 +196,8 @@ object EditorFieldPolicy {
     const val TYPE_MASK_CLASS = 0x0000000f
     const val TYPE_CLASS_TEXT = 0x00000001
     const val TYPE_CLASS_NUMBER = 0x00000002
+    const val TYPE_CLASS_PHONE = 0x00000003
+    const val TYPE_CLASS_DATETIME = 0x00000004
     const val TYPE_MASK_VARIATION = 0x00000ff0
     const val TYPE_TEXT_VARIATION_URI = 0x00000010
     const val TYPE_TEXT_VARIATION_EMAIL_ADDRESS = 0x00000020
@@ -202,6 +206,7 @@ object EditorFieldPolicy {
     const val TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS = 0x000000d0
     const val TYPE_TEXT_VARIATION_WEB_PASSWORD = 0x000000e0
     const val TYPE_NUMBER_VARIATION_PASSWORD = 0x00000010
+    const val TYPE_TEXT_FLAG_MULTI_LINE = 0x00020000
     const val TYPE_TEXT_FLAG_NO_SUGGESTIONS = 0x00080000
 
     fun classOf(inputType: Int): Int = inputType and TYPE_MASK_CLASS
@@ -226,12 +231,42 @@ object EditorFieldPolicy {
 
     fun isUriField(inputType: Int): Boolean = variationOf(inputType) == TYPE_TEXT_VARIATION_URI
 
+    fun isNumberField(inputType: Int): Boolean = classOf(inputType) == TYPE_CLASS_NUMBER
+
+    fun isPhoneField(inputType: Int): Boolean = classOf(inputType) == TYPE_CLASS_PHONE
+
+    fun isDatetimeField(inputType: Int): Boolean = classOf(inputType) == TYPE_CLASS_DATETIME
+
+    fun isNumericClass(inputType: Int): Boolean =
+        isNumberField(inputType) || isPhoneField(inputType) || isDatetimeField(inputType)
+
+    fun isMultilineField(inputType: Int): Boolean =
+        inputType and TYPE_TEXT_FLAG_MULTI_LINE != 0
+
     fun isSensitiveField(inputType: Int): Boolean = isPasswordField(inputType)
 
-    fun shouldLearn(inputType: Int): Boolean = !isPasswordField(inputType)
+    fun prefersNumberPad(inputType: Int): Boolean =
+        isNumberField(inputType) || isPhoneField(inputType)
+
+    fun allowsSmartPunctuation(inputType: Int): Boolean =
+        !isPasswordField(inputType) && !isEmailField(inputType) && !isUriField(inputType)
+
+    fun allowsDoubleSpacePeriod(inputType: Int): Boolean = allowsSmartPunctuation(inputType)
+
+    fun kind(inputType: Int): String = when {
+        isPasswordField(inputType) -> "password"
+        isEmailField(inputType) -> "email"
+        isUriField(inputType) -> "uri"
+        isPhoneField(inputType) -> "phone"
+        isNumberField(inputType) -> "number"
+        isDatetimeField(inputType) -> "datetime"
+        else -> "text"
+    }
+
+    fun shouldLearn(inputType: Int): Boolean = !isPasswordField(inputType) && !isNumericClass(inputType)
 
     fun shouldSuggest(inputType: Int): Boolean {
-        if (isPasswordField(inputType)) return false
+        if (isPasswordField(inputType) || isNumericClass(inputType)) return false
         return inputType and TYPE_TEXT_FLAG_NO_SUGGESTIONS == 0
     }
 }

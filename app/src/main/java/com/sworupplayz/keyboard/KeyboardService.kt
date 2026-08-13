@@ -160,6 +160,9 @@ class KeyboardService : InputMethodService() {
     private var backspaceRepeat: Runnable? = null
     private var fieldAllowsLearning = true
     private var fieldAllowsSuggestions = true
+    private var inputViewActive = false
+    private var currentInputType = 0
+    private var hasSelection = false
     private val boundTypingKeys = ArrayList<BoundTypingKey>()
     private var lastSuggestionWords: List<String> = emptyList()
     private val suggestionQueryCache = SuggestionQueryCache()
@@ -214,31 +217,53 @@ class KeyboardService : InputMethodService() {
         return overlayHost
     }
 
+    override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+        super.onStartInput(attribute, restarting)
+        if (ImeLifecyclePolicy.shouldApplyFieldPolicyOnStartInput()) {
+            applyEditorField(attribute)
+        }
+        if (ImeLifecyclePolicy.shouldResetFieldState(restarting)) {
+            typingGeneration.bump()
+            stopBackspaceRepeat()
+            finishComposingSpanOnly()
+            directTypingState.clear()
+            lastCommittedWord = ""
+            lastTwoCommittedWords = null
+            lastSuggestionWords = emptyList()
+            suggestionQueryCache.invalidate()
+            hasSelection = false
+            if (ProductionIntegrationPolicy.shouldResetRepeatLearningOnNewField(restarting)) {
+                repeatFinishes = RepeatFinishStore()
+            }
+        }
+    }
+
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        inputViewActive = true
         readPreferences()
         keyHeightDp = preferredKeyHeight()
-        val inputType = info?.inputType ?: 0
-        fieldAllowsLearning = EditorFieldPolicy.shouldLearn(inputType)
-        fieldAllowsSuggestions = EditorFieldPolicy.shouldSuggest(inputType)
+        applyEditorField(info)
         typingGeneration.bump()
         if (ProductionIntegrationPolicy.shouldResetSession(restarting)) {
             defaultMode?.let { language = it.toKeyboardLanguage() }
-            layoutMode = LayoutMode.LETTERS
+            layoutMode = if (ImeLifecyclePolicy.shouldOpenNumberPadOnNewField(currentInputType, restarting)) {
+                LayoutMode.NUMBERS
+            } else {
+                LayoutMode.LETTERS
+            }
             lastCommittedWord = ""
             lastTwoCommittedWords = null
             if (ProductionIntegrationPolicy.shouldResetRepeatLearningOnNewField(restarting)) {
                 repeatFinishes = RepeatFinishStore()
             }
         }
-        if (InputConnectionPolicy.shouldFinishComposingOnFieldChange() &&
-            romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()
-        ) {
-            currentInputConnection?.finishComposingText()
-            romanComposer.reset()
+        if (InputConnectionPolicy.shouldFinishComposingOnFieldChange()) {
+            finishComposingSpanOnly()
         }
         directTypingState.clear()
         internalSelectionChange = false
+        hasSelection = false
         resetHandwriting()
         modeHistory.clear()
         toolbar.reset()
@@ -248,6 +273,9 @@ class KeyboardService : InputMethodService() {
         suggestionBounce.reset()
         stopBackspaceRepeat()
         lastSuggestionWords = emptyList()
+        if (ImeLifecyclePolicy.shouldInvalidateSuggestionsOnFieldChange(restarting)) {
+            suggestionQueryCache.invalidate()
+        }
         captureClipboard()
         resetShift()
         if (::keyboardRoot.isInitialized) {
@@ -259,7 +287,7 @@ class KeyboardService : InputMethodService() {
     override fun onCurrentInputMethodSubtypeChanged(newSubtype: InputMethodSubtype?) {
         super.onCurrentInputMethodSubtypeChanged(newSubtype)
         if (romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()) {
-            currentInputConnection?.finishComposingText()
+            InputConnectionCommitter.finishComposing(currentInputConnection)
             romanComposer.reset()
         }
         directTypingState.clear()
@@ -272,35 +300,38 @@ class KeyboardService : InputMethodService() {
         if (::keyboardRoot.isInitialized) renderKeyboard()
     }
 
+    override fun onFinishInputView(finishingInput: Boolean) {
+        inputViewActive = false
+        releaseTransientInput(finishComposing = ImeLifecyclePolicy.shouldFinishComposingOnHide())
+        super.onFinishInputView(finishingInput)
+    }
+
     override fun onFinishInput() {
-        typingGeneration.bump()
-        stopBackspaceRepeat()
-        if (ProductionIntegrationPolicy.shouldInvalidateSuggestionsOnHide()) {
-            suggestionQueryCache.invalidate()
-            lastSuggestionWords = emptyList()
-        }
+        inputViewActive = false
+        releaseTransientInput(finishComposing = true)
         if (ProductionIntegrationPolicy.shouldResetGuardsOnHide()) {
             activationGuard.reset()
             keyBounce.reset()
             suggestionBounce.reset()
         }
-        if (romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()) {
-            currentInputConnection?.finishComposingText()
-            romanComposer.reset()
-        }
-        directTypingState.clear()
-        internalSelectionChange = false
         resetHandwriting()
         modeHistory.clear()
         toolbar.reset()
         suggestionRow = null
-        hideOverlays()
-        touchState.reset()
         super.onFinishInput()
     }
 
     override fun onDestroy() {
-        stopBackspaceRepeat()
+        inputViewActive = false
+        if (ImeLifecyclePolicy.shouldStopBackspaceOnDestroy()) {
+            typingGeneration.bump()
+            stopBackspaceRepeat()
+        }
+        if (ImeLifecyclePolicy.shouldResetTouchOnDestroy()) {
+            hideOverlays()
+            touchState.reset()
+        }
+        suggestionQueryCache.invalidate()
         super.onDestroy()
     }
 
@@ -321,6 +352,7 @@ class KeyboardService : InputMethodService() {
             candidatesEnd
         )
         val cursorMoved = oldSelStart != newSelStart || oldSelEnd != newSelEnd
+        hasSelection = newSelStart != newSelEnd
         if (romanComposerDelegate.isInitialized() &&
             CursorMovementPolicy.shouldInvalidateComposing(
                 RomanSelectionState.movedAwayFromComposition(
@@ -334,27 +366,38 @@ class KeyboardService : InputMethodService() {
             typingGeneration.bump()
             stopBackspaceRepeat()
             romanComposer.reset()
-            currentInputConnection?.finishComposingText()
+            InputConnectionCommitter.finishComposing(currentInputConnection)
             lastSuggestionWords = emptyList()
+            suggestionQueryCache.invalidate()
             updateSuggestionRow()
         }
-        if (language != KeyboardLanguage.ROMAN && directTypingState.currentWord.isNotEmpty()) {
-            if (internalSelectionChange) {
-                internalSelectionChange = false
-            } else if (CursorMovementPolicy.shouldInvalidateSuggestions(cursorMoved, internal = false)) {
-                typingGeneration.bump()
-                stopBackspaceRepeat()
-                directTypingState.clear()
-                lastSuggestionWords = emptyList()
-                updateSuggestionRow()
-            }
-        } else if (language != KeyboardLanguage.ROMAN) {
+        if (internalSelectionChange) {
             internalSelectionChange = false
+            return
+        }
+        if (language != KeyboardLanguage.ROMAN &&
+            ImeLifecyclePolicy.shouldInvalidateSuggestionsOnSelectionChange(internal = false) &&
+            CursorMovementPolicy.shouldInvalidateSuggestions(cursorMoved, internal = false)
+        ) {
+            typingGeneration.bump()
+            stopBackspaceRepeat()
+            directTypingState.clear()
+            lastSuggestionWords = emptyList()
+            suggestionQueryCache.invalidate()
+            lastCommittedWord = ""
+            lastTwoCommittedWords = null
+            updateSuggestionRow()
         }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        if (ImeLifecyclePolicy.shouldResetTouchOnConfiguration()) {
+            typingGeneration.bump()
+            stopBackspaceRepeat()
+            hideOverlays()
+            touchState.reset()
+        }
         readPreferences()
         keyHeightDp = preferredKeyHeight()
         if (::keyboardRoot.isInitialized) {
@@ -389,6 +432,39 @@ class KeyboardService : InputMethodService() {
             }
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    private fun applyEditorField(info: EditorInfo?) {
+        currentInputType = info?.inputType ?: 0
+        fieldAllowsLearning = EditorFieldPolicy.shouldLearn(currentInputType)
+        fieldAllowsSuggestions = EditorFieldPolicy.shouldSuggest(currentInputType)
+    }
+
+    private fun releaseTransientInput(finishComposing: Boolean) {
+        typingGeneration.bump()
+        if (ImeLifecyclePolicy.shouldStopBackspaceOnHide()) stopBackspaceRepeat()
+        if (ImeLifecyclePolicy.shouldInvalidateSuggestionsOnHide() ||
+            ProductionIntegrationPolicy.shouldInvalidateSuggestionsOnHide()
+        ) {
+            suggestionQueryCache.invalidate()
+            lastSuggestionWords = emptyList()
+        }
+        if (finishComposing) finishComposingSpanOnly()
+        directTypingState.clear()
+        internalSelectionChange = false
+        if (ImeLifecyclePolicy.shouldResetTouchOnHide() || ImeTouchLifecycle.shouldResetOnHide()) {
+            hideOverlays()
+            touchState.reset()
+        }
+    }
+
+    private fun finishComposingSpanOnly() {
+        if (romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()) {
+            InputConnectionCommitter.finishComposing(currentInputConnection)
+            romanComposer.reset()
+        } else {
+            InputConnectionCommitter.finishComposing(currentInputConnection)
+        }
     }
 
     private fun updateInitialLanguage(subtype: InputMethodSubtype?) {
@@ -948,7 +1024,7 @@ class KeyboardService : InputMethodService() {
                 if (language == KeyboardLanguage.ROMAN) {
                     applyRomanEdit(finishRomanWord())
                 } else {
-                    currentInputConnection?.finishComposingText()
+                    InputConnectionCommitter.finishComposing(currentInputConnection)
                     rememberFinishedDirectWord(directTypingState.currentWord, learnUnknown = false)
                     directTypingState.clear()
                 }
@@ -1059,7 +1135,7 @@ class KeyboardService : InputMethodService() {
         if (language == KeyboardLanguage.ROMAN) {
             applyRomanEdit(PanelInsertionPolicy.romanEditBeforeInsert(romanComposer))
         } else {
-            currentInputConnection?.finishComposingText()
+            InputConnectionCommitter.finishComposing(currentInputConnection)
             directTypingState.clear()
         }
         val connection = currentInputConnection ?: return
@@ -1206,7 +1282,11 @@ class KeyboardService : InputMethodService() {
             previous = previous,
             previousTwo = context.previousTwoWords,
             includeTypos = useTypoSuggestions,
-            includeEmoji = language != KeyboardLanguage.NEPALI && useSuggestions
+            includeEmoji = language != KeyboardLanguage.NEPALI && useSuggestions,
+            previousThree = context.previousThreeWords,
+            editorKind = EditorFieldPolicy.kind(currentInputType),
+            privateField = !fieldAllowsSuggestions || !fieldAllowsLearning,
+            hasSelection = hasSelection
         )
         val cachedSuggestions = suggestionQueryCache.hit(fingerprint)
         val suggestions = if (cachedSuggestions != null) {
@@ -1356,6 +1436,7 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun acceptSuggestion(suggestion: String, colors: KeyboardPalette) {
+        if (ImeLifecyclePolicy.shouldIgnoreInputWhenHidden(inputViewActive)) return
         if (!suggestionBounce.allow(suggestion, SystemClock.uptimeMillis())) return
         if (ProductionIntegrationPolicy.shouldInvalidateSuggestionsOnAccept()) {
             suggestionQueryCache.invalidate()
@@ -1415,18 +1496,28 @@ class KeyboardService : InputMethodService() {
         }
         if (replacement.changesText || replacement.deleteAfterCodeUnits > 0) {
             internalSelectionChange = true
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                val afterPoints = if (replacement.deleteAfterCodeUnits == 0) {
-                    0
-                } else {
-                    after.take(replacement.deleteAfterCodeUnits)
-                        .codePointCount(0, replacement.deleteAfterCodeUnits)
-                }
-                connection.deleteSurroundingTextInCodePoints(replacement.deleteCodePoints, afterPoints)
+            val afterPoints = if (replacement.deleteAfterCodeUnits == 0) {
+                0
             } else {
-                connection.deleteSurroundingText(replacement.deleteCodeUnits, replacement.deleteAfterCodeUnits)
+                after.take(replacement.deleteAfterCodeUnits)
+                    .codePointCount(0, replacement.deleteAfterCodeUnits)
             }
-            connection.commitText(replacement.replacement, 1)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                InputConnectionCommitter.deleteSurroundingInCodePoints(
+                    connection,
+                    replacement.deleteCodePoints,
+                    afterPoints,
+                    replacement.deleteCodeUnits,
+                    replacement.deleteAfterCodeUnits
+                )
+            } else {
+                InputConnectionCommitter.deleteSurrounding(
+                    connection,
+                    replacement.deleteCodeUnits,
+                    replacement.deleteAfterCodeUnits
+                )
+            }
+            InputConnectionCommitter.commitRaw(connection, replacement.replacement)
         }
         directTypingState.replaceWith(suggestion)
         if (useLearning && fieldAllowsLearning && PersonalDictionary.shouldAccept(suggestion)) {
@@ -1573,10 +1664,10 @@ class KeyboardService : InputMethodService() {
         EditorContext.from(textBeforeCursor(InputConnectionPolicy.SUGGESTION_CONTEXT), composingWord)
 
     private fun textBeforeCursor(limit: Int): String =
-        currentInputConnection?.getTextBeforeCursor(limit, 0)?.toString().orEmpty()
+        InputConnectionCommitter.textBeforeCursor(currentInputConnection, limit)
 
     private fun textAfterCursor(limit: Int): String =
-        currentInputConnection?.getTextAfterCursor(limit, 0)?.toString().orEmpty()
+        InputConnectionCommitter.textAfterCursor(currentInputConnection, limit)
 
     private fun adoptWordBeforeCursor() {
         val word = EditorContext.wordAtEnd(textBeforeCursor(64))
@@ -1728,6 +1819,12 @@ class KeyboardService : InputMethodService() {
                 handleKey(live)
             }
             setOnTouchListener { view, event ->
+                if (!ImeTouchLifecycle.shouldDeliverEventAfterHide(inputViewActive)) {
+                    previewView?.dismiss()
+                    stopBackspaceRepeat()
+                    touchState.reset()
+                    return@setOnTouchListener false
+                }
                 val pointerId = event.getPointerId(event.actionIndex)
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
@@ -1902,6 +1999,7 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun handleKey(key: KeySpec) {
+        if (ImeLifecyclePolicy.shouldIgnoreInputWhenHidden(inputViewActive)) return
         when (key.action) {
             KeyAction.TEXT -> {
                 if (!keyBounce.allow("text:${key.output}", SystemClock.uptimeMillis())) return
@@ -1919,13 +2017,18 @@ class KeyboardService : InputMethodService() {
             KeyAction.SPACE -> {
                 val now = SystemClock.uptimeMillis()
                 val before = textBeforeCursor(InputConnectionPolicy.SUGGESTION_CONTEXT)
-                if (SpacePolicy.shouldApplyDoubleSpace(before, now - lastSpaceUptime, useDoubleSpacePeriod)) {
+                if (SpacePolicy.shouldApplyDoubleSpace(
+                        before,
+                        now - lastSpaceUptime,
+                        useDoubleSpacePeriod && EditorFieldPolicy.allowsDoubleSpacePeriod(currentInputType)
+                    )
+                ) {
                     if (language == KeyboardLanguage.ROMAN) applyRomanEdit(finishRomanWord())
                     else {
                         rememberFinishedDirectWord(directTypingState.currentWord)
                         directTypingState.clear()
                     }
-                    currentInputConnection?.deleteSurroundingText(1, 0)
+                    InputConnectionCommitter.deleteSurrounding(currentInputConnection, 1, 0)
                     commitText(SpacePolicy.replacementForDoubleSpace(language))
                 } else if (language == KeyboardLanguage.ROMAN) {
                     applyRomanEdit(finishRomanWord(" "))
@@ -2243,7 +2346,7 @@ class KeyboardService : InputMethodService() {
             applyRomanEdit(finishRomanWord())
         } else {
             rememberFinishedDirectWord(directTypingState.currentWord)
-            currentInputConnection?.finishComposingText()
+            InputConnectionCommitter.finishComposing(currentInputConnection)
             directTypingState.clear()
         }
         lastSuggestionWords = emptyList()
@@ -2276,7 +2379,11 @@ class KeyboardService : InputMethodService() {
         if (ShiftPolicy.allowsAutoCapitalization(shiftState, language) && useAutoCapitalization) {
             incoming = CapitalizationPolicy.applyIncomingLetter(incoming, before, useAutoCapitalization)
         }
-        val spacing = PunctuationSpacing.plan(before, incoming, useSmartPunctuation)
+        val spacing = PunctuationSpacing.plan(
+            before,
+            incoming,
+            useSmartPunctuation && EditorFieldPolicy.allowsSmartPunctuation(currentInputType)
+        )
         applySpacingPlan(spacing)
         val pending = directTypingState.currentWord
         val isWordText = directTypingState.append(spacing.text, typingLanguage)
@@ -2293,7 +2400,7 @@ class KeyboardService : InputMethodService() {
             val spacing = SpacePolicy.planPunctuation(
                 textBeforeCursor(InputConnectionPolicy.SUGGESTION_CONTEXT),
                 text,
-                useSmartPunctuation
+                useSmartPunctuation && EditorFieldPolicy.allowsSmartPunctuation(currentInputType)
             )
             applySpacingPlan(spacing)
             return
@@ -2309,11 +2416,11 @@ class KeyboardService : InputMethodService() {
     private fun applyRomanEdit(edit: RomanEdit) {
         val connection = currentInputConnection ?: return
         when (edit) {
-            is RomanEdit.SetComposing -> connection.setComposingText(edit.text, 1)
-            is RomanEdit.Commit -> connection.commitText(edit.text, 1)
+            is RomanEdit.SetComposing -> InputConnectionCommitter.setComposing(connection, edit.text)
+            is RomanEdit.Commit -> InputConnectionCommitter.commitRaw(connection, edit.text)
             RomanEdit.ClearComposing -> {
-                connection.setComposingText("", 1)
-                connection.finishComposingText()
+                InputConnectionCommitter.setComposing(connection, "")
+                InputConnectionCommitter.finishComposing(connection)
             }
             RomanEdit.DeletePrevious -> deleteOneCharacter()
             RomanEdit.NoOp -> Unit
@@ -2334,7 +2441,7 @@ class KeyboardService : InputMethodService() {
 
     private fun applySpacingPlan(spacing: SpacingPlan) {
         if (spacing.deleteBefore > 0) {
-            currentInputConnection?.deleteSurroundingText(spacing.deleteBefore, 0)
+            InputConnectionCommitter.deleteSurrounding(currentInputConnection, spacing.deleteBefore, 0)
         }
         if (spacing.insertLeadingSpace) commitText(" ")
         commitText(spacing.text)
@@ -2343,26 +2450,27 @@ class KeyboardService : InputMethodService() {
 
     private fun deleteOneCharacter() {
         val connection = currentInputConnection ?: return
-        val selection = connection.getSelectedText(0)
+        val selection = InputConnectionCommitter.selectedText(connection)
         if (!selection.isNullOrEmpty()) {
-            connection.commitText("", 1)
+            InputConnectionCommitter.commitRaw(connection, "")
             return
         }
         val units = GraphemeBackspace.codeUnitsToDelete(textBeforeCursor(InputConnectionPolicy.BACKSPACE_CONTEXT))
-        if (units > 0) connection.deleteSurroundingText(units, 0)
+        if (units > 0) InputConnectionCommitter.deleteSurrounding(connection, units, 0)
     }
 
     private fun sendEnter() {
         val connection = currentInputConnection ?: return
         val options = EnterActionPolicy.resolve(currentInputEditorInfo?.imeOptions)
         if (EnterActionPolicy.shouldPerformAction(options)) {
-            connection.performEditorAction(EnterActionPolicy.actionId(options))
+            InputConnectionCommitter.performEditorAction(connection, EnterActionPolicy.actionId(options))
         } else {
-            connection.commitText("\n", 1)
+            InputConnectionCommitter.commitRaw(connection, "\n")
         }
     }
 
     private fun startBackspaceRepeat() {
+        if (ImeLifecyclePolicy.shouldIgnoreInputWhenHidden(inputViewActive)) return
         stopBackspaceRepeat()
         val generation = typingGeneration.current()
         val task = object : Runnable {

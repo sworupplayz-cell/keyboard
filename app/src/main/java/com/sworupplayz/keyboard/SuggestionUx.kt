@@ -29,7 +29,10 @@ class SuggestionQueryCache {
         previousTwo: String?,
         includeTypos: Boolean,
         includeEmoji: Boolean,
-        previousThree: String? = null
+        previousThree: String? = null,
+        editorKind: String = "",
+        privateField: Boolean = false,
+        hasSelection: Boolean = false
     ): String = listOf(
         language.name,
         input,
@@ -37,7 +40,10 @@ class SuggestionQueryCache {
         previousTwo.orEmpty(),
         previousThree.orEmpty(),
         if (includeTypos) "t" else "-",
-        if (includeEmoji) "e" else "-"
+        if (includeEmoji) "e" else "-",
+        editorKind,
+        if (privateField) "p" else "-",
+        if (hasSelection) "s" else "-"
     ).joinToString("\u0001")
 
     fun hit(fingerprint: String): List<String>? = words.takeIf { fingerprint == key }

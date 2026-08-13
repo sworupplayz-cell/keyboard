@@ -1,6 +1,6 @@
 # Core keyboard quality
 
-Phase 21 tightens the existing IME so everyday typing feels closer to a production keyboard. Phase 25 adds adaptive hit-testing on that same path. Phase 26 polishes the real typing pipeline. Phase 28 keeps that same path and sends Roman candidates through the same `SuggestionRanker` as English and Nepali. Phase 30 clears suggestion cache and repeat-learning on hide and new fields so stale state cannot leak across apps. It does not replace English, Nepali, or Roman engines, and it does not change the Gboard-style appearance system.
+Phase 21 tightens the existing IME so everyday typing feels closer to a production keyboard. Phase 25 adds adaptive hit-testing on that same path. Phase 26 polishes the real typing pipeline. Phase 28 keeps that same path and sends Roman candidates through the same `SuggestionRanker` as English and Nepali. Phase 30 clears suggestion cache and repeat-learning on hide and new fields so stale state cannot leak across apps. Phase 31 makes that same IME survive real app switching: `onStartInput` / `onFinishInputView` reset transient touch, backspace, overlays, and composing; InputConnection calls are null- and exception-safe; numeric/phone fields hide suggestions; email and URL punctuation no longer insert spaces into `https:` or `user@example.com`. It does not replace English, Nepali, or Roman engines, and it does not change the Gboard-style appearance system.
 
 ## Touch
 
@@ -51,3 +51,11 @@ Opening numbers, symbols, emoji, clipboard, or handwriting finishes composing fi
 Comma, period, `?`, `!`, `:`, `;`, `%`, danda, quotes, and brackets still attach conservatively. URLs, emails, mentions, hashtags, and decimals are left alone.
 
 Narrow phones still skip one-handed gutters. Letter text is capped under large font scales so keys are not enlarged just for accessibility. Existing default height formulas are unchanged.
+
+## Phase 31 IME reliability
+
+Field-specific state (composing, suggestions, editor type) resets when the target field changes. Persistent settings and learned vocabulary do not. Hiding the keyboard without finishing input still stops held backspace, clears the active pointer, dismisses previews, and finishes the composing span without reconverting already shown Roman text. Cursor or selection changes from the host app invalidate the suggestion cache and re-read text around the new cursor instead of reusing the previous field's last word.
+
+`InputConnectionCommitter` is the only commit path. A missing or dying editor returns false instead of crashing the IME. Suggestion replacement still uses `SuggestionSelectionPlan`, so `hello wor|ld` becomes `hello world` and trailing punctuation or emoji after the cursor stay put.
+
+Password and PIN fields still hide suggestions and skip learning. Number and phone fields also hide alphabetic suggestions and open the number pad on a new field. Email and URL fields keep letters but turn off smart punctuation and double-space period so `@`, `.`, `:`, `/`, `?`, `&`, and `#` are not rewritten.

@@ -42,7 +42,8 @@ More is treated as chrome overlay, so it still collapses before a panel undernea
 - Floating remains a stored preference only; it is not drawn.
 - Short / Normal / Tall height (`KeyboardHeight.SMALL` / `NORMAL` / `LARGE`) scales letter, number, symbol, emoji, clipboard, handwriting, suggestion, toolbar, and navigation rows through `KeyboardUiMetrics`. Compact / Comfortable density adds a bounded delta on top.
 - Sound volume and haptic strength are local only. Disabled means completely off. Long-press vibrates once.
-- Held backspace waits 400 ms, then repeats one grapheme at a time and stops on lift or cancel. See [`QUALITY.md`](QUALITY.md).
+- Held backspace waits 400 ms, then repeats one grapheme at a time and stops on lift, cancel, hide, field change, or destroy. See [`QUALITY.md`](QUALITY.md).
+- Phase 31 also drops the active pointer, preview balloon, and suggestion cache when the IME hides without finishing input, so a second app cannot inherit a stuck key or stale candidates.
 
 ## Accessibility and feedback
 

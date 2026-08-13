@@ -6,7 +6,7 @@ object SpecialTokenPolicy {
         val token = tokenAtEnd(textBeforeCursor)
         if (token.isEmpty()) return false
         return looksLikeUrl(token) || looksLikeEmail(token) || looksLikeMentionOrHashtag(token) ||
-            looksLikeNumber(token)
+            looksLikeNumber(token) || looksLikeUrlPrefix(token) || looksLikeEmailInProgress(token)
     }
 
     fun blocksCapitalization(textBeforeCursor: String): Boolean {
@@ -24,6 +24,19 @@ object SpecialTokenPolicy {
     fun looksLikeEmail(token: String): Boolean {
         val at = token.indexOf('@')
         return at > 0 && token.indexOf('.', at) > at + 1 && ' ' !in token
+    }
+
+    fun looksLikeEmailInProgress(token: String): Boolean {
+        val at = token.indexOf('@')
+        return at > 0 && ' ' !in token
+    }
+
+    fun looksLikeUrlPrefix(token: String): Boolean {
+        if (looksLikeUrl(token)) return true
+        val value = token.lowercase()
+        return value == "http" || value == "https" || value == "ftp" ||
+            value.startsWith("http:") || value.startsWith("https:") ||
+            value.startsWith("ftp:") || "://" in value
     }
 
     fun looksLikeMentionOrHashtag(token: String): Boolean =
