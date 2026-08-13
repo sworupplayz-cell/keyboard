@@ -1,6 +1,6 @@
 # Keyboard UX
 
-Phase 18 polishes interaction, navigation, and layout. Typing engines, vocabularies, and the Gboard-style letter layout stay as they are.
+Phase 18 polishes interaction, navigation, and layout. Phase 29 keeps that model and tightens the suggestion strip, language labels, and settings honesty. Typing engines, vocabularies, and the Gboard-style letter layout stay as they are.
 
 ## Interaction model
 
@@ -53,6 +53,7 @@ More is treated as chrome overlay, so it still collapses before a panel undernea
 ## Performance
 
 - Vocabularies, the Roman converter, and the emoji catalog stay lazy and in-memory.
-- Keystrokes update the suggestion strip only. Identical suggestion lists are not redrawn.
+- Keystrokes update the suggestion strip only. Identical editor context reuses the last suggestion list and does not rerun ranking.
+- Identical suggestion lists are not redrawn.
 - Suggestion generation, clipboard, and learning remain bounded.
 - There is no internet permission and no online lookup.

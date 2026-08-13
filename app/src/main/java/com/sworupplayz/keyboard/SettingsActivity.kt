@@ -229,6 +229,7 @@ class SettingsActivity : Activity() {
             onSelected = { persist { setOneHanded(it) } }
         ))
         content.addView(body(getString(R.string.floating_unavailable)))
+        content.addView(body(getString(R.string.handwriting_unavailable)))
         content.addView(preferenceSwitch(
             getString(R.string.toolbar_setting),
             getString(R.string.toolbar_description),

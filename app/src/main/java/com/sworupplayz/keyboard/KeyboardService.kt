@@ -162,6 +162,7 @@ class KeyboardService : InputMethodService() {
     private var fieldAllowsSuggestions = true
     private val boundTypingKeys = ArrayList<BoundTypingKey>()
     private var lastSuggestionWords: List<String> = emptyList()
+    private val suggestionQueryCache = SuggestionQueryCache()
     private var overlayDismissView: View? = null
     private var clipboardHistory = ClipboardRepository()
     private var lastSpaceUptime = 0L
@@ -495,6 +496,7 @@ class KeyboardService : InputMethodService() {
         keyboardRoot.removeAllViews()
         suggestionRow = null
         lastSuggestionWords = emptyList()
+        suggestionQueryCache.invalidate()
         suggestionSettingsVisible = false
         handwritingResultRow = null
         handwritingCanvas = null
@@ -1181,13 +1183,26 @@ class KeyboardService : InputMethodService() {
         }
         val context = editorContext(currentWord)
         val previous = context.previousWord ?: lastCommittedWord.ifEmpty { null }
+        val suggestionLanguage = when (language) {
+            KeyboardLanguage.ENGLISH -> SuggestionLanguage.ENGLISH
+            KeyboardLanguage.NEPALI -> SuggestionLanguage.NEPALI
+            KeyboardLanguage.ROMAN -> SuggestionLanguage.ROMAN
+        }
+        val fingerprint = suggestionQueryCache.fingerprint(
+            language = suggestionLanguage,
+            input = currentWord,
+            previous = previous,
+            previousTwo = context.previousTwoWords,
+            includeTypos = useTypoSuggestions,
+            includeEmoji = language != KeyboardLanguage.NEPALI && useSuggestions
+        )
+        val cachedSuggestions = suggestionQueryCache.hit(fingerprint)
+        val suggestions = if (cachedSuggestions != null) {
+            cachedSuggestions
+        } else {
         val query = SuggestionQuery(
             input = currentWord,
-            language = when (language) {
-                KeyboardLanguage.ENGLISH -> SuggestionLanguage.ENGLISH
-                KeyboardLanguage.NEPALI -> SuggestionLanguage.NEPALI
-                KeyboardLanguage.ROMAN -> SuggestionLanguage.ROMAN
-            },
+            language = suggestionLanguage,
             previousWord = previous,
             previousTwoWords = context.previousTwoWords,
             previousThreeWords = context.previousThreeWords,
@@ -1248,14 +1263,17 @@ class KeyboardService : InputMethodService() {
         } else {
             rawSuggestions
         }
-        val suggestions = SuggestionBarState.display(mapped, currentWord, MAX_SUGGESTIONS)
+        val computed = SuggestionBarState.display(mapped, currentWord, MAX_SUGGESTIONS)
+            suggestionQueryCache.remember(fingerprint, computed)
+            computed
+        }
         if (SuggestionBarState.unchanged(lastSuggestionWords, suggestions) && row.childCount > 0) {
             return
         }
         lastSuggestionWords = suggestions
         row.removeAllViews()
         row.setBackgroundColor(KeyboardThemeTokens.suggestionBackground(colors))
-        if (suggestions.isEmpty()) {
+        if (SuggestionBarStyle.showsEmptyHint(suggestions)) {
             val hint = when (language) {
                 KeyboardLanguage.ENGLISH -> R.string.english_suggestion_hint
                 KeyboardLanguage.NEPALI -> R.string.nepali_suggestion_hint
@@ -1288,14 +1306,7 @@ class KeyboardService : InputMethodService() {
                 gravity = Gravity.CENTER
                 minHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
                 setTypeface(typeface, if (slot.primary) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
-                setTextSize(
-                    TypedValue.COMPLEX_UNIT_SP,
-                    when {
-                        slot.primary && suggestion.length <= 10 -> KeyboardTheme.SUGGESTION_TEXT_SP + 1f
-                        suggestion.length > 10 -> 13f
-                        else -> KeyboardTheme.SUGGESTION_TEXT_SP
-                    }
-                )
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, SuggestionBarStyle.textSizeSp(slot.primary, suggestion))
                 setTextColor(
                     if (slot.primary) KeyboardThemeTokens.suggestionPrimary(colors)
                     else KeyboardThemeTokens.suggestionSecondary(colors)
@@ -1672,6 +1683,9 @@ class KeyboardService : InputMethodService() {
             }
             if (key.action == KeyAction.SPACE) {
                 contentDescription = AccessibilityLabels.space(language)
+            }
+            if (key.action == KeyAction.LANGUAGE) {
+                contentDescription = AccessibilityLabels.languageControl(language)
             }
             if (layoutMode == LayoutMode.LETTERS || layoutMode == LayoutMode.VOWELS ||
                 layoutMode == LayoutMode.NUMBERS || layoutMode == LayoutMode.SYMBOLS
@@ -2426,6 +2440,7 @@ class KeyboardService : InputMethodService() {
                     AccessibilityLabels.shift(ShiftPolicy.isCapsLock(shiftState))
                 KeyAction.ENTER -> bound.view.contentDescription = AccessibilityLabels.enter(imeOptions)
                 KeyAction.SPACE -> bound.view.contentDescription = AccessibilityLabels.space(language)
+                KeyAction.LANGUAGE -> bound.view.contentDescription = AccessibilityLabels.languageControl(language)
                 else -> Unit
             }
         }

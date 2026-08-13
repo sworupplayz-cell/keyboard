@@ -117,7 +117,7 @@ class ToolbarController {
         ToolbarAction.LANGUAGE -> ToolbarItem(
             action,
             LanguageSwitcher.toolbarLabel(language),
-            LanguageSwitcher.toolbarDescription(language)
+            AccessibilityLabels.languageControl(language)
         )
         ToolbarAction.SETTINGS -> ToolbarItem(action, "⚙", "Settings")
         ToolbarAction.MORE -> ToolbarItem(action, "⋯", "More tools")
