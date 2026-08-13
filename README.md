@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 32
+# Simple Nepali Keyboard — Phase 33
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 32 adds a real offline handwriting **pipeline** (stroke normalize/rasterize, model-loading boundary, cancellable jobs, password blocking). It does **not** bundle a recognizer model. Confirm still reports unavailable. Phases 25–31 stay in place.
+Phase 33 audited whether genuine offline Devanagari handwriting recognition can be shipped. **It cannot yet.** No legally redistributable digital-ink or handwritten-word model could be loaded and verified here. Confirm still reports unavailable. Phases 25–32 stay in place.
 
 Floating IME and handwriting recognition remain unavailable. Prediction is deterministic and offline, not a cloud or neural model.
 

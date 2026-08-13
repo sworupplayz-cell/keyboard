@@ -84,6 +84,26 @@ Up to five model candidates are allowed by policy; the existing `HandwritingInpu
 
 Settings still say handwriting recognition is unavailable. There is no fake enable toggle.
 
+## Phase 33 — shippability audit
+
+Phase 33 re-checked whether a **real** offline Devanagari handwriting model can be bundled and run. Status: **`RECOGNITION_NOT_SHIPPABLE`**.
+
+Additional candidates reviewed:
+
+| Model | License | Verdict |
+| --- | --- | --- |
+| ML Kit Digital Ink | vendor terms + downloaded packs | Runtime download. Rejected. |
+| DHCD custom CNN | dataset CC BY 4.0; no official weights | Isolated characters only; cannot train/convert here. |
+| kaushu42/nepali-ocr `model.h5` | **no license** | Cannot redistribute. Isolated characters. |
+| tulasiram58827/ocr_tflite | Apache-2.0 repo | Latin/captcha/scene OCR. Wrong script and task. |
+| PaddleOCR PP-OCRv3 Devanagari ONNX | Apache-2.0, 8.6 MB rec | Printed/scene OCR, not digital ink. Needs ONNX Runtime + detector. Inference cannot be verified in this sandbox. Bundling it would mislabel printed OCR as handwriting. |
+| IIIT-HW-Dev academic CRNN | research / dataset terms | No redistributable Android weights. |
+| Tesseract Devanagari | Apache-2.0 | Printed page OCR + large native engine. |
+
+Required artifact to finish the feature: a redistributable offline Devanagari **digital-ink or handwritten-word** TFLite/ONNX model with a documented input spec, plus a toolchain that can load it and verify at least one real handwritten word.
+
+`ProductionIntegrationPolicy.handwritingRecognitionImplemented()` remains false.
+
 ## Future upgrade
 
 1. Train or obtain a CC-BY / Apache-2.0 quantized Devanagari model.
