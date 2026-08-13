@@ -120,6 +120,10 @@ Both model files are **Missing**. Recognition returns `HandwritingResult.UNAVAIL
 
 `HandwritingModelManager.loadEnglishModel()` / `recognizeEnglish()` / `unloadEnglishModel()` implement a singleton interpreter and a 1×224×224×1 float32 packer. Token decoding is CTC over printable ASCII and runs only on real interpreter output. This sandbox still has no `english.tflite` and existing tests forbid adding a TensorFlow Gradle dependency without a model, so production inference stays unavailable.
 
+## Phase 35 Nepali inference
+
+`HandwritingModelManager.loadNepaliModel()` / `recognizeNepali()` / `unloadNepaliModel()` reuse the same singleton holder and 224×224 packer. Token decoding is CTC over a Devanagari alphabet (consonants, independent vowels, matras, halant, anusvara, chandrabindu, visarga). Unknown tokens are discarded, never replaced with Latin or `?`. `UNKNOWN` ink tries English first, then Nepali. This sandbox still has no `nepali.tflite`, so Confirm reports unavailable and never invents text. `ProductionIntegrationPolicy.handwritingRecognitionImplemented()` remains false.
+
 ## Future upgrade
 
 1. Train or obtain a CC-BY / Apache-2.0 quantized Devanagari model.

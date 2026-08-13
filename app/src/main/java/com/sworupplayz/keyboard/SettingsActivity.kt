@@ -181,13 +181,22 @@ class SettingsActivity : Activity() {
             }
         })
 
-        val handwritingModels = HandwritingModelManager(
-            runCatching { assets.list("handwriting")?.toList().orEmpty() }.getOrDefault(emptyList())
-        )
+        val handwritingNames = runCatching {
+            assets.list("handwriting")?.toList().orEmpty()
+        }.getOrDefault(emptyList())
+        val handwritingSizes = handwritingNames.associateWith { name ->
+            runCatching {
+                assets.openFd("handwriting/$name").use { descriptor ->
+                    val length = descriptor.length
+                    if (length > 0L) length else 0L
+                }
+            }.getOrDefault(0L)
+        }
+        val handwritingModels = HandwritingModelManager(handwritingNames, handwritingSizes)
         content.addView(sectionHeading(getString(R.string.section_handwriting)))
         content.addView(body(getString(R.string.handwriting_language_auto)))
         content.addView(body(getString(R.string.handwriting_english_model, handwritingModels.englishDetailStatus())))
-        content.addView(body(getString(R.string.handwriting_nepali_model, handwritingModels.nepaliStatus())))
+        content.addView(body(getString(R.string.handwriting_nepali_model, handwritingModels.nepaliDetailStatus())))
 
         content.addView(sectionHeading(getString(R.string.section_sound)))
         content.addView(preferenceSwitch(

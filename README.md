@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 33
+# Simple Nepali Keyboard — Phase 35
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 34 adds a real English TFLite inference path (1×224×224×1, CTC ASCII decoder, singleton runtime). **`english.tflite` is not bundled**, so Confirm still reports unavailable and never invents text. Phases 25–33 stay in place.
+Phase 35 adds a real Nepali TFLite inference path (1×224×224×1, Devanagari CTC decoder, shared singleton runtime). **`nepali.tflite` and `english.tflite` are not bundled**, so Confirm still reports unavailable and never invents text. Phases 25–34 stay in place.
 
 Floating IME and handwriting recognition remain unavailable. Prediction is deterministic and offline, not a cloud or neural model.
 

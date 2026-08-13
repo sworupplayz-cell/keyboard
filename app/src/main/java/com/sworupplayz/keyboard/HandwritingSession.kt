@@ -47,15 +47,12 @@ class HandwritingSession(
         val normalized = StrokeNormalizer.normalize(collector.snapshot())
         lastRaster = InkRasterizer.rasterizeFramework(normalized).copyOf()
         val language = HandwritingLanguageDetector.detect(normalized)
-        lastResult = if (language == InkLanguage.DEVANAGARI && !models.englishInstalled) {
-            models.recognize(normalized, language)
-        } else {
-            models.recognizeEnglish(lastRaster ?: FloatArray(0)).copy(detectedLanguage = language)
-        }
+        lastResult = models.recognize(normalized, language)
         return lastResult
     }
 
     fun unload() {
         models.unloadEnglishModel()
+        models.unloadNepaliModel()
     }
 }

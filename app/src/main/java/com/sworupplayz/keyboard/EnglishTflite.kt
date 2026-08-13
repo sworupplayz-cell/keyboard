@@ -96,35 +96,23 @@ object EnglishTokenDecoder {
  * Without a bundled model or TFLite runtime this stays unloaded.
  */
 object EnglishTfliteRuntime {
-    private var interpreter: EnglishInkInterpreter? = null
-    private var loadedFrom: String? = null
+    private val runtime = ReusableInkRuntime<EnglishInkInterpreter>()
 
-    fun isLoaded(): Boolean = interpreter != null
+    fun isLoaded(): Boolean = runtime.isLoaded()
 
-    fun loadedAsset(): String? = loadedFrom
+    fun loadedAsset(): String? = runtime.loadedAsset()
 
-    @Synchronized
     fun loadEnglishModel(
         assetName: String,
         factory: () -> EnglishInkInterpreter?
-    ): Boolean {
-        if (interpreter != null && loadedFrom == assetName) return true
-        unloadEnglishModel()
-        val created = factory() ?: return false
-        interpreter = created
-        loadedFrom = assetName
-        return true
-    }
+    ): Boolean = runtime.load(assetName, factory)
 
-    @Synchronized
     fun unloadEnglishModel() {
-        interpreter = null
-        loadedFrom = null
+        runtime.unload()
     }
 
-    @Synchronized
     fun recognizeEnglish(raster224: FloatArray): HandwritingResult {
-        val active = interpreter ?: return HandwritingResult.UNAVAILABLE
+        val active = runtime.get() ?: return HandwritingResult.UNAVAILABLE
         val packed = EnglishTfliteContract.packRaster(raster224)
         val decoded = EnglishTokenDecoder.decode(active.infer(packed))
         val merged = HandwritingCandidateMerger.merge(decoded)

@@ -7,21 +7,21 @@ package com.sworupplayz.keyboard
 class HandwritingModelManager(
     private val assetNames: Collection<String> = emptyList(),
     private val assetSizes: Map<String, Long> = emptyMap(),
-    private val englishFactory: () -> EnglishInkInterpreter? = { null }
+    private val englishFactory: () -> EnglishInkInterpreter? = { null },
+    private val nepaliFactory: () -> NepaliInkInterpreter? = { null }
 ) {
     val englishInstalled: Boolean = isPresent(ENGLISH_ASSET)
     val nepaliInstalled: Boolean = isPresent(NEPALI_ASSET)
     val englishBytes: Long = sizeOf(ENGLISH_ASSET)
+    val nepaliBytes: Long = sizeOf(NEPALI_ASSET)
 
     fun englishStatus(): String = if (englishInstalled) INSTALLED else MISSING
 
     fun nepaliStatus(): String = if (nepaliInstalled) INSTALLED else MISSING
 
-    fun englishDetailStatus(): String {
-        if (!englishInstalled) return MISSING
-        val formatted = EnglishTfliteContract.formatSize(englishBytes)
-        return if (formatted.isEmpty()) INSTALLED else "$INSTALLED ($formatted)"
-    }
+    fun englishDetailStatus(): String = detailStatus(englishInstalled, englishBytes)
+
+    fun nepaliDetailStatus(): String = detailStatus(nepaliInstalled, nepaliBytes)
 
     fun recognitionLanguage(): String = "Auto"
 
@@ -48,18 +48,73 @@ class HandwritingModelManager(
         return EnglishTfliteRuntime.recognizeEnglish(raster224)
     }
 
+    fun loadNepaliModel(): Boolean {
+        if (!nepaliInstalled) return false
+        return NepaliTfliteRuntime.loadNepaliModel(NEPALI_ASSET, nepaliFactory)
+    }
+
+    fun unloadNepaliModel() {
+        NepaliTfliteRuntime.unloadNepaliModel()
+    }
+
+    fun recognizeNepali(raster224: FloatArray): HandwritingResult {
+        if (!nepaliInstalled) return HandwritingResult.UNAVAILABLE
+        if (!NepaliTfliteRuntime.isLoaded() && !loadNepaliModel()) {
+            return HandwritingResult.UNAVAILABLE
+        }
+        return NepaliTfliteRuntime.recognizeNepali(raster224)
+    }
+
     fun recognize(ink: HandwritingInk, language: InkLanguage): HandwritingResult {
-        if (language == InkLanguage.DEVANAGARI && !englishInstalled) {
+        when (language) {
+            InkLanguage.DEVANAGARI -> {
+                if (!nepaliInstalled) return HandwritingResult.UNAVAILABLE
+                val raster = InkRasterizer.rasterizeFramework(ink)
+                return keepSingleton(recognizeNepali(raster), language)
+            }
+            InkLanguage.ENGLISH -> {
+                if (!englishInstalled) return HandwritingResult.UNAVAILABLE
+                val raster = InkRasterizer.rasterizeFramework(ink)
+                return keepSingleton(recognizeEnglish(raster), language)
+            }
+            InkLanguage.UNKNOWN -> {
+                if (!englishInstalled && !nepaliInstalled) return HandwritingResult.UNAVAILABLE
+                val raster = InkRasterizer.rasterizeFramework(ink)
+                if (englishInstalled) {
+                    val english = recognizeEnglish(raster)
+                    if (hasVisibleResults(english)) {
+                        return keepSingleton(english, language)
+                    }
+                }
+                if (nepaliInstalled) {
+                    return keepSingleton(recognizeNepali(raster), language)
+                }
+                return HandwritingResult.UNAVAILABLE
+            }
+        }
+    }
+
+    private fun hasVisibleResults(result: HandwritingResult): Boolean =
+        result.status == HandwritingStatus.RESULTS && result.candidates.isNotEmpty()
+
+    private fun keepSingleton(result: HandwritingResult, language: InkLanguage): HandwritingResult {
+        if (result === HandwritingResult.UNAVAILABLE ||
+            result === HandwritingResult.BLOCKED ||
+            result === HandwritingResult.EMPTY ||
+            result === HandwritingResult.RECOGNIZING
+        ) {
+            return result
+        }
+        if (result.status == HandwritingStatus.RECOGNIZER_UNAVAILABLE && result.candidates.isEmpty()) {
             return HandwritingResult.UNAVAILABLE
         }
-        if (!canRecognize(language) && language != InkLanguage.ENGLISH) {
-            return HandwritingResult.UNAVAILABLE
-        }
-        if (language == InkLanguage.ENGLISH || language == InkLanguage.UNKNOWN) {
-            val raster = InkRasterizer.rasterizeFramework(ink)
-            return recognizeEnglish(raster).copy(detectedLanguage = language)
-        }
-        return HandwritingResult.UNAVAILABLE
+        return result.copy(detectedLanguage = language)
+    }
+
+    private fun detailStatus(installed: Boolean, bytes: Long): String {
+        if (!installed) return MISSING
+        val formatted = EnglishTfliteContract.formatSize(bytes)
+        return if (formatted.isEmpty()) INSTALLED else "$INSTALLED ($formatted)"
     }
 
     private fun isPresent(fileName: String): Boolean =

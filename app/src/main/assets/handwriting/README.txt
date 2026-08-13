@@ -12,4 +12,7 @@ Legacy Phase 32 names are also accepted by HandwritingModelSpec:
 
 Expected format: quantized TensorFlow Lite. The dual framework rasterizes to 224×224;
 the older preprocessor still produces 32×32 for compatibility tests.
+English decoding is CTC over printable ASCII. Nepali decoding is CTC over
+Devanagari consonants, vowels, matras, halant, and marks. Missing files stay
+UNAVAILABLE and never invent text.
 The IME never downloads a model at runtime and never uses a network recognizer.
