@@ -254,12 +254,22 @@ object SuggestionSelectionPlan {
 
     fun create(currentWord: String, suggestion: String, textBeforeCursor: String): SuggestionReplacement? {
         if (!matchesCurrentWord(textBeforeCursor, currentWord)) return null
+        val replacement = preserveCapitalization(currentWord, suggestion)
         return SuggestionReplacement(
             deleteCodePoints = currentWord.codePointCount(0, currentWord.length),
             deleteCodeUnits = currentWord.length,
-            replacement = suggestion,
-            changesText = currentWord != suggestion
+            replacement = replacement,
+            changesText = currentWord != replacement
         )
+    }
+
+    fun preserveCapitalization(typed: String, suggestion: String): String {
+        if (typed.isEmpty() || suggestion.isEmpty()) return suggestion
+        if (typed.all { it.isUpperCase() || !it.isLetter() }) return suggestion.uppercase(Locale.ENGLISH)
+        if (typed.first().isUpperCase()) {
+            return suggestion.replaceFirstChar { it.uppercaseChar() }
+        }
+        return suggestion
     }
 }
 
@@ -386,7 +396,19 @@ object WordLearningPolicy {
 
     fun shouldLearnUnknown(word: String, known: (String) -> Boolean): Boolean {
         val clean = word.trim()
-        return clean.length >= MIN_TEACHABLE_LENGTH && !known(clean)
+        return !isGarbage(clean) && !known(clean)
+    }
+
+    fun shouldLearnAccepted(word: String): Boolean = !isGarbage(word.trim())
+
+    fun isGarbage(word: String): Boolean {
+        val clean = word.trim()
+        if (clean.length < MIN_TEACHABLE_LENGTH) return true
+        if (clean.all { it == clean.first() }) return true
+        if (clean.none { it.isLetter() || it.code in 0x0900..0x097F }) return true
+        if (SpecialTokenPolicy.looksLikeUrl(clean) || SpecialTokenPolicy.looksLikeEmail(clean)) return true
+        if (SpecialTokenPolicy.looksLikeMentionOrHashtag(clean)) return true
+        return false
     }
 }
 

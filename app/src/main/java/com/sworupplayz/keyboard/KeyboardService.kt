@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.media.AudioManager
 import android.os.Build
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -109,6 +110,11 @@ class KeyboardService : InputMethodService() {
     private var useDarkAppearance = false
     private var useSuggestions = true
     private var useLearning = true
+    private var useSmartPunctuation = true
+    private var useDoubleSpacePeriod = true
+    private var useAutoCapitalization = true
+    private var useEmojiRecents = true
+    private var lastSpaceUptime = 0L
     private var showNumberRow = false
     private var keyboardHeight = KeyboardHeight.NORMAL
     private var defaultMode: DefaultKeyboardMode? = null
@@ -272,6 +278,10 @@ class KeyboardService : InputMethodService() {
         useDarkAppearance = settings.appearance.isDark(systemUsesDarkTheme())
         useSuggestions = settings.suggestions
         useLearning = settings.learnedWords
+        useSmartPunctuation = settings.smartPunctuation
+        useDoubleSpacePeriod = settings.doubleSpacePeriod
+        useAutoCapitalization = settings.autoCapitalization
+        useEmojiRecents = settings.emojiRecents
         showNumberRow = settings.numberRow
         keyboardHeight = settings.height
         learnedRomanWords = LearnedRomanWords.fromSerialized(
@@ -586,13 +596,15 @@ class KeyboardService : InputMethodService() {
         }
         val connection = currentInputConnection ?: return
         if (!InputConnectionCommitter.commit(connection, emoji)) return
-        recentEmojis.record(emoji)
-        emojiUsage.record(emoji)
-        getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KeyboardPreferences.KEY_RECENT_EMOJIS, recentEmojis.serialize())
-            .putString(KeyboardPreferences.KEY_EMOJI_USAGE, emojiUsage.serialize())
-            .apply()
+        if (useEmojiRecents) {
+            recentEmojis.record(emoji)
+            emojiUsage.record(emoji)
+            getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KeyboardPreferences.KEY_RECENT_EMOJIS, recentEmojis.serialize())
+                .putString(KeyboardPreferences.KEY_EMOJI_USAGE, emojiUsage.serialize())
+                .apply()
+        }
         updateSuggestionRow()
     }
 
@@ -739,7 +751,9 @@ class KeyboardService : InputMethodService() {
             )
         }
         val suggestions = if (language == KeyboardLanguage.ENGLISH) {
-            rawSuggestions.map { CapitalizationPolicy.applyToWord(it, context.textBeforeCursor) }
+            rawSuggestions.map {
+                CapitalizationPolicy.applyToWord(it, context.textBeforeCursor, useAutoCapitalization)
+            }
         } else {
             rawSuggestions
         }
@@ -840,7 +854,7 @@ class KeyboardService : InputMethodService() {
             connection.commitText(replacement.replacement, 1)
         }
         directTypingState.replaceWith(suggestion)
-        if (useLearning) persistLearnedWord(suggestion)
+        if (useLearning && WordLearningPolicy.shouldLearnAccepted(suggestion)) persistLearnedWord(suggestion)
         updateSuggestionRow(colors)
     }
 
@@ -1067,15 +1081,25 @@ class KeyboardService : InputMethodService() {
                 }
             }
             KeyAction.SPACE -> {
-                if (language == KeyboardLanguage.ROMAN) {
+                val now = SystemClock.uptimeMillis()
+                val before = textBeforeCursor(80)
+                if (DoubleSpacePolicy.shouldReplace(before, now - lastSpaceUptime, useDoubleSpacePeriod)) {
+                    if (language == KeyboardLanguage.ROMAN) applyRomanEdit(finishRomanWord())
+                    else {
+                        rememberFinishedDirectWord(directTypingState.currentWord)
+                        directTypingState.clear()
+                    }
+                    currentInputConnection?.deleteSurroundingText(1, 0)
+                    commitText(DoubleSpacePolicy.replacement(language))
+                } else if (language == KeyboardLanguage.ROMAN) {
                     applyRomanEdit(finishRomanWord(" "))
-                    updateSuggestionRow()
                 } else {
                     rememberFinishedDirectWord(directTypingState.currentWord)
                     directTypingState.clear()
                     commitText(" ")
-                    updateSuggestionRow()
                 }
+                lastSpaceUptime = now
+                updateSuggestionRow()
             }
             KeyAction.BACKSPACE -> {
                 if (layoutMode == LayoutMode.EMOJI && emojiCategory == EmojiCategory.SEARCH && emojiQuery.isNotEmpty()) {
@@ -1282,18 +1306,12 @@ class KeyboardService : InputMethodService() {
         val before = textBeforeCursor(80)
         var incoming = text
         if (language == KeyboardLanguage.ENGLISH && !shifted) {
-            incoming = CapitalizationPolicy.applyIncomingLetter(incoming, before)
+            incoming = CapitalizationPolicy.applyIncomingLetter(incoming, before, useAutoCapitalization)
         }
-        val spacing = PunctuationSpacing.plan(before, incoming)
-        if (spacing.deleteBefore > 0) {
-            currentInputConnection?.deleteSurroundingText(spacing.deleteBefore, 0)
-        }
-        if (spacing.insertLeadingSpace) {
-            commitText(" ")
-        }
+        val spacing = PunctuationSpacing.plan(before, incoming, useSmartPunctuation)
+        applySpacingPlan(spacing)
         val pending = directTypingState.currentWord
         val isWordText = directTypingState.append(spacing.text, typingLanguage)
-        commitText(spacing.text)
         if (!isWordText && pending.isNotEmpty()) rememberFinishedDirectWord(pending)
         if (isWordText || directTypingState.currentWord.isEmpty()) updateSuggestionRow()
     }
@@ -1302,7 +1320,11 @@ class KeyboardService : InputMethodService() {
         val edit = if (text.all(Char::isLetter)) {
             romanComposer.type(text)
         } else {
-            finishRomanWord(text)
+            val finished = finishRomanWord()
+            applyRomanEdit(finished)
+            val spacing = PunctuationSpacing.plan(textBeforeCursor(80), text, useSmartPunctuation)
+            applySpacingPlan(spacing)
+            return
         }
         applyRomanEdit(edit)
         if (shifted && text.firstOrNull()?.isLetter() == true) {
@@ -1340,16 +1362,24 @@ class KeyboardService : InputMethodService() {
         }
     }
 
+    private fun applySpacingPlan(spacing: SpacingPlan) {
+        if (spacing.deleteBefore > 0) {
+            currentInputConnection?.deleteSurroundingText(spacing.deleteBefore, 0)
+        }
+        if (spacing.insertLeadingSpace) commitText(" ")
+        commitText(spacing.text)
+        if (spacing.insertTrailingSpace) commitText(" ")
+    }
+
     private fun deleteOneCharacter() {
         val connection = currentInputConnection ?: return
         val selection = connection.getSelectedText(0)
         if (!selection.isNullOrEmpty()) {
             connection.commitText("", 1)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            connection.deleteSurroundingTextInCodePoints(1, 0)
-        } else {
-            connection.deleteSurroundingText(1, 0)
+            return
         }
+        val units = GraphemeBackspace.codeUnitsToDelete(textBeforeCursor(64))
+        if (units > 0) connection.deleteSurroundingText(units, 0)
     }
 
     private fun sendEnter() {

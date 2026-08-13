@@ -35,6 +35,14 @@
     <string name="learning_description">Learn only from suggestions you select.</string>
     <string name="number_row_setting">Number row</string>
     <string name="number_row_description">Show a compact number row on typing layouts.</string>
+    <string name="smart_punctuation_setting">Smart punctuation</string>
+    <string name="smart_punctuation_description">Attach commas and periods, then add a space. Skips URLs, emails, and numbers.</string>
+    <string name="double_space_setting">Double-space period</string>
+    <string name="double_space_description">Two quick spaces insert \". \" in English/Roman and \"। \" in Nepali.</string>
+    <string name="auto_caps_setting">Auto capitalization</string>
+    <string name="auto_caps_description">Capitalize English letters after . ! ? and a new line.</string>
+    <string name="emoji_recents_setting">Emoji recents</string>
+    <string name="emoji_recents_description">Remember recently used emoji on this device.</string>
 
     <string name="sound_setting">Key sound</string>
     <string name="sound_description">Play a short system key sound.</string>

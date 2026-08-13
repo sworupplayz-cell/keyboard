@@ -102,6 +102,30 @@ class SettingsActivity : Activity() {
             settings.numberRow,
             settingsRepository::setNumberRow
         ))
+        content.addView(preferenceSwitch(
+            getString(R.string.smart_punctuation_setting),
+            getString(R.string.smart_punctuation_description),
+            settings.smartPunctuation,
+            settingsRepository::setSmartPunctuation
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.double_space_setting),
+            getString(R.string.double_space_description),
+            settings.doubleSpacePeriod,
+            settingsRepository::setDoubleSpacePeriod
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.auto_caps_setting),
+            getString(R.string.auto_caps_description),
+            settings.autoCapitalization,
+            settingsRepository::setAutoCapitalization
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.emoji_recents_setting),
+            getString(R.string.emoji_recents_description),
+            settings.emojiRecents,
+            settingsRepository::setEmojiRecents
+        ))
 
         content.addView(sectionHeading(getString(R.string.section_feedback)))
         content.addView(preferenceSwitch(
@@ -160,6 +184,18 @@ class SettingsActivity : Activity() {
             isFillViewport = true
             addView(content)
         })
+    }
+
+    private fun confirmClearRecentEmoji() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.clear_recent_emoji)
+            .setMessage(R.string.clear_recent_emoji_confirmation)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.clear_action) { _, _ ->
+                settingsRepository.clearRecentEmojiAndSymbols()
+                Toast.makeText(this, R.string.recent_emoji_cleared, Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     private fun confirmClearLearnedWords() {

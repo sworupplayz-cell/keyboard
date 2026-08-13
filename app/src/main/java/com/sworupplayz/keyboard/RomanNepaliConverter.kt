@@ -31,7 +31,7 @@ class RomanNepaliConverter private constructor(
         if (isNepali(learned)) return learned.orEmpty()
         if (shouldPreserveToken(normalized)) return romanWord
         val exact = dictionaryCandidates(normalized)
-        if (MixedLanguagePolicy.keepAsEnglish(normalized, previousWord, keepEnglish, exact.isNotEmpty())) {
+        if (MixedLanguagePolicy.keepAsEnglish(normalized, previousWord, keepEnglish, exact.isNotEmpty(), romanWord)) {
             return romanWord
         }
         exact.firstOrNull()?.let { return it }
@@ -66,7 +66,8 @@ class RomanNepaliConverter private constructor(
             normalized,
             previousWord,
             keepEnglish,
-            exactCandidates.isNotEmpty()
+            exactCandidates.isNotEmpty(),
+            romanWord
         )
         val phonetic = if (keepEnglishNow) emptyList() else phoneticCandidates(normalized)
         val contextNepali = if (keepEnglishNow) {
@@ -235,7 +236,8 @@ class RomanNepaliConverter private constructor(
             "be", "are", "was", "were", "have", "has", "had", "not", "we", "they", "my", "your",
             "can", "will", "just", "about", "like", "so", "what", "when", "who", "how", "all",
             "good", "new", "time", "day", "work", "home", "friend", "family", "food", "water",
-            "app", "google", "facebook", "youtube", "instagram", "whatsapp", "wifi", "file", "man"
+            "app", "google", "facebook", "youtube", "instagram", "whatsapp", "wifi", "file", "man",
+            "i", "am", "awesome", "today", "because"
         )
     }
 

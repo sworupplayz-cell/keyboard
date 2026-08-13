@@ -260,7 +260,8 @@ class EmojiSearchIndex(entries: List<EmojiEntry>) {
         if (tokens.isEmpty() || limit <= 0) return emptyList()
         var matches: Set<String>? = null
         tokens.forEach { token ->
-            val found = keywordIndex[token].orEmpty()
+            val found = LinkedHashSet<String>()
+            expandToken(token).forEach { form -> found += keywordIndex[form].orEmpty() }
             matches = matches?.intersect(found) ?: found
         }
         return (matches ?: emptySet())

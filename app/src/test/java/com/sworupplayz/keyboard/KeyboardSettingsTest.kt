@@ -19,6 +19,10 @@ class KeyboardSettingsTest {
         assertFalse(settings.numberRow)
         assertFalse(settings.keySound)
         assertFalse(settings.keyVibration)
+        assertTrue(settings.smartPunctuation)
+        assertTrue(settings.doubleSpacePeriod)
+        assertTrue(settings.autoCapitalization)
+        assertTrue(settings.emojiRecents)
     }
 
     @Test

@@ -11,6 +11,10 @@ object KeyboardPreferences {
     const val KEY_VIBRATION = "key_vibration"
     const val KEY_SUGGESTIONS = "suggestions_enabled"
     const val KEY_LEARNING = "learned_words_enabled"
+    const val KEY_SMART_PUNCTUATION = "smart_punctuation_enabled"
+    const val KEY_DOUBLE_SPACE_PERIOD = "double_space_period_enabled"
+    const val KEY_AUTO_CAPITALIZATION = "auto_capitalization_enabled"
+    const val KEY_EMOJI_RECENTS = "emoji_recents_enabled"
 
     // Read only for migration from Phase 1–7 installations.
     const val KEY_DARK_LEGACY = "dark_appearance"

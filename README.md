@@ -46,7 +46,7 @@ The expandable Roman vocabulary is the tab-separated file at `app/src/main/res/r
 
 English suggestions use `app/src/main/res/raw/english_vocabulary.txt`. Nepali suggestions use `app/src/main/res/raw/nepali_vocabulary.txt` plus Nepali values from the Roman dictionary. Both are prefix-indexed, retain unusual input unchanged, and only replace a word after the user taps a suggestion.
 
-See [`docs/UI.md`](docs/UI.md) for the Phase A visual contract, [`docs/VOCABULARY.md`](docs/VOCABULARY.md) for the offline dictionaries, and [`docs/ROMAN_ENGINE.md`](docs/ROMAN_ENGINE.md) for the Roman engine.
+See [`docs/UI.md`](docs/UI.md) for the Phase A visual contract, [`docs/VOCABULARY.md`](docs/VOCABULARY.md) for the offline dictionaries, [`docs/ROMAN_ENGINE.md`](docs/ROMAN_ENGINE.md) for the Roman engine, [`docs/EMOJI.md`](docs/EMOJI.md) for emoji panels, and [`docs/SMART_TYPING.md`](docs/SMART_TYPING.md) for Phase 14 behavior.
 
 ## Handwriting recognition limitation
 

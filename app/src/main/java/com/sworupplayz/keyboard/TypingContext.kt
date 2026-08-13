@@ -52,44 +52,66 @@ data class EditorContext(
 
 object CapitalizationPolicy {
     private val SENTENCE_END = setOf('.', '!', '?', '।', '…')
+    private val ABBREVIATIONS = setOf("e.g", "i.e", "vs", "etc", "mr", "mrs", "ms", "dr", "prof")
 
-    fun shouldCapitalize(textBeforeCursor: String): Boolean {
-        val trimmed = textBeforeCursor.trimEnd()
-        if (trimmed.isEmpty()) return true
-        return trimmed.last() in SENTENCE_END
+    fun shouldCapitalize(textBeforeCursor: String, enabled: Boolean = true): Boolean {
+        if (!enabled) return false
+        if (SpecialTokenPolicy.blocksCapitalization(textBeforeCursor)) return false
+        if (endsWithAbbreviation(textBeforeCursor)) return false
+        var index = textBeforeCursor.lastIndex
+        while (index >= 0 && textBeforeCursor[index] == ' ') index--
+        if (index < 0) return true
+        val last = textBeforeCursor[index]
+        if (last == '\n' || last == '\r') return true
+        return last in SENTENCE_END
     }
 
-    fun applyToWord(word: String, textBeforeCursor: String): String {
-        if (word.isEmpty() || !shouldCapitalize(textBeforeCursor)) return word
+    fun applyToWord(word: String, textBeforeCursor: String, enabled: Boolean = true): String {
+        if (word.isEmpty() || !shouldCapitalize(textBeforeCursor, enabled)) return word
         val first = word.first()
         if (!first.isLetter() || first.isUpperCase()) return word
         return word.replaceFirstChar { it.titlecase(Locale.ENGLISH) }
     }
 
-    fun applyIncomingLetter(letter: String, textBeforeCursor: String): String {
-        if (letter.length != 1 || !letter[0].isLowerCase()) return letter
-        return if (shouldCapitalize(textBeforeCursor)) letter.uppercase(Locale.ENGLISH) else letter
+    fun applyIncomingLetter(letter: String, textBeforeCursor: String, enabled: Boolean = true): String {
+        if (!enabled || letter.length != 1 || !letter[0].isLowerCase()) return letter
+        return if (shouldCapitalize(textBeforeCursor, enabled)) letter.uppercase(Locale.ENGLISH) else letter
+    }
+
+    private fun endsWithAbbreviation(textBeforeCursor: String): Boolean {
+        val trimmed = textBeforeCursor.trimEnd()
+        if (!trimmed.endsWith('.')) return false
+        val token = SpecialTokenPolicy.tokenAtEnd(trimmed.dropLast(1)).lowercase(Locale.ENGLISH)
+        return token in ABBREVIATIONS
     }
 }
 
 data class SpacingPlan(
     val deleteBefore: Int = 0,
     val insertLeadingSpace: Boolean = false,
+    val insertTrailingSpace: Boolean = false,
     val text: String
 )
 
 /** Conservative Gboard-like punctuation spacing. Never rewrites already committed words. */
 object PunctuationSpacing {
     private val ATTACH_LEFT = setOf('.', ',', '!', '?', ';', ':', ')', ']', '}', '…', '।', '॥', '\'', '%')
+    private val TRAILING_SPACE = setOf('.', ',', '!', '?', ';', ':', '%', '।')
     private val SENTENCE_END = setOf('.', '!', '?', '।', '…')
 
-    fun plan(textBeforeCursor: String, incoming: String): SpacingPlan {
-        if (incoming.length == 1 && incoming[0] in ATTACH_LEFT && textBeforeCursor.endsWith(' ')) {
-            return SpacingPlan(deleteBefore = 1, text = incoming)
+    fun plan(textBeforeCursor: String, incoming: String, enabled: Boolean = true): SpacingPlan {
+        if (!enabled || incoming.isEmpty()) return SpacingPlan(text = incoming)
+        val mark = incoming[0]
+        if (incoming.length == 1 && mark in ATTACH_LEFT) {
+            val protectedToken = SpecialTokenPolicy.isProtectedContext(textBeforeCursor.trimEnd())
+            val decimal = mark == '.' && SpecialTokenPolicy.looksLikeNumber(SpecialTokenPolicy.tokenAtEnd(textBeforeCursor))
+            val deleteBefore = if (textBeforeCursor.endsWith(' ') && !protectedToken && !decimal) 1 else 0
+            val trailing = mark in TRAILING_SPACE && !protectedToken && !decimal
+            return SpacingPlan(deleteBefore = deleteBefore, insertTrailingSpace = trailing, text = incoming)
         }
         if (incoming.length == 1 && incoming[0].isLetter() && textBeforeCursor.isNotEmpty()) {
             val last = textBeforeCursor.last()
-            if (last in SENTENCE_END) {
+            if (last in SENTENCE_END && !SpecialTokenPolicy.isProtectedContext(textBeforeCursor)) {
                 return SpacingPlan(insertLeadingSpace = true, text = incoming)
             }
         }

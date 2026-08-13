@@ -54,7 +54,11 @@ data class KeyboardSettings(
     val numberRow: Boolean = false,
     val keySound: Boolean = false,
     val keyVibration: Boolean = false,
-    val height: KeyboardHeight = KeyboardHeight.NORMAL
+    val height: KeyboardHeight = KeyboardHeight.NORMAL,
+    val smartPunctuation: Boolean = true,
+    val doubleSpacePeriod: Boolean = true,
+    val autoCapitalization: Boolean = true,
+    val emojiRecents: Boolean = true
 )
 
 /** Minimal storage contract keeps preference behavior independently testable. */
@@ -111,6 +115,18 @@ class KeyboardSettingsRepository(private val storage: SettingsStorage) {
 
     fun setHeight(value: KeyboardHeight) =
         storage.putString(KeyboardPreferences.KEY_HEIGHT, value.name)
+
+    fun setSmartPunctuation(value: Boolean) =
+        storage.putBoolean(KeyboardPreferences.KEY_SMART_PUNCTUATION, value)
+
+    fun setDoubleSpacePeriod(value: Boolean) =
+        storage.putBoolean(KeyboardPreferences.KEY_DOUBLE_SPACE_PERIOD, value)
+
+    fun setAutoCapitalization(value: Boolean) =
+        storage.putBoolean(KeyboardPreferences.KEY_AUTO_CAPITALIZATION, value)
+
+    fun setEmojiRecents(value: Boolean) =
+        storage.putBoolean(KeyboardPreferences.KEY_EMOJI_RECENTS, value)
 
     fun clearLearnedWords() = storage.remove(KeyboardPreferences.LEARNED_WORD_KEYS)
 
