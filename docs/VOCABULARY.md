@@ -16,7 +16,7 @@ python3 scripts/build_vocabularies.py
 
 ## Ranking
 
-`SuggestionEngine` is still the only ranking facade. Phase 23 feeds the same `SuggestionRanker` with prefix matches, learned unigrams, recents, previous 1–3 word phrases, morphology, contractions, conservative typos, Roman phonetic forms, and at most one emoji. Personal frequency is capped. Names, places, and slang stay behind core words. The typed word is kept when nothing better exists. Uncertain text is never auto-replaced. The strip still shows at most three items. See [`docs/SUGGESTIONS.md`](SUGGESTIONS.md) and [`docs/LANGUAGE.md`](LANGUAGE.md).
+`SuggestionEngine` is still the only ranking facade. Phase 27 still feeds the same `SuggestionRanker` with prefix matches, learned unigrams, recents, previous 1–3 word phrases, morphology, contractions, conservative typos, Roman phonetic forms, and at most one emoji. Personal frequency is capped. Names, places, and slang stay behind core words. The typed word is kept when nothing better exists. Uncertain text is never auto-replaced. The strip still shows at most three items. See [`docs/SUGGESTIONS.md`](SUGGESTIONS.md) and [`docs/LANGUAGE.md`](LANGUAGE.md).
 
 ## Roman mode
 
