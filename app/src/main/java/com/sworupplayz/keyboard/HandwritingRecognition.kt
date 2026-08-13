@@ -1,6 +1,11 @@
 package com.sworupplayz.keyboard
 
-data class InkPoint(val x: Float, val y: Float, val timeMillis: Long = 0L)
+data class InkPoint(
+    val x: Float,
+    val y: Float,
+    val timeMillis: Long = 0L,
+    val pressure: Float = 1f
+)
 data class InkStroke(val points: List<InkPoint>)
 data class HandwritingInk(val strokes: List<InkStroke>)
 

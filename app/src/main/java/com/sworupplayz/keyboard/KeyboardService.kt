@@ -50,6 +50,7 @@ class KeyboardService : InputMethodService() {
     private var handwritingCanvas: HandwritingCanvasView? = null
     private val handwritingState = HandwritingInputState(UnavailableNepaliHandwritingRecognizer)
     private val handwritingJobs = HandwritingJobController()
+    private val handwritingSession = HandwritingSession()
     private val modeHistory = PreviousLayoutStack<ModeSnapshot>()
     private var emojiCategory = EmojiCategory.RECENT
     private var emojiQuery = ""
@@ -1185,6 +1186,7 @@ class KeyboardService : InputMethodService() {
             onStrokeFinished = { points ->
                 if (HandwritingLifecyclePolicy.shouldCancelOnNewStroke()) handwritingJobs.cancel()
                 handwritingState.addStroke(points)
+                handwritingSession.addStroke(points)
                 updateHandwritingResultRow(colors)
             }
         }
@@ -1263,7 +1265,10 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun requestHandwritingRecognition() {
-        if (!HandwritingPrivacyPolicy.allowsRecognition(currentInputType)) {
+        val sessionResult = handwritingSession.recognize(currentInputType)
+        if (sessionResult.status == HandwritingStatus.BLOCKED ||
+            !HandwritingPrivacyPolicy.allowsRecognition(currentInputType)
+        ) {
             handwritingJobs.cancel()
             handwritingState.blockSensitiveField()
             return
@@ -2156,11 +2161,13 @@ class KeyboardService : InputMethodService() {
             KeyAction.HANDWRITING -> openHandwriting()
             KeyAction.HANDWRITING_UNDO -> {
                 handwritingJobs.cancel()
+                handwritingSession.undo()
                 if (handwritingState.undo()) handwritingCanvas?.undoStroke()
                 updateHandwritingResultRow()
             }
             KeyAction.HANDWRITING_CLEAR -> {
                 handwritingJobs.cancel()
+                handwritingSession.clear()
                 handwritingState.clear()
                 handwritingCanvas?.clearInk()
                 updateHandwritingResultRow()

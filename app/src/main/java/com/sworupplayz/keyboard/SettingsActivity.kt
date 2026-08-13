@@ -181,6 +181,14 @@ class SettingsActivity : Activity() {
             }
         })
 
+        val handwritingModels = HandwritingModelManager(
+            runCatching { assets.list("handwriting")?.toList().orEmpty() }.getOrDefault(emptyList())
+        )
+        content.addView(sectionHeading(getString(R.string.section_handwriting)))
+        content.addView(body(getString(R.string.handwriting_language_auto)))
+        content.addView(body(getString(R.string.handwriting_english_model, handwritingModels.englishStatus())))
+        content.addView(body(getString(R.string.handwriting_nepali_model, handwritingModels.nepaliStatus())))
+
         content.addView(sectionHeading(getString(R.string.section_sound)))
         content.addView(preferenceSwitch(
             getString(R.string.sound_setting),
@@ -229,7 +237,6 @@ class SettingsActivity : Activity() {
             onSelected = { persist { setOneHanded(it) } }
         ))
         content.addView(body(getString(R.string.floating_unavailable)))
-        content.addView(body(getString(R.string.handwriting_unavailable)))
         content.addView(preferenceSwitch(
             getString(R.string.toolbar_setting),
             getString(R.string.toolbar_description),

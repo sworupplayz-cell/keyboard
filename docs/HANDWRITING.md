@@ -104,6 +104,18 @@ Required artifact to finish the feature: a redistributable offline Devanagari **
 
 `ProductionIntegrationPolicy.handwritingRecognitionImplemented()` remains false.
 
+## Dual-language framework
+
+The Phase 33 framework now has:
+
+- `HandwritingStrokeCollector` with begin/end, undo, clear, optional pressure
+- `StrokeNormalizer` + reused `InkRasterizer` 224×224 buffer (Phase 32 still prepares 32×32)
+- geometry-only `InkLanguage` detection (`ENGLISH` / `DEVANAGARI` / `UNKNOWN`)
+- `HandwritingModelManager` for local `english.tflite` and `nepali.tflite`
+- `HandwritingSession` reset on confirm, cancel, hide, and field change
+
+Both model files are **Missing**. Recognition returns `HandwritingResult.UNAVAILABLE` and never invents characters. Settings → Appearance → Handwriting shows Auto language and Installed/Missing status only. There is no fake enable switch.
+
 ## Future upgrade
 
 1. Train or obtain a CC-BY / Apache-2.0 quantized Devanagari model.
