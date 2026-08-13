@@ -116,6 +116,10 @@ The Phase 33 framework now has:
 
 Both model files are **Missing**. Recognition returns `HandwritingResult.UNAVAILABLE` and never invents characters. Settings → Appearance → Handwriting shows Auto language and Installed/Missing status only. There is no fake enable switch.
 
+## Phase 34 English inference
+
+`HandwritingModelManager.loadEnglishModel()` / `recognizeEnglish()` / `unloadEnglishModel()` implement a singleton interpreter and a 1×224×224×1 float32 packer. Token decoding is CTC over printable ASCII and runs only on real interpreter output. This sandbox still has no `english.tflite` and existing tests forbid adding a TensorFlow Gradle dependency without a model, so production inference stays unavailable.
+
 ## Future upgrade
 
 1. Train or obtain a CC-BY / Apache-2.0 quantized Devanagari model.

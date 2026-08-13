@@ -186,7 +186,7 @@ class SettingsActivity : Activity() {
         )
         content.addView(sectionHeading(getString(R.string.section_handwriting)))
         content.addView(body(getString(R.string.handwriting_language_auto)))
-        content.addView(body(getString(R.string.handwriting_english_model, handwritingModels.englishStatus())))
+        content.addView(body(getString(R.string.handwriting_english_model, handwritingModels.englishDetailStatus())))
         content.addView(body(getString(R.string.handwriting_nepali_model, handwritingModels.nepaliStatus())))
 
         content.addView(sectionHeading(getString(R.string.section_sound)))

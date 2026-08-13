@@ -111,6 +111,15 @@ class HandwritingInputState(
         status = HandwritingStatus.BLOCKED
     }
 
+    fun acceptExternal(values: List<String>, next: HandwritingStatus) {
+        candidates = values.map(HandwritingUnicode::normalize).filter { it.isNotEmpty() }.distinct()
+        status = if (candidates.isEmpty() && next == HandwritingStatus.RESULTS) {
+            HandwritingStatus.NO_MATCH
+        } else {
+            next
+        }
+    }
+
     fun confirm(candidateIndex: Int = 0): String? {
         val result = candidates.getOrNull(candidateIndex) ?: return null
         clear()

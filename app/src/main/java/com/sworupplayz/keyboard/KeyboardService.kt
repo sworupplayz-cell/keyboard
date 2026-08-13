@@ -334,6 +334,7 @@ class KeyboardService : InputMethodService() {
             hideOverlays()
             touchState.reset()
         }
+        handwritingSession.unload()
         suggestionQueryCache.invalidate()
         super.onDestroy()
     }
@@ -1274,6 +1275,13 @@ class KeyboardService : InputMethodService() {
             return
         }
         handwritingJobs.bump()
+        if (sessionResult.status == HandwritingStatus.RESULTS) {
+            handwritingState.acceptExternal(
+                sessionResult.suggestionTexts(),
+                HandwritingStatus.RESULTS
+            )
+            return
+        }
         handwritingState.recognize(language)
     }
 
@@ -1283,6 +1291,7 @@ class KeyboardService : InputMethodService() {
         ) {
             handwritingJobs.cancel()
         }
+        handwritingSession.reset()
         handwritingState.clear()
         handwritingCanvas?.clearInk()
         handwritingResultRow = null

@@ -100,6 +100,8 @@ object AccessibilityLabels {
     fun handwritingCandidate(text: String, primary: Boolean = false): String =
         if (primary) "Primary handwriting $text" else "Handwriting $text"
 
+    fun handwritingLoading(): String = "Recognizing handwriting"
+
     fun longPress(label: String): String = "Alternates for $label"
 
     fun key(key: KeySpec): String = when (key.action) {

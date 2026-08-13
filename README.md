@@ -2,7 +2,7 @@
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 33 adds the dual English/Nepali handwriting **framework** (224×224 raster, geometry language detector, model manager, session lifecycle). **No model is bundled.** Confirm still reports unavailable. Phases 25–32 stay in place.
+Phase 34 adds a real English TFLite inference path (1×224×224×1, CTC ASCII decoder, singleton runtime). **`english.tflite` is not bundled**, so Confirm still reports unavailable and never invents text. Phases 25–33 stay in place.
 
 Floating IME and handwriting recognition remain unavailable. Prediction is deterministic and offline, not a cloud or neural model.
 
