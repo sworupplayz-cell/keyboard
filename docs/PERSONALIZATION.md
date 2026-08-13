@@ -1,6 +1,6 @@
 # Personalization
 
-Phase 17 adds toolbar customization, a dedicated language switch, one-handed layout, and organized settings. Typing engines are unchanged.
+Phase 19 keeps toolbar customization and one-handed layout, and organizes settings into Appearance, Languages, Typing, Suggestions, Emoji, Clipboard, Toolbar, Personalization, Privacy, and About. Typing engines are unchanged.
 
 ## Toolbar
 
@@ -40,4 +40,4 @@ One-handed mode is padding-only. Suggestion, toolbar, and letter rows share the 
 
 ## Privacy
 
-Still offline. `clearLocalData` removes learned words, recents, context pairs, clipboard history, and emoji usage. Built-in dictionaries stay.
+Still offline. The personal dictionary learns selected or twice-finished words only. Passwords, tokens, URLs, and garbage are rejected. `clearLocalData` removes learned words, recents, context pairs, clipboard history, and emoji usage. Built-in dictionaries stay.

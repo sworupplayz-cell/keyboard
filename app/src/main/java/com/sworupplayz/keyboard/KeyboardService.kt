@@ -117,7 +117,8 @@ class KeyboardService : InputMethodService() {
     private var repeatFinishes = RepeatFinishStore()
     private var language = KeyboardLanguage.ENGLISH
     private var layoutMode = LayoutMode.LETTERS
-    private var shifted = false
+    private var shiftState = ShiftLockState.OFF
+    private var lastShiftTapAt = 0L
     private var useSound = false
     private var useVibration = false
     private var useDarkAppearance = false
@@ -201,7 +202,7 @@ class KeyboardService : InputMethodService() {
         activationGuard.reset()
         lastSuggestionWords = emptyList()
         captureClipboard()
-        shifted = false
+        resetShift()
         if (::keyboardRoot.isInitialized) {
             applyWindowAppearance()
             renderKeyboard()
@@ -219,7 +220,7 @@ class KeyboardService : InputMethodService() {
         resetHandwriting()
         modeHistory.clear()
         updateLanguageFromSubtype(newSubtype)
-        shifted = false
+        resetShift()
         layoutMode = LayoutMode.LETTERS
         if (::keyboardRoot.isInitialized) renderKeyboard()
     }
@@ -434,7 +435,12 @@ class KeyboardService : InputMethodService() {
             layoutMode == LayoutMode.NUMBERS -> KeyboardLayouts.numbers(language, digitScript)
             layoutMode == LayoutMode.SYMBOLS -> KeyboardLayouts.symbols(language, symbolGroup, recentSymbols.values())
             language == KeyboardLanguage.ENGLISH || language == KeyboardLanguage.ROMAN ->
-                KeyboardLayouts.english(shifted, language, showNumberRow)
+                KeyboardLayouts.english(
+                    ShiftPolicy.lettersUppercase(shiftState),
+                    language,
+                    showNumberRow,
+                    ShiftPolicy.isCapsLock(shiftState)
+                )
             layoutMode == LayoutMode.VOWELS -> KeyboardLayouts.nepaliVowels(showNumberRow)
             else -> KeyboardLayouts.nepaliConsonants(showNumberRow)
         }
@@ -810,7 +816,7 @@ class KeyboardService : InputMethodService() {
         if (layoutMode != LayoutMode.CLIPBOARD) {
             modeHistory.remember(ModeSnapshot(language, layoutMode))
         }
-        shifted = false
+        resetShift()
         layoutMode = LayoutMode.CLIPBOARD
         captureClipboard()
         renderKeyboard()
@@ -1089,7 +1095,7 @@ class KeyboardService : InputMethodService() {
                 KeyboardLanguage.ROMAN -> recentRomanWords.matches(currentWord)
             },
             learnedRoman = if (useLearning) learnedRomanWords.lookup(currentWord) else null,
-            includeEmoji = language != KeyboardLanguage.NEPALI,
+            includeEmoji = language != KeyboardLanguage.NEPALI && useSuggestions,
             includeTypos = useTypoSuggestions,
             contextPredictions = when (language) {
                 KeyboardLanguage.ENGLISH -> englishContext.predictions(
@@ -1148,27 +1154,33 @@ class KeyboardService : InputMethodService() {
             return
         }
 
-        SuggestionBarState.cells(suggestions, MAX_SUGGESTIONS).forEachIndexed { index, suggestion ->
+        SuggestionBarState.gboardSlots(suggestions, MAX_SUGGESTIONS).forEachIndexed { index, slot ->
             if (index > 0) row.addView(suggestionDivider(colors))
+            val suggestion = slot.text
             if (suggestion == null) {
                 row.addView(View(this), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
                 return@forEachIndexed
             }
             row.addView(TextView(this).apply {
                 text = suggestion
-                contentDescription = AccessibilityLabels.suggestion(suggestion)
+                contentDescription = AccessibilityLabels.suggestion(suggestion, slot.primary)
                 isClickable = true
                 isFocusable = true
                 isAllCaps = false
                 includeFontPadding = false
                 gravity = Gravity.CENTER
                 minHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
+                setTypeface(typeface, if (slot.primary) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
                 setTextSize(
                     TypedValue.COMPLEX_UNIT_SP,
-                    if (suggestion.length > 10) 13f else KeyboardTheme.SUGGESTION_TEXT_SP
+                    when {
+                        slot.primary && suggestion.length <= 10 -> KeyboardTheme.SUGGESTION_TEXT_SP + 1f
+                        suggestion.length > 10 -> 13f
+                        else -> KeyboardTheme.SUGGESTION_TEXT_SP
+                    }
                 )
                 setTextColor(
-                    if (index == 0) KeyboardThemeTokens.suggestionPrimary(colors)
+                    if (slot.primary) KeyboardThemeTokens.suggestionPrimary(colors)
                     else KeyboardThemeTokens.suggestionSecondary(colors)
                 )
                 background = KeyboardTheme.flatKeyBackground(
@@ -1230,7 +1242,7 @@ class KeyboardService : InputMethodService() {
         if (typedWord.isEmpty()) {
             commitText(suggestion)
             rememberFinishedDirectWord(suggestion, learnUnknown = false)
-            if (useLearning && WordLearningPolicy.shouldLearnAccepted(suggestion)) persistLearnedWord(suggestion)
+            if (useLearning && PersonalDictionary.shouldAccept(suggestion)) persistLearnedWord(suggestion)
             updateSuggestionRow(colors)
             return
         }
@@ -1254,7 +1266,7 @@ class KeyboardService : InputMethodService() {
             connection.commitText(replacement.replacement, 1)
         }
         directTypingState.replaceWith(suggestion)
-        if (useLearning && WordLearningPolicy.shouldLearnAccepted(suggestion)) persistLearnedWord(suggestion)
+        if (useLearning && PersonalDictionary.shouldAccept(suggestion)) persistLearnedWord(suggestion)
         updateSuggestionRow(colors)
     }
 
@@ -1266,7 +1278,7 @@ class KeyboardService : InputMethodService() {
                 recentEnglishWords.record(word)
                 persistRecentWords(KeyboardPreferences.KEY_RECENT_ENGLISH, recentEnglishWords)
                 if (useLearning && learnUnknown &&
-                    WordLearningPolicy.shouldLearnRepeated(
+                    PersonalDictionary.shouldLearnRepeated(
                         word,
                         repeatFinishes.record(word),
                         englishSuggester::contains
@@ -1280,7 +1292,7 @@ class KeyboardService : InputMethodService() {
                 recentNepaliWords.record(word)
                 persistRecentWords(KeyboardPreferences.KEY_RECENT_NEPALI, recentNepaliWords)
                 if (useLearning && learnUnknown &&
-                    WordLearningPolicy.shouldLearnRepeated(
+                    PersonalDictionary.shouldLearnRepeated(
                         word,
                         repeatFinishes.record(word),
                         nepaliSuggester::contains
@@ -1343,7 +1355,7 @@ class KeyboardService : InputMethodService() {
             KeyboardLanguage.NEPALI -> learnedNepaliWords to KeyboardPreferences.KEY_LEARNED_NEPALI
             KeyboardLanguage.ROMAN -> return
         }
-        if (store.record(word)) {
+        if (PersonalDictionary.shouldAccept(word) && store.record(word)) {
             getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putString(preferenceKey, store.serialize())
@@ -1372,6 +1384,9 @@ class KeyboardService : InputMethodService() {
             )
             if (key.action == KeyAction.SETTINGS) {
                 contentDescription = getString(R.string.settings_key_description)
+            }
+            if (key.action == KeyAction.SHIFT) {
+                contentDescription = AccessibilityLabels.shift(ShiftPolicy.isCapsLock(shiftState))
             }
             setOnClickListener {
                 if (consumeChooserTap()) return@setOnClickListener
@@ -1471,7 +1486,7 @@ class KeyboardService : InputMethodService() {
             layoutMode == LayoutMode.VOWELS ||
             layoutMode == LayoutMode.HANDWRITING
         return when (key.action) {
-            KeyAction.SHIFT -> shifted
+            KeyAction.SHIFT -> ShiftPolicy.isActive(shiftState)
             KeyAction.MODE_ENGLISH -> typingOrHandwriting && language == KeyboardLanguage.ENGLISH
             KeyAction.MODE_NEPALI -> typingOrHandwriting && language == KeyboardLanguage.NEPALI
             KeyAction.MODE_ROMAN -> typingOrHandwriting && language == KeyboardLanguage.ROMAN
@@ -1552,7 +1567,9 @@ class KeyboardService : InputMethodService() {
                 sendEnter()
             }
             KeyAction.SHIFT -> {
-                shifted = !shifted
+                val now = SystemClock.uptimeMillis()
+                shiftState = ShiftPolicy.tap(shiftState, now, lastShiftTapAt, language)
+                lastShiftTapAt = now
                 renderKeyboard()
             }
             KeyAction.NUMBERS -> openPanel(LayoutMode.NUMBERS)
@@ -1761,7 +1778,7 @@ class KeyboardService : InputMethodService() {
         if (!numberOrSymbolSwitch && layoutMode != target) {
             modeHistory.remember(ModeSnapshot(language, layoutMode))
         }
-        shifted = false
+        resetShift()
         if (target == LayoutMode.NUMBERS && layoutMode != LayoutMode.NUMBERS && layoutMode != LayoutMode.SYMBOLS) {
             digitScript = DigitScript.defaultFor(language)
         }
@@ -1789,7 +1806,7 @@ class KeyboardService : InputMethodService() {
             modeHistory.remember(ModeSnapshot(language, layoutMode))
         }
         handwritingState.clear()
-        shifted = false
+        resetShift()
         layoutMode = LayoutMode.HANDWRITING
         renderKeyboard()
     }
@@ -1801,7 +1818,7 @@ class KeyboardService : InputMethodService() {
         val previous = modeHistory.previousOr(ModeSnapshot(language, LayoutMode.LETTERS))
         language = previous.language
         layoutMode = previous.layout
-        shifted = false
+        resetShift()
         renderKeyboard()
     }
 
@@ -1811,7 +1828,7 @@ class KeyboardService : InputMethodService() {
         internalSelectionChange = false
         modeHistory.clear()
         language = targetLanguage
-        shifted = false
+        resetShift()
         layoutMode = LayoutMode.LETTERS
         renderKeyboard()
     }
@@ -1840,7 +1857,7 @@ class KeyboardService : InputMethodService() {
         }
         val before = textBeforeCursor(80)
         var incoming = text
-        if (language == KeyboardLanguage.ENGLISH && !shifted) {
+        if (ShiftPolicy.allowsAutoCapitalization(shiftState, language) && useAutoCapitalization) {
             incoming = CapitalizationPolicy.applyIncomingLetter(incoming, before, useAutoCapitalization)
         }
         val spacing = PunctuationSpacing.plan(before, incoming, useSmartPunctuation)
@@ -1862,8 +1879,7 @@ class KeyboardService : InputMethodService() {
             return
         }
         applyRomanEdit(edit)
-        if (shifted && text.firstOrNull()?.isLetter() == true) {
-            shifted = false
+        if (text.firstOrNull()?.isLetter() == true && consumeOneShotShift()) {
             renderKeyboard()
         } else {
             updateSuggestionRow()
@@ -1891,8 +1907,7 @@ class KeyboardService : InputMethodService() {
             internalSelectionChange = true
         }
         InputConnectionCommitter.commit(currentInputConnection, text)
-        if (shifted && language == KeyboardLanguage.ENGLISH && text.firstOrNull()?.isLetter() == true) {
-            shifted = false
+        if (language == KeyboardLanguage.ENGLISH && text.firstOrNull()?.isLetter() == true && consumeOneShotShift()) {
             renderKeyboard()
         }
     }
@@ -2007,6 +2022,18 @@ class KeyboardService : InputMethodService() {
     @Suppress("DEPRECATION")
     private fun setNavigationBarColor(window: Window, color: Int) {
         window.navigationBarColor = color
+    }
+
+
+    private fun resetShift() {
+        shiftState = ShiftLockState.OFF
+        lastShiftTapAt = 0L
+    }
+
+    private fun consumeOneShotShift(): Boolean {
+        val previous = shiftState
+        shiftState = ShiftPolicy.afterLetter(shiftState)
+        return previous == ShiftLockState.ONE_SHOT && shiftState == ShiftLockState.OFF
     }
 
     private fun preferredKeyHeight(): Int {

@@ -27,3 +27,5 @@ Uncertain text is never auto-replaced.
 ## Unknown words
 
 If a Roman word is absent from the TSV, the phonetic engine still emits Devanagari. `zorpa` and `manparcha` are converted by rule, not rejected.
+
+Phase 19 adds everyday variants such as `auchu` / `aaunchu` → `आउँछु` and keeps `school` / `college` as English.

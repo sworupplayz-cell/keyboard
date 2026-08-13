@@ -121,4 +121,29 @@ object SuggestionBarState {
 
     fun cells(suggestions: List<String>, limit: Int = 3): List<String?> =
         List(limit.coerceAtLeast(0)) { suggestions.getOrNull(it) }
+
+    fun gboardSlots(suggestions: List<String>, limit: Int = 3): List<SuggestionSlot> {
+        val items = suggestions.filter { it.isNotEmpty() }.take(limit.coerceAtLeast(0))
+        val width = 3
+        val slots = MutableList<String?>(width) { null }
+        when (items.size) {
+            0 -> Unit
+            1 -> slots[1] = items[0]
+            2 -> {
+                slots[0] = items[1]
+                slots[1] = items[0]
+            }
+            else -> {
+                slots[0] = items[1]
+                slots[1] = items[0]
+                slots[2] = items[2]
+            }
+        }
+        return slots.mapIndexed { index, text -> SuggestionSlot(text, primary = index == 1 && text != null) }
+    }
 }
+
+data class SuggestionSlot(
+    val text: String?,
+    val primary: Boolean
+)

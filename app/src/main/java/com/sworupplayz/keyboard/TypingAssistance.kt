@@ -425,8 +425,20 @@ object WordLearningPolicy {
         if (SpecialTokenPolicy.looksLikeUrl(clean) || SpecialTokenPolicy.looksLikeEmail(clean)) return true
         if (SpecialTokenPolicy.looksLikeMentionOrHashtag(clean)) return true
         if (SpecialTokenPolicy.looksLikeNumber(clean)) return true
+        if (ClipboardPolicy.looksSensitive(clean)) return true
+        if (looksLikeRandomToken(clean)) return true
         if (clean.takeLastWhile { it.isDigit() }.length >= 3) return true
         return false
+    }
+
+    private fun looksLikeRandomToken(word: String): Boolean {
+        if (word.length < 16) return false
+        if (word.any { it.isWhitespace() }) return false
+        val letters = word.count { it.isLetter() }
+        val digits = word.count { it.isDigit() }
+        if (letters == 0 || digits < 4) return false
+        val vowels = word.count { it.lowercaseChar() in "aeiou" }
+        return vowels <= word.length / 8
     }
 }
 

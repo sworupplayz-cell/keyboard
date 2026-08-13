@@ -42,7 +42,8 @@ object KeyboardLayouts {
     fun english(
         shifted: Boolean,
         language: KeyboardLanguage = KeyboardLanguage.ENGLISH,
-        includeNumberRow: Boolean = false
+        includeNumberRow: Boolean = false,
+        capsLock: Boolean = false
     ): List<List<KeySpec>> {
         fun letters(value: String): List<KeySpec> = value.map { character ->
             val text = if (shifted) character.uppercaseChar().toString() else character.toString()
@@ -52,7 +53,7 @@ object KeyboardLayouts {
         val rows = listOf(
             letters("qwertyuiop"),
             letters("asdfghjkl"),
-            listOf(KeySpec("⇧", KeyAction.SHIFT, width = 1.4f)) +
+            listOf(KeySpec(if (capsLock) "⇪" else "⇧", KeyAction.SHIFT, width = 1.4f)) +
                 letters("zxcvbnm") +
                 KeySpec("⌫", KeyAction.BACKSPACE, width = 1.4f),
             commonControls(language, language.spaceLabel())

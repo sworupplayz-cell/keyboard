@@ -30,16 +30,29 @@ class ContextModel(
         return true
     }
 
-    fun predictions(previous: String, prefix: String = "", limit: Int = 3): List<String> {
-        val prev = normalize(previous)
-        if (prev.isEmpty() || limit <= 0) return emptyList()
+    fun predictions(
+        previous: String,
+        prefix: String = "",
+        limit: Int = 3,
+        previousTwo: String? = null
+    ): List<String> {
+        if (limit <= 0) return emptyList()
         val normalizedPrefix = prefix.trim().lowercase(Locale.ENGLISH)
-        val learned = counts.entries
-            .filter { it.key.first == prev && it.key.second.startsWith(normalizedPrefix) }
-            .sortedByDescending { it.value }
-            .map { it.key.second }
-        val seeded = seed[prev].orEmpty().filter { it.startsWith(normalizedPrefix) }
-        return (learned + seeded).distinct().take(limit)
+        val results = LinkedHashSet<String>()
+        fun consider(key: String) {
+            val prev = normalize(key)
+            if (prev.isEmpty()) return
+            counts.entries
+                .filter { it.key.first == prev && it.key.second.startsWith(normalizedPrefix) }
+                .sortedByDescending { it.value }
+                .forEach { results += it.key.second }
+            seed[prev].orEmpty()
+                .filter { it.startsWith(normalizedPrefix) || normalizedPrefix.isEmpty() }
+                .forEach { results += it }
+        }
+        consider(previousTwo.orEmpty())
+        consider(previous)
+        return results.take(limit)
     }
 
     fun serialize(): String = counts.entries.joinToString("\n") { (pair, score) ->
@@ -86,7 +99,7 @@ class ContextModel(
 
         val NEPALI_SEED = mapOf(
             "म" to listOf("लाई", "पनि", "जान्छु", "घर"),
-            "मलाई" to listOf("मन पर्छ", "थाहा"),
+            "मलाई" to listOf("मन", "नेपाली", "मन पर्छ", "थाहा"),
             "तिमीलाई" to listOf("कस्तो छ"),
             "मेरो" to listOf("घर", "नाम"),
             "तिमी" to listOf("लाई", "कहाँ"),

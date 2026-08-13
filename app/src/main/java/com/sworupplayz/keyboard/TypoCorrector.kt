@@ -106,7 +106,13 @@ object TypoCorrector {
             }
         }
         COMMON_PHONETIC[normalized]?.forEach { if (known(it)) results += it }
+        commonCorrections(normalized, known).forEach { results += it }
         return results.toList()
+    }
+
+    fun commonCorrections(input: String, known: (String) -> Boolean = { true }): List<String> {
+        val normalized = input.lowercase(Locale.ENGLISH)
+        return COMMON_CORRECTIONS[normalized].orEmpty().filter { known(it) || it != normalized }
     }
 
     fun isMissingLetter(typed: String, candidate: String): Boolean {
@@ -155,4 +161,20 @@ object TypoCorrector {
         value.forEach { character -> if (output.lastOrNull() != character) output.append(character) }
         return output.toString()
     }
+
+    private val COMMON_PHONETIC = mapOf(
+        "teh" to listOf("the"),
+        "recieve" to listOf("receive"),
+        "recieved" to listOf("received"),
+        "seperate" to listOf("separate"),
+        "occured" to listOf("occurred"),
+        "becuase" to listOf("because"),
+        "nepai" to listOf("nepali")
+    )
+
+    private val COMMON_CORRECTIONS = mapOf(
+        "teh" to listOf("the"),
+        "recieve" to listOf("receive"),
+        "nepai" to listOf("nepali")
+    )
 }

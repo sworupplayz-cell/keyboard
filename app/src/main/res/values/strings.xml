@@ -11,11 +11,14 @@
     <string name="choose_keyboard">Choose keyboard</string>
 
     <string name="section_general">GENERAL</string>
+    <string name="section_appearance">APPEARANCE</string>
     <string name="section_languages">LANGUAGES</string>
     <string name="section_typing">TYPING</string>
+    <string name="section_suggestions">SUGGESTIONS</string>
     <string name="section_toolbar">TOOLBAR</string>
     <string name="section_emoji">EMOJI</string>
     <string name="section_clipboard">CLIPBOARD</string>
+    <string name="section_personalization">PERSONALIZATION</string>
     <string name="section_privacy">PRIVACY</string>
     <string name="section_feedback">FEEDBACK</string>
     <string name="section_size">SIZE</string>
@@ -36,8 +39,8 @@
 
     <string name="suggestions_setting">Suggestions</string>
     <string name="suggestions_description">Show compact local suggestions.</string>
-    <string name="learning_setting">Learned words</string>
-    <string name="learning_description">Learn only from suggestions you select.</string>
+    <string name="learning_setting">Personal dictionary</string>
+    <string name="learning_description">Learn words you select or finish twice. Garbage, URLs, emails, and tokens stay out.</string>
     <string name="number_row_setting">Number row</string>
     <string name="number_row_description">Show a compact number row on typing layouts.</string>
     <string name="smart_punctuation_setting">Smart punctuation</string>

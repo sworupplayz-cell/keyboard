@@ -1,6 +1,6 @@
 # Gboard-style suggestions
 
-Phase 15 keeps the existing Gboard-style letter layout and ranks at most **three** offline suggestions.
+Phase 19 keeps the existing Gboard-style letter layout and ranks at most **three** offline suggestions. The strip shows the strongest candidate in the **center** slot.
 
 ## Ranking
 
@@ -26,7 +26,7 @@ Examples:
 - `good` → morning, night, luck
 - `how are` → you
 - `thank` → you
-- `मलाई` → मन पर्छ
+- `मलाई` → मन, नेपाली, मन पर्छ
 - `तिमीलाई` → कस्तो छ
 - `I am` → fine, going, घर
 - `ma` / `ma school` → घर, जान्छु, school / jaanchu
@@ -66,8 +66,10 @@ Clear English keywords may add one emoji:
 - sad → 😢
 - fire → 🔥
 - football → ⚽
+- laugh → 😂
+- birthday → 🎂
 
-Short or ambiguous prefixes such as `he` never show emoji.
+Short or ambiguous prefixes such as `he` never show emoji. At most one emoji occupies a strip slot.
 
 ## Unknown words
 

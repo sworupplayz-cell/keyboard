@@ -119,13 +119,22 @@ data class SpacingPlan(
 
 /** Conservative Gboard-like punctuation spacing. Never rewrites already committed words. */
 object PunctuationSpacing {
-    private val ATTACH_LEFT = setOf('.', ',', '!', '?', ';', ':', ')', ']', '}', '…', '।', '॥', '\'', '%')
+    private val ATTACH_LEFT = setOf('.', ',', '!', '?', ';', ':', ')', ']', '}', '…', '।', '॥', '\'', '%', '”', '’')
     private val TRAILING_SPACE = setOf('.', ',', '!', '?', ';', ':', '%', '।')
     private val SENTENCE_END = setOf('.', '!', '?', '।', '…')
+    private val OPENERS = setOf('(', '[', '{', '“')
 
     fun plan(textBeforeCursor: String, incoming: String, enabled: Boolean = true): SpacingPlan {
         if (!enabled || incoming.isEmpty()) return SpacingPlan(text = incoming)
         val mark = incoming[0]
+        if (incoming == "\"") {
+            return quotePlan(textBeforeCursor)
+        }
+        if (incoming.length == 1 && mark in OPENERS) {
+            val last = textBeforeCursor.lastOrNull()
+            val lead = last != null && !last.isWhitespace() && isAttachable(last)
+            return SpacingPlan(insertLeadingSpace = lead, text = incoming)
+        }
         if (incoming.length == 1 && mark in ATTACH_LEFT) {
             val protectedToken = SpecialTokenPolicy.isProtectedContext(textBeforeCursor.trimEnd())
             val decimal = mark == '.' && SpecialTokenPolicy.looksLikeNumber(SpecialTokenPolicy.tokenAtEnd(textBeforeCursor))
@@ -141,6 +150,23 @@ object PunctuationSpacing {
         }
         return SpacingPlan(text = incoming)
     }
+
+    private fun quotePlan(textBeforeCursor: String): SpacingPlan {
+        val opens = textBeforeCursor.count { it == '"' } % 2 == 0
+        if (opens) {
+            val last = textBeforeCursor.lastOrNull()
+            val lead = last != null && !last.isWhitespace() && isAttachable(last)
+            return SpacingPlan(insertLeadingSpace = lead, text = "\"")
+        }
+        val deleteBefore = if (textBeforeCursor.endsWith(' ')) 1 else 0
+        return SpacingPlan(deleteBefore = deleteBefore, insertTrailingSpace = true, text = "\"")
+    }
+
+    private fun isAttachable(character: Char): Boolean =
+        character.isLetterOrDigit() ||
+            character.code in 0x0900..0x097F ||
+            character.code in 0x1F300..0x1FAFF ||
+            character in ")]}”’😊❤"
 
     fun needsSpaceBeforeWord(textBeforeCursor: String): Boolean =
         textBeforeCursor.isNotEmpty() && textBeforeCursor.last() in SENTENCE_END

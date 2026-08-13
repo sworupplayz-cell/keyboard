@@ -13,13 +13,24 @@ object EmojiSuggestionPolicy {
         "happy" to "😊",
         "sad" to "😢",
         "cry" to "😢",
+        "laugh" to "😂",
+        "lol" to "😂",
+        "haha" to "😂",
         "fire" to "🔥",
         "hot" to "🔥",
         "football" to "⚽",
-        "soccer" to "⚽"
+        "soccer" to "⚽",
+        "birthday" to "🎂",
+        "cake" to "🎂"
     )
 
-    fun suggest(word: String): String? {
+    fun suggest(word: String, previousWord: String? = null): String? {
+        exact(word)?.let { return it }
+        if (word.trim().isNotEmpty()) return null
+        return exact(previousWord.orEmpty())
+    }
+
+    private fun exact(word: String): String? {
         val key = word.trim().lowercase(Locale.ENGLISH)
         if (key.length < 3) return null
         EXACT_KEYWORDS[key]?.let { return it }

@@ -98,7 +98,7 @@ class PhrasePredictor(
         )
 
         val NEPALI_PHRASES = mapOf(
-            "मलाई" to listOf("मन पर्छ", "थाहा"),
+            "मलाई" to listOf("मन", "नेपाली", "मन पर्छ", "थाहा"),
             "तिमीलाई" to listOf("कस्तो छ", "मन पर्छ"),
             "तपाईंलाई" to listOf("कस्तो छ"),
             "म" to listOf("जान्छु", "घर"),

@@ -8,6 +8,8 @@ When **Smart punctuation** is on (default):
 
 - A space before `, . ! ? : ; % ।` is removed.
 - A space is added after those marks.
+- Opening `( [ {` and quotes get a leading space after a word.
+- Closing `) ] }` and quotes attach to the left, including after emoji.
 - URLs, emails, `@mentions`, `#hashtags`, numbers, and decimals are left alone.
 
 Turn the setting off to insert punctuation exactly as typed.
@@ -29,7 +31,7 @@ When **Auto capitalization** is on (default), English letters are capitalized:
 - after `. ! ? ।`
 - after Enter / a newline
 
-Romanized Nepali is not auto-capitalized. Usernames, hashtags, URLs, and already-capitalized text are skipped.
+Romanized Nepali is not auto-capitalized. Usernames, hashtags, URLs, and already-capitalized text are skipped. English Shift is one-shot; two quick taps lock caps (`⇪`). Nepali never uses English caps lock.
 
 ## Backspace
 

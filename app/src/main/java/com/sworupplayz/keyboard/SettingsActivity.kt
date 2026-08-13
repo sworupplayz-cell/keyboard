@@ -56,7 +56,7 @@ class SettingsActivity : Activity() {
             (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
         })
 
-        content.addView(sectionHeading(getString(R.string.section_general)))
+        content.addView(sectionHeading(getString(R.string.section_appearance)))
         content.addView(choiceSetting(
             label = getString(R.string.appearance_setting),
             description = getString(R.string.appearance_description),
@@ -83,12 +83,6 @@ class SettingsActivity : Activity() {
             onSelected = settingsRepository::setHeight
         ))
         content.addView(preferenceSwitch(
-            getString(R.string.number_row_setting),
-            getString(R.string.number_row_description),
-            settings.numberRow,
-            settingsRepository::setNumberRow
-        ))
-        content.addView(preferenceSwitch(
             getString(R.string.sound_setting),
             getString(R.string.sound_description),
             settings.keySound,
@@ -99,29 +93,6 @@ class SettingsActivity : Activity() {
             getString(R.string.vibration_description),
             settings.keyVibration,
             settingsRepository::setKeyVibration
-        ))
-        content.addView(choiceSetting(
-            label = getString(R.string.one_handed_setting),
-            description = getString(R.string.one_handed_description),
-            choices = listOf(
-                OneHandedAlignment.OFF to getString(R.string.one_handed_off),
-                OneHandedAlignment.LEFT to getString(R.string.one_handed_left),
-                OneHandedAlignment.CENTER to getString(R.string.one_handed_center),
-                OneHandedAlignment.RIGHT to getString(R.string.one_handed_right)
-            ),
-            selected = settings.oneHanded,
-            onSelected = settingsRepository::setOneHanded
-        ))
-        content.addView(choiceSetting(
-            label = getString(R.string.presentation_setting),
-            description = getString(R.string.presentation_description),
-            choices = listOf(
-                KeyboardPresentationMode.NORMAL to getString(R.string.presentation_normal),
-                KeyboardPresentationMode.ONE_HANDED to getString(R.string.presentation_one_handed),
-                KeyboardPresentationMode.FLOATING to getString(R.string.presentation_floating)
-            ),
-            selected = settings.presentationMode,
-            onSelected = settingsRepository::setPresentationMode
         ))
 
         content.addView(sectionHeading(getString(R.string.section_languages)))
@@ -145,18 +116,6 @@ class SettingsActivity : Activity() {
 
         content.addView(sectionHeading(getString(R.string.section_typing)))
         content.addView(preferenceSwitch(
-            getString(R.string.suggestions_setting),
-            getString(R.string.suggestions_description),
-            settings.suggestions,
-            settingsRepository::setSuggestions
-        ))
-        content.addView(preferenceSwitch(
-            getString(R.string.learning_setting),
-            getString(R.string.learning_description),
-            settings.learnedWords,
-            settingsRepository::setLearnedWords
-        ))
-        content.addView(preferenceSwitch(
             getString(R.string.smart_punctuation_setting),
             getString(R.string.smart_punctuation_description),
             settings.smartPunctuation,
@@ -173,6 +132,20 @@ class SettingsActivity : Activity() {
             getString(R.string.auto_caps_description),
             settings.autoCapitalization,
             settingsRepository::setAutoCapitalization
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.number_row_setting),
+            getString(R.string.number_row_description),
+            settings.numberRow,
+            settingsRepository::setNumberRow
+        ))
+
+        content.addView(sectionHeading(getString(R.string.section_suggestions)))
+        content.addView(preferenceSwitch(
+            getString(R.string.suggestions_setting),
+            getString(R.string.suggestions_description),
+            settings.suggestions,
+            settingsRepository::setSuggestions
         ))
         content.addView(preferenceSwitch(
             getString(R.string.typo_suggestions_setting),
@@ -223,6 +196,37 @@ class SettingsActivity : Activity() {
         content.addView(actionButton(getString(R.string.clear_clipboard)) {
             confirmClearClipboard()
         })
+
+        content.addView(sectionHeading(getString(R.string.section_personalization)))
+        content.addView(choiceSetting(
+            label = getString(R.string.one_handed_setting),
+            description = getString(R.string.one_handed_description),
+            choices = listOf(
+                OneHandedAlignment.OFF to getString(R.string.one_handed_off),
+                OneHandedAlignment.LEFT to getString(R.string.one_handed_left),
+                OneHandedAlignment.CENTER to getString(R.string.one_handed_center),
+                OneHandedAlignment.RIGHT to getString(R.string.one_handed_right)
+            ),
+            selected = settings.oneHanded,
+            onSelected = settingsRepository::setOneHanded
+        ))
+        content.addView(choiceSetting(
+            label = getString(R.string.presentation_setting),
+            description = getString(R.string.presentation_description),
+            choices = listOf(
+                KeyboardPresentationMode.NORMAL to getString(R.string.presentation_normal),
+                KeyboardPresentationMode.ONE_HANDED to getString(R.string.presentation_one_handed),
+                KeyboardPresentationMode.FLOATING to getString(R.string.presentation_floating)
+            ),
+            selected = settings.presentationMode,
+            onSelected = settingsRepository::setPresentationMode
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.learning_setting),
+            getString(R.string.learning_description),
+            settings.learnedWords,
+            settingsRepository::setLearnedWords
+        ))
 
         content.addView(sectionHeading(getString(R.string.section_privacy)))
         content.addView(body(getString(R.string.offline_status)).apply {

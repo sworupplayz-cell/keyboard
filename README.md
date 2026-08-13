@@ -1,12 +1,12 @@
-# Simple Nepali Keyboard — Phase 18
+# Simple Nepali Keyboard — Phase 19
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 18 polishes key press feedback, previews, long-press menus, Back navigation, one-handed layout, and accessibility on top of the Phase 17 toolbar. Typing engines, vocabularies, and the Gboard-style letter layout are unchanged. Suggestions still show at most three items and never auto-replace unknown text.
+Phase 19 makes everyday typing feel closer to Gboard: a center-primary suggestion strip, stronger next-word and emoji predictions, a bounded personal dictionary, conservative typos, richer Roman Nepali, English caps lock, and reorganized settings. Existing English, Nepali, and Roman engines stay in place. Suggestions still show at most three items and never auto-replace unknown text.
 
 ## Features
 
-- English lowercase and one-shot uppercase Shift
+- English lowercase, one-shot Shift, and double-tap caps lock
 - Backspace, space, enter/editor action, punctuation, numbers, and symbols
 - Nepali consonants, independent vowels, vowel signs, conjunct shortcuts, marks, and Devanagari digits
 - Roman mode with an English QWERTY layout, reusable phonetic rules, and offline Nepali conversion

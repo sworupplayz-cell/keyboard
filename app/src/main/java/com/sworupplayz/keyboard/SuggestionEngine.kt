@@ -65,7 +65,11 @@ class SuggestionEngine(
             SuggestionLanguage.NEPALI -> nepaliWords(query, input, phrases, capped)
             SuggestionLanguage.ROMAN -> romanWords(query, input, phrases, capped)
         }
-        val emoji = if (query.includeEmoji) EmojiSuggestionPolicy.suggest(input) else null
+        val emoji = if (query.includeEmoji) {
+            EmojiSuggestionPolicy.suggest(input, query.previousWord)
+        } else {
+            null
+        }
         return SuggestionResult(words, emoji)
     }
 
@@ -94,13 +98,18 @@ class SuggestionEngine(
         val compact = merged.take(limit)
         val onlyTypedFallback = compact.isEmpty() ||
             (compact.size == 1 && compact.first().equals(input, ignoreCase = true))
-        if (!onlyTypedFallback || !query.includeTypos) return compact
-        val extras = TypoCorrector.missingLetterCandidates(input, english::contains)
-            .filter { candidate -> ranked.none { it.equals(candidate, ignoreCase = true) } }
-        if (extras.isEmpty()) return ranked
+        if (!query.includeTypos) return compact
+        val extras = (
+            TypoCorrector.missingLetterCandidates(input, english::contains) +
+                TypoCorrector.commonCorrections(input, english::contains) +
+                TypoCorrector.commonCorrections(input) { true }
+            ).distinct()
+            .filter { candidate -> compact.none { it.equals(candidate, ignoreCase = true) } }
+        if (extras.isEmpty()) return compact
+        if (!onlyTypedFallback && compact.size >= limit) return compact
         return SuggestionRanker.rank(
             input = input,
-            prefixMatches = ranked,
+            prefixMatches = if (onlyTypedFallback) ranked else compact,
             typoMatches = extras,
             learned = query.learned,
             recent = query.recent,
