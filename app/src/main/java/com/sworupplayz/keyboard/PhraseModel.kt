@@ -125,6 +125,8 @@ class PhrasePredictor(
             "मेरो" to listOf("घर", "नाम"),
             "तिमी" to listOf("कहाँ", "के", "कस्तो", "कहिले"),
             "तिमी कहाँ" to listOf("छौ", "जान्छौ"),
+            "म घर" to listOf("जान्छु"),
+            "म स्कुल" to listOf("जान्छु"),
             "घर" to listOf("मा", "को", "बाट"),
             "जान" to listOf("जान्छु", "जान्छ", "जानु"),
             "के" to listOf("छ", "गर्छौ")
@@ -142,7 +144,9 @@ class PhrasePredictor(
             "mero phone" to listOf("ramro", "bigryo", "cha"),
             "today ma" to listOf("school", "ghar", "jaanchu"),
             "i am" to listOf("fine", "going", "घर"),
-            "malai" to listOf("मन", "man"),
+            "malai" to listOf("मन", "manparcha", "nepali", "man"),
+            "k xa" to listOf("thik xa"),
+            "ke xa" to listOf("thik xa"),
             "timi" to listOf("kaha", "kasto", "lai"),
             "timilai" to listOf("कस्तो छ"),
             "ghar" to listOf("jaanchu", "जान्छु"),
@@ -165,6 +169,7 @@ class PhrasePredictor(
     }
 }
 
+/** Seed lookup helper. Not a second prediction engine. */
 object MixedSuggestionPolicy {
     fun nextWords(
         language: SuggestionLanguage,

@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 27
+# Simple Nepali Keyboard — Phase 28
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 27 strengthens offline English, Nepali, Roman Nepali, and mixed-language prediction on the existing pipeline. Phase 26 typing polish and Phase 25 touch recognition stay in place.
+Phase 28 audits and polishes the existing offline pipeline: one ranker for English, Nepali, and Roman, tighter next-word seeds, and the same Phase 25–27 typing/touch contracts.
 
 ## Features
 

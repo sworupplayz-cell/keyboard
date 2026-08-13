@@ -241,11 +241,25 @@ class SuggestionEngine(
         } else {
             emptyList()
         }
-        val merged = LinkedHashSet<String>()
-        nepaliOnly.forEach { merged += it }
-        relatives.forEach { merged += it }
-        converted.forEach { merged += it }
-        return PredictionPipeline.diversify(merged.toList(), limit)
+        val romanKeep = converted.filterNot(RomanNepaliConverter::isNepali)
+        return SuggestionRanker.rank(
+            input = input,
+            prefixMatches = nepaliOnly,
+            typoMatches = emptyList(),
+            learned = listOfNotNull(query.learnedRoman),
+            recent = query.recent,
+            frequencyOf = { word ->
+                val index = converted.indexOf(word)
+                if (index >= 0) index else Int.MAX_VALUE
+            },
+            limit = limit,
+            contextMatches = phrases,
+            morphologyMatches = relatives,
+            trigramMatches = trigrams,
+            bigramMatches = bigrams,
+            phoneticMatches = romanKeep,
+            categoryOf = { VocabularyCatalog.classify(it, VocabularyLanguage.ROMAN) }
+        )
     }
 
     private fun phrasesFor(query: SuggestionQuery, input: String): List<String> =
@@ -258,9 +272,10 @@ class SuggestionEngine(
         )
 
     private fun phrasesForKey(query: SuggestionQuery, key: String?, input: String): List<String> {
-        if (key.isNullOrBlank()) return emptyList()
+        val cleaned = PredictionPipeline.effectivePrevious(key)
+        if (cleaned.isNullOrBlank()) return emptyList()
         return predictor(query.language).predict(
-            previous = key,
+            previous = cleaned,
             prefix = input,
             limit = MAX_VISIBLE
         )

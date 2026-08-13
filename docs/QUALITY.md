@@ -1,6 +1,6 @@
 # Core keyboard quality
 
-Phase 21 tightens the existing IME so everyday typing feels closer to a production keyboard. Phase 25 adds adaptive hit-testing on that same path. Phase 26 polishes the real typing pipeline — composing text, word boundaries, backspace, space, punctuation, shift, Enter, suggestion acceptance, and field privacy — without adding a second engine. It does not replace English, Nepali, or Roman engines, and it does not change the Gboard-style appearance system.
+Phase 21 tightens the existing IME so everyday typing feels closer to a production keyboard. Phase 25 adds adaptive hit-testing on that same path. Phase 26 polishes the real typing pipeline. Phase 28 keeps that same path and sends Roman candidates through the same `SuggestionRanker` as English and Nepali. It does not replace English, Nepali, or Roman engines, and it does not change the Gboard-style appearance system.
 
 ## Touch
 

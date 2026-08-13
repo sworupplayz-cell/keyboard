@@ -37,6 +37,8 @@ Examples:
 - `see you` → soon, tomorrow
 - `ma` / `ma school` → घर, जान्छु, school / jaanchu
 - `ma ghar` → jaanchu
+- `म घर` / `म स्कुल` → जान्छु
+- `k xa` → thik xa
 - `ma college` → jaanchu
 
 Unknown or low-confidence input produces no forced phrase.

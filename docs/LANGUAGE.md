@@ -2,7 +2,7 @@
 
 Phase 27 deepens everyday English, Nepali, Roman Nepali, and mixed-language intelligence on the Phase 23–26 pipeline. It is not cloud AI, not a neural language model, and it never uploads text.
 
-The IME still has **one** prediction pipeline. `SuggestionEngine` is the only public facade. `PredictionPipeline` describes the stages that feed `SuggestionRanker`. There is no second competing engine.
+The IME still has **one** prediction pipeline. `SuggestionEngine` is the only public facade. English, Nepali, and Roman candidates all finish in `SuggestionRanker`. `PredictionPipeline` describes the stages. There is no second competing engine.
 
 ```
 InputContext

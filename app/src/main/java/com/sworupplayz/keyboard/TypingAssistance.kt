@@ -98,7 +98,11 @@ class LocalWordSuggester private constructor(words: List<String>) {
             frequencyOf = { word -> frequencyRank[normalize(word)] ?: Int.MAX_VALUE },
             limit = limit,
             contextMatches = contextPredictions,
-            morphologyMatches = Morphology.englishRelatives(input).filter { contains(it) }
+            morphologyMatches = if (normalized.any { it in 'a'..'z' }) {
+                Morphology.englishRelatives(input).filter { contains(it) }
+            } else {
+                emptyList()
+            }
         )
         cacheKey?.let { suggestionCache[it] = ranked }
         return ranked
