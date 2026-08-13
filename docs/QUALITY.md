@@ -1,12 +1,16 @@
 # Core keyboard quality
 
-Phase 21 tightens the existing IME so everyday typing feels closer to a production keyboard. It does not replace English, Nepali, or Roman engines, and it does not change the Gboard-style appearance system.
+Phase 21 tightens the existing IME so everyday typing feels closer to a production keyboard. Phase 25 adds adaptive hit-testing on that same path. It does not replace English, Nepali, or Roman engines, and it does not change the Gboard-style appearance system.
 
 ## Touch
 
-`KeyTouchPolicy` keeps the visual key the same size and lets the view fill its cell. Edge keys use a smaller outer inset so they stay reachable. The key that received `ACTION_DOWN` owns the gesture; sliding far enough cancels preview, backspace repeat, and the click. Letter keys ignore bounces shorter than 32 ms. Toolbar chrome still uses the longer activation guard.
+`KeyTouchPolicy` keeps the visual key the same size and lets the view fill its cell. Edge keys use a smaller outer inset so they stay reachable. Phase 25 adds `TouchCalibration`, `TouchGeometryPolicy`, `TouchTrajectory`, `AdaptiveHitboxPolicy`, and `TouchRecognitionState` behind that policy. Logical hitboxes grow slightly toward neighbors; a centered press still wins. A tiny drift is ignored. A clear slide that *started on a boundary* may resolve to the neighbor and update the preview; ordinary typing is not a swipe keyboard.
 
-Feedback plays on press. Character keys still commit on lift unless the gesture was cancelled. Backspace commits on press so held delete can start immediately.
+The key that received `ACTION_DOWN` owns the pointer. A second finger cannot steal it. Sliding far enough without a neighbor target cancels preview, backspace repeat, and the click. Long-press alternates still require a stable hold of 420 ms on the same key. Letter keys ignore bounces shorter than 32 ms. Toolbar chrome still uses the longer activation guard.
+
+Neighbor-choice weights are local, bounded, and store only short key ids. They are never typed sentences, passwords, URLs, or clipboard text. `clearLocalData` removes them.
+
+Feedback plays on press. Character keys still commit on lift unless the gesture was cancelled. Backspace commits on press so held delete can start immediately. `ACTION_MOVE` only runs geometry/policy math; it does not rebuild the keyboard.
 
 ## Backspace
 

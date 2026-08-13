@@ -12,10 +12,10 @@ enum class KeyEdge {
  * Visual key size stays the same; the view fills its cell so edge keys stay usable.
  */
 object KeyTouchPolicy {
-    const val KEY_BOUNCE_MS = 32L
-    const val LONG_PRESS_MS = 420L
-    const val TOUCH_SLOP_RATIO = 0.42f
-    const val MIN_SLOP_PX = 24
+    const val KEY_BOUNCE_MS = TouchCalibration.DEBOUNCE_MS
+    const val LONG_PRESS_MS = TouchCalibration.LONG_PRESS_MS
+    const val TOUCH_SLOP_RATIO = TouchCalibration.MOVE_TOLERANCE_RATIO
+    const val MIN_SLOP_PX = TouchCalibration.MIN_SLOP_PX
 
     fun bounceGuardMs(kind: FeedbackKind): Long = when (kind) {
         FeedbackKind.CHROME, FeedbackKind.NAVIGATION -> KeyInteractionPolicy.DOUBLE_TAP_GUARD_MS
@@ -64,6 +64,21 @@ object KeyTouchPolicy {
 
     fun ownsGestureUntilUp(action: KeyAction): Boolean =
         action == KeyAction.BACKSPACE || action == KeyAction.TEXT || action == KeyAction.SPACE
+
+    fun shouldCancelLongPress(
+        downX: Float,
+        downY: Float,
+        currentX: Float,
+        currentY: Float,
+        width: Int,
+        height: Int
+    ): Boolean = TouchRecognition.shouldCancelLongPress(downX, downY, currentX, currentY, width, height)
+
+    fun classify(
+        trajectory: TouchTrajectory,
+        width: Int,
+        height: Int
+    ): TouchGesture = trajectory.classify(width, height)
 }
 
 /**

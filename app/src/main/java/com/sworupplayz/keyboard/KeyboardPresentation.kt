@@ -85,7 +85,7 @@ object AccessibilityLabels {
         KeyboardLanguage.ROMAN -> "Roman Nepali"
     }
 
-    fun space(language: KeyboardLanguage): String = "Space ${language(language)}"
+    fun space(language: KeyboardLanguage): String = "Space, ${language(language)}"
 
     fun emoji(glyph: String): String = if (glyph.isEmpty()) "Emoji" else "Emoji $glyph"
 

@@ -54,6 +54,7 @@ object KeyboardPreferences {
     const val KEY_PHRASE_ENGLISH = "phrase_english_pairs"
     const val KEY_PHRASE_NEPALI = "phrase_nepali_pairs"
     const val KEY_PHRASE_ROMAN = "phrase_roman_pairs"
+    const val KEY_TOUCH_ADAPTATION = "touch_adaptation_pairs"
 
     val LEARNED_WORD_KEYS = setOf(
         KEY_LEARNED_ROMAN,

@@ -204,7 +204,7 @@ class Phase24TypingIntelligenceTest {
         assertEquals(listOf("#nepali"), visible(englishQuery("#nepali")))
         assertTrue(visible(englishQuery("")).isEmpty())
         assertTrue(SuggestionBarState.display(listOf("aa"), "aa").isEmpty())
-        assertEquals("Space English", AccessibilityLabels.space(KeyboardLanguage.ENGLISH))
+        assertEquals("Space, English", AccessibilityLabels.space(KeyboardLanguage.ENGLISH))
         assertEquals("Suggestion hello", AccessibilityLabels.suggestion("hello"))
         assertEquals("Primary suggestion hello", AccessibilityLabels.suggestion("hello", true))
     }

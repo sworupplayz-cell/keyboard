@@ -152,6 +152,8 @@ class KeyboardService : InputMethodService() {
     private val languagePicker = LanguagePickerState()
     private val activationGuard = ActivationGuard()
     private val keyBounce = ActivationGuard(KeyTouchPolicy.KEY_BOUNCE_MS)
+    private val touchState = TouchRecognitionState()
+    private var adaptiveHitboxes = AdaptiveHitboxPolicy()
     private val mainHandler = Handler(Looper.getMainLooper())
     private var backspaceRepeat: Runnable? = null
     private val boundTypingKeys = ArrayList<BoundTypingKey>()
@@ -268,6 +270,7 @@ class KeyboardService : InputMethodService() {
         toolbar.reset()
         suggestionRow = null
         hideOverlays()
+        touchState.reset()
         super.onFinishInput()
     }
 
@@ -452,6 +455,9 @@ class KeyboardService : InputMethodService() {
         recentSymbols = RecentSymbolStore.fromSerialized(
             preferences.getString(KeyboardPreferences.KEY_RECENT_SYMBOLS, null)
         )
+        adaptiveHitboxes = AdaptiveHitboxPolicy.fromSerialized(
+            preferences.getString(KeyboardPreferences.KEY_TOUCH_ADAPTATION, null)
+        )
     }
 
     private fun ensureEmojiDataset() {
@@ -461,6 +467,7 @@ class KeyboardService : InputMethodService() {
     private fun renderKeyboard() {
         stopBackspaceRepeat()
         hideOverlays()
+        touchState.reset()
         boundTypingKeys.clear()
         val colors = keyboardColors()
         applyPresentationPadding(colors)
@@ -1510,6 +1517,71 @@ class KeyboardService : InputMethodService() {
             .apply()
     }
 
+    private fun persistTouchAdaptation() {
+        getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KeyboardPreferences.KEY_TOUCH_ADAPTATION, adaptiveHitboxes.serialize())
+            .apply()
+    }
+
+    private fun showKeyPreview(anchor: View, key: KeySpec, compactScreen: Boolean) {
+        if (!KeyInteractionPolicy.showsPreview(key)) return
+        val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        previewView?.showAbove(
+            anchor,
+            overlayHost,
+            KeyInteractionPolicy.previewLabel(key),
+            KeyInteractionPolicy.previewTextSizeSp(key.label, compactScreen),
+            KeyboardUiMetrics.previewWidthDp(resources.configuration.screenWidthDp, landscape),
+            KeyboardUiMetrics.previewHeightDp(resources.configuration.screenWidthDp, landscape)
+        )
+    }
+
+    private fun resolveSlideNeighbor(origin: View, originSpec: KeySpec, localX: Float, localY: Float): KeySpec? {
+        val parent = origin.parent as? android.view.ViewGroup ?: return null
+        val x = origin.left + localX
+        val y = origin.top + localY
+        val screenWidth = resources.configuration.screenWidthDp
+        val squeezed = OneHandedLayoutPolicy.presentation(oneHanded, presentationMode) ==
+            KeyboardPresentationMode.ONE_HANDED
+        val candidates = ArrayList<TouchCandidate>(parent.childCount)
+        val specs = ArrayList<KeySpec>(parent.childCount)
+        for (index in 0 until parent.childCount) {
+            val child = parent.getChildAt(index)
+            val bound = boundTypingKeys.firstOrNull { it.view === child }
+            val spec = bound?.spec ?: continue
+            candidates += TouchCandidate(
+                id = TouchRecognition.keyId(spec),
+                rect = TouchRect(
+                    child.left.toFloat(),
+                    child.top.toFloat(),
+                    child.right.toFloat(),
+                    child.bottom.toFloat()
+                ),
+                edge = bound.edge,
+                row = 0
+            )
+            specs += spec
+        }
+        val hitId = TouchGeometryPolicy.resolve(
+            candidates = candidates,
+            x = x,
+            y = y,
+            screenWidthDp = screenWidth,
+            oneHanded = squeezed,
+            adaptive = adaptiveHitboxes,
+            preferredId = TouchRecognition.keyId(originSpec)
+        ) ?: return null
+        val index = candidates.indexOfFirst { it.id == hitId }
+        if (index < 0) return null
+        val resolved = specs[index]
+        return if (resolved.action == originSpec.action || resolved.action == KeyAction.TEXT) {
+            displayKey(resolved, ShiftPolicy.lettersUppercase(shiftState), currentInputEditorInfo?.imeOptions ?: 0)
+        } else {
+            null
+        }
+    }
+
     private fun persistLearnedWord(word: String) {
         val (store, preferenceKey) = when (language) {
             KeyboardLanguage.ENGLISH -> learnedEnglishWords to KeyboardPreferences.KEY_LEARNED_ENGLISH
@@ -1563,6 +1635,8 @@ class KeyboardService : InputMethodService() {
             var feedbackGiven = false
             var downX = 0f
             var downY = 0f
+            var startedOnEdge = false
+            var slideTarget: KeySpec? = null
             fun liveKey(): KeySpec = displayKey(
                 stored,
                 ShiftPolicy.lettersUppercase(shiftState),
@@ -1572,30 +1646,31 @@ class KeyboardService : InputMethodService() {
                 if (consumeChooserTap()) return@setOnClickListener
                 if (handledOnDown || cancelled) return@setOnClickListener
                 hideOverlays()
-                val live = liveKey()
+                val live = slideTarget ?: liveKey()
                 if (!feedbackGiven) giveFeedback(live.action)
                 handleKey(live)
             }
             setOnTouchListener { view, event ->
+                val pointerId = event.getPointerId(event.actionIndex)
                 when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                        if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN ||
+                            !touchState.tryAcquire(pointerId, TouchRecognition.keyId(stored), event.x, event.y, event.eventTime)
+                        ) {
+                            if (event.actionMasked != MotionEvent.ACTION_POINTER_DOWN) cancelled = true
+                            return@setOnTouchListener false
+                        }
                         cancelled = false
                         handledOnDown = false
                         feedbackGiven = false
+                        slideTarget = null
                         downX = event.x
                         downY = event.y
+                        val ownerRect = TouchRect(0f, 0f, view.width.toFloat(), view.height.toFloat())
+                        startedOnEdge = TouchGeometryPolicy.isEdgeHit(ownerRect, event.x, event.y)
                         val live = liveKey()
                         if (KeyInteractionPolicy.showsPreview(live)) {
-                            val landscape = resources.configuration.orientation ==
-                                Configuration.ORIENTATION_LANDSCAPE
-                            previewView?.showAbove(
-                                view,
-                                overlayHost,
-                                KeyInteractionPolicy.previewLabel(live),
-                                KeyInteractionPolicy.previewTextSizeSp(live.label, compactScreen),
-                                KeyboardUiMetrics.previewWidthDp(resources.configuration.screenWidthDp, landscape),
-                                KeyboardUiMetrics.previewHeightDp(resources.configuration.screenWidthDp, landscape)
-                            )
+                            showKeyPreview(view, live, compactScreen)
                         }
                         if (key.action != KeyAction.SETTINGS && key.action != KeyAction.TOOLBAR_MORE) {
                             giveFeedback(key.action)
@@ -1609,16 +1684,40 @@ class KeyboardService : InputMethodService() {
                         }
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        if (!KeyTouchPolicy.staysOnKey(downX, downY, event.x, event.y, view.width, view.height)) {
+                        if (!touchState.isOwner(event.getPointerId(0))) return@setOnTouchListener false
+                        touchState.trajectory.move(event.x, event.y, event.eventTime)
+                        val stillOnKey = KeyTouchPolicy.staysOnKey(
+                            downX, downY, event.x, event.y, view.width, view.height
+                        )
+                        if (stillOnKey) return@setOnTouchListener false
+                        val gesture = KeyTouchPolicy.classify(touchState.trajectory, view.width, view.height)
+                        val neighbor = resolveSlideNeighbor(view, stored, event.x, event.y)
+                        if (TouchRecognition.shouldSlideCorrect(startedOnEdge, gesture, TouchRecognition.keyId(stored), neighbor?.let { TouchRecognition.keyId(it) })) {
+                            slideTarget = neighbor
+                            touchState.resolvedId = neighbor?.let { TouchRecognition.keyId(it) }
+                            neighbor?.let { showKeyPreview(view, it, compactScreen) }
+                            stopBackspaceRepeat()
+                        } else {
                             cancelled = true
+                            slideTarget = null
                             previewView?.dismiss()
                             stopBackspaceRepeat()
                         }
                     }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_OUTSIDE -> {
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_OUTSIDE -> {
                         previewView?.dismiss()
                         stopBackspaceRepeat()
+                        val owner = touchState.isOwner(pointerId)
                         if (event.actionMasked != MotionEvent.ACTION_UP) cancelled = true
+                        if (owner && event.actionMasked == MotionEvent.ACTION_UP && slideTarget != null && !handledOnDown) {
+                            val fromId = TouchRecognition.keyId(stored)
+                            val toId = TouchRecognition.keyId(slideTarget!!)
+                            if (adaptiveHitboxes.record(fromId, toId)) persistTouchAdaptation()
+                            cancelled = true
+                            hideOverlays()
+                            handleKey(slideTarget!!)
+                        }
+                        if (owner) touchState.release(pointerId)
                     }
                 }
                 false
@@ -1627,6 +1726,19 @@ class KeyboardService : InputMethodService() {
             when {
                 KeyInteractionPolicy.allowsLongPressAlternates(key) -> {
                     setOnLongClickListener { view ->
+                        val stillOnKey = !cancelled && slideTarget == null &&
+                            !KeyTouchPolicy.shouldCancelLongPress(
+                                downX,
+                                downY,
+                                touchState.trajectory.currentX,
+                                touchState.trajectory.currentY,
+                                view.width,
+                                view.height
+                            )
+                        if (!TouchRecognition.shouldOpenAlternates(touchState.trajectory, stillOnKey)) {
+                            return@setOnLongClickListener false
+                        }
+                        cancelled = true
                         previewView?.dismiss()
                         giveFeedback(KeyAction.TEXT, FeedbackKind.LONG_PRESS)
                         showOverlayShield()
