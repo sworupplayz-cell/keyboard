@@ -12,8 +12,10 @@ import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.content.ClipboardManager
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.Window
@@ -34,6 +36,7 @@ class KeyboardService : InputMethodService() {
         NUMBERS,
         SYMBOLS,
         EMOJI,
+        CLIPBOARD,
         HANDWRITING
     }
 
@@ -125,6 +128,10 @@ class KeyboardService : InputMethodService() {
     private var useDoubleSpacePeriod = true
     private var useAutoCapitalization = true
     private var useEmojiRecents = true
+    private var useToolbar = true
+    private var useClipboardHistory = true
+    private val toolbar = ToolbarController()
+    private var clipboardHistory = ClipboardRepository()
     private var lastSpaceUptime = 0L
     private var showNumberRow = false
     private var keyboardHeight = KeyboardHeight.NORMAL
@@ -182,6 +189,8 @@ class KeyboardService : InputMethodService() {
         internalSelectionChange = false
         resetHandwriting()
         modeHistory.clear()
+        toolbar.reset()
+        captureClipboard()
         shifted = false
         if (::keyboardRoot.isInitialized) {
             applyWindowAppearance()
@@ -214,6 +223,7 @@ class KeyboardService : InputMethodService() {
         internalSelectionChange = false
         resetHandwriting()
         modeHistory.clear()
+        toolbar.reset()
         suggestionRow = null
         hideOverlays()
         super.onFinishInput()
@@ -271,6 +281,24 @@ class KeyboardService : InputMethodService() {
 
     override fun onEvaluateFullscreenMode(): Boolean = false
 
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK && event.repeatCount == 0) {
+            val panelOpen = layoutMode != LayoutMode.LETTERS && layoutMode != LayoutMode.VOWELS
+            when (toolbar.consumeBack(panelOpen)) {
+                ToolbarBackResult.COLLAPSED_TOOLS -> {
+                    renderKeyboard()
+                    return true
+                }
+                ToolbarBackResult.CLOSED_PANEL -> {
+                    returnToPreviousLayout()
+                    return true
+                }
+                ToolbarBackResult.NONE -> Unit
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
     private fun updateInitialLanguage(subtype: InputMethodSubtype?) {
         language = KeyboardModePolicy.initialLanguage(defaultMode, subtype?.locale.orEmpty())
     }
@@ -293,8 +321,13 @@ class KeyboardService : InputMethodService() {
         useDoubleSpacePeriod = settings.doubleSpacePeriod
         useAutoCapitalization = settings.autoCapitalization
         useEmojiRecents = settings.emojiRecents
+        useToolbar = settings.toolbar
+        useClipboardHistory = settings.clipboardHistory
         showNumberRow = settings.numberRow
         keyboardHeight = settings.height
+        clipboardHistory = ClipboardRepository.fromSerialized(
+            preferences.getString(KeyboardPreferences.KEY_CLIPBOARD_ITEMS, null)
+        )
         learnedRomanWords = LearnedRomanWords.fromSerialized(
             preferences.getString(KeyboardPreferences.KEY_LEARNED_ROMAN, null)
         )
@@ -394,6 +427,88 @@ class KeyboardService : InputMethodService() {
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(rowHeight))
             )
             keys.forEach { key -> row.addView(createKeyButton(key, colors)) }
+        }
+    }
+
+    private fun addToolbarRow(colors: KeyboardPalette) {
+        val current = when (layoutMode) {
+            LayoutMode.EMOJI -> ToolbarAction.EMOJI
+            LayoutMode.CLIPBOARD -> ToolbarAction.CLIPBOARD
+            LayoutMode.NUMBERS -> ToolbarAction.NUMBERS
+            LayoutMode.SYMBOLS -> ToolbarAction.SYMBOLS
+            LayoutMode.HANDWRITING -> ToolbarAction.HANDWRITING
+            else -> null
+        }
+        val items = toolbar.items(language, current)
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        keyboardRoot.addView(
+            row,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(KeyboardUiMetrics.toolbarHeightDp(
+                    resources.configuration.screenWidthDp,
+                    resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+                    keyboardHeight
+                ))
+            )
+        )
+        items.forEach { item ->
+            row.addView(chromeLabel(item.label, item.description, colors, item.selected).apply {
+                setTextSize(
+                    TypedValue.COMPLEX_UNIT_SP,
+                    if (resources.configuration.screenWidthDp < 360 || items.size > 6) 11f else 13f
+                )
+                setOnClickListener {
+                    giveFeedback(ToolbarController.keyAction(item.action))
+                    handleToolbarAction(item.action)
+                }
+            })
+        }
+    }
+
+    private fun handleToolbarAction(action: ToolbarAction) {
+        when (action) {
+            ToolbarAction.MORE -> {
+                toolbar.expand()
+                renderKeyboard()
+            }
+            ToolbarAction.COLLAPSE -> {
+                toolbar.collapse()
+                renderKeyboard()
+            }
+            ToolbarAction.CLIPBOARD -> openClipboard()
+            ToolbarAction.EMOJI -> {
+                toolbar.collapse()
+                openPanel(LayoutMode.EMOJI)
+            }
+            ToolbarAction.NUMBERS -> {
+                toolbar.collapse()
+                openPanel(LayoutMode.NUMBERS)
+            }
+            ToolbarAction.SYMBOLS -> {
+                toolbar.collapse()
+                openPanel(LayoutMode.SYMBOLS)
+            }
+            ToolbarAction.HANDWRITING -> {
+                toolbar.collapse()
+                openHandwriting()
+            }
+            ToolbarAction.SETTINGS -> openSettings()
+            ToolbarAction.MODE_ENGLISH -> {
+                toolbar.collapse()
+                switchTypingMode(KeyboardLanguage.ENGLISH)
+            }
+            ToolbarAction.MODE_NEPALI -> {
+                toolbar.collapse()
+                switchTypingMode(KeyboardLanguage.NEPALI)
+            }
+            ToolbarAction.MODE_ROMAN -> {
+                toolbar.collapse()
+                switchTypingMode(KeyboardLanguage.ROMAN)
+            }
         }
     }
 
@@ -521,6 +636,150 @@ class KeyboardService : InputMethodService() {
             addKeyRows(KeyboardLayouts.emojiSearchLetters(), colors)
         }
         addKeyRows(KeyboardLayouts.emojiControls(), colors)
+    }
+
+    private fun renderClipboardPanel(colors: KeyboardPalette) {
+        captureClipboard()
+        keyboardRoot.addView(TextView(this).apply {
+            text = getString(R.string.clipboard_title)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), 0, dp(12), 0)
+            textSize = 14f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(colors.text)
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(32)))
+
+        val entries = if (useClipboardHistory) clipboardHistory.values() else emptyList()
+        if (entries.isEmpty()) {
+            keyboardRoot.addView(TextView(this).apply {
+                text = getString(
+                    if (useClipboardHistory) R.string.clipboard_empty else R.string.clipboard_disabled
+                )
+                gravity = Gravity.CENTER
+                textSize = 14f
+                setTextColor(colors.secondaryText)
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(72)))
+        } else {
+            val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            entries.forEach { entry ->
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(8), dp(6), dp(8), dp(6))
+                    background = KeyboardTheme.roundedRect(
+                        colors.key,
+                        dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat()
+                    )
+                }
+                row.addView(TextView(this).apply {
+                    text = ClipboardPolicy.preview(entry.text)
+                    contentDescription = getString(R.string.clipboard_item_description)
+                    setTextColor(colors.text)
+                    textSize = 14f
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        giveFeedback(KeyAction.CLIPBOARD)
+                        insertClipboardText(entry.text)
+                    }
+                }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                row.addView(TextView(this).apply {
+                    text = "✕"
+                    contentDescription = getString(R.string.clipboard_delete)
+                    gravity = Gravity.CENTER
+                    setTextColor(colors.secondaryText)
+                    setPadding(dp(10), 0, dp(4), 0)
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        clipboardHistory.delete(entry.id)
+                        persistClipboard()
+                        renderKeyboard()
+                    }
+                })
+                list.addView(row, LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { setMargins(dp(6), dp(3), dp(6), dp(3)) })
+            }
+            keyboardRoot.addView(
+                ScrollView(this).apply {
+                    isVerticalScrollBarEnabled = false
+                    addView(list)
+                },
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(160))
+            )
+        }
+
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        controls.addView(createKeyButton(KeySpec("Back", KeyAction.RETURN_TO_PREVIOUS), colors))
+        if (useClipboardHistory && clipboardHistory.values().isNotEmpty()) {
+            controls.addView(chromeLabel(getString(R.string.clear_action), getString(R.string.clear_clipboard), colors, false).apply {
+                setOnClickListener {
+                    clipboardHistory.clear()
+                    persistClipboard()
+                    renderKeyboard()
+                }
+            })
+        }
+        keyboardRoot.addView(
+            controls,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(KeyboardUiMetrics.NAVIGATION_HEIGHT_DP))
+        )
+    }
+
+    private fun openClipboard() {
+        toolbar.collapse()
+        if (language == KeyboardLanguage.ROMAN) {
+            applyRomanEdit(finishRomanWord())
+        }
+        directTypingState.clear()
+        internalSelectionChange = false
+        if (layoutMode != LayoutMode.CLIPBOARD) {
+            modeHistory.remember(ModeSnapshot(language, layoutMode))
+        }
+        shifted = false
+        layoutMode = LayoutMode.CLIPBOARD
+        captureClipboard()
+        renderKeyboard()
+    }
+
+    private fun insertClipboardText(text: String) {
+        val composing = language == KeyboardLanguage.ROMAN && romanComposer.currentWord.isNotEmpty()
+        ClipboardInsertion.prepareThenInsert(
+            hasComposingText = composing || directTypingState.currentWord.isNotEmpty(),
+            finishComposing = {
+                if (language == KeyboardLanguage.ROMAN) {
+                    applyRomanEdit(finishRomanWord())
+                } else {
+                    currentInputConnection?.finishComposingText()
+                    rememberFinishedDirectWord(directTypingState.currentWord, learnUnknown = false)
+                    directTypingState.clear()
+                }
+            },
+            insert = { snippet -> InputConnectionCommitter.commit(currentInputConnection, snippet) },
+            text = text
+        )
+        updateSuggestionRow()
+    }
+
+    private fun captureClipboard() {
+        if (!useClipboardHistory) return
+        val manager = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+        val clip = manager.primaryClip ?: return
+        if (clip.itemCount <= 0) return
+        val text = clip.getItemAt(0).coerceToText(this)?.toString().orEmpty()
+        if (clipboardHistory.record(text)) persistClipboard()
+    }
+
+    private fun persistClipboard() {
+        getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KeyboardPreferences.KEY_CLIPBOARD_ITEMS, clipboardHistory.serialize())
+            .apply()
     }
 
     private fun emojiGlyphsForCurrentCategory(): List<String> {
@@ -1116,6 +1375,7 @@ class KeyboardService : InputMethodService() {
             KeyAction.SYMBOL_GROUP -> layoutMode == LayoutMode.SYMBOLS
             KeyAction.EMOJI -> layoutMode == LayoutMode.EMOJI
             KeyAction.HANDWRITING -> layoutMode == LayoutMode.HANDWRITING
+            KeyAction.CLIPBOARD -> layoutMode == LayoutMode.CLIPBOARD
             else -> false
         }
     }
@@ -1240,6 +1500,15 @@ class KeyboardService : InputMethodService() {
             KeyAction.MODE_NEPALI -> switchTypingMode(KeyboardLanguage.NEPALI)
             KeyAction.MODE_ROMAN -> switchTypingMode(KeyboardLanguage.ROMAN)
             KeyAction.SETTINGS -> openSettings()
+            KeyAction.CLIPBOARD -> openClipboard()
+            KeyAction.TOOLBAR_MORE -> {
+                toolbar.expand()
+                renderKeyboard()
+            }
+            KeyAction.TOOLBAR_COLLAPSE -> {
+                toolbar.collapse()
+                renderKeyboard()
+            }
         }
     }
 
@@ -1289,6 +1558,7 @@ class KeyboardService : InputMethodService() {
         if (target == LayoutMode.SYMBOLS && layoutMode != LayoutMode.SYMBOLS && layoutMode != LayoutMode.NUMBERS) {
             symbolGroup = SymbolGroup.COMMON
         }
+        toolbar.collapse()
         layoutMode = target
         if (target == LayoutMode.EMOJI) {
             ensureEmojiDataset()

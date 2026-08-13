@@ -15,6 +15,9 @@ object KeyboardPreferences {
     const val KEY_DOUBLE_SPACE_PERIOD = "double_space_period_enabled"
     const val KEY_AUTO_CAPITALIZATION = "auto_capitalization_enabled"
     const val KEY_EMOJI_RECENTS = "emoji_recents_enabled"
+    const val KEY_TOOLBAR = "toolbar_enabled"
+    const val KEY_CLIPBOARD_HISTORY = "clipboard_history_enabled"
+    const val KEY_CLIPBOARD_ITEMS = "clipboard_items"
 
     // Read only for migration from Phase 1–7 installations.
     const val KEY_DARK_LEGACY = "dark_appearance"

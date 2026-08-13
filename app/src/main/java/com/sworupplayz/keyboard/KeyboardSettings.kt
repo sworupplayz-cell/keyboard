@@ -58,7 +58,9 @@ data class KeyboardSettings(
     val smartPunctuation: Boolean = true,
     val doubleSpacePeriod: Boolean = true,
     val autoCapitalization: Boolean = true,
-    val emojiRecents: Boolean = true
+    val emojiRecents: Boolean = true,
+    val toolbar: Boolean = true,
+    val clipboardHistory: Boolean = true
 )
 
 /** Minimal storage contract keeps preference behavior independently testable. */
@@ -84,7 +86,9 @@ class KeyboardSettingsRepository(private val storage: SettingsStorage) {
         smartPunctuation = storage.getBoolean(KeyboardPreferences.KEY_SMART_PUNCTUATION, true),
         doubleSpacePeriod = storage.getBoolean(KeyboardPreferences.KEY_DOUBLE_SPACE_PERIOD, true),
         autoCapitalization = storage.getBoolean(KeyboardPreferences.KEY_AUTO_CAPITALIZATION, true),
-        emojiRecents = storage.getBoolean(KeyboardPreferences.KEY_EMOJI_RECENTS, true)
+        emojiRecents = storage.getBoolean(KeyboardPreferences.KEY_EMOJI_RECENTS, true),
+        toolbar = storage.getBoolean(KeyboardPreferences.KEY_TOOLBAR, true),
+        clipboardHistory = storage.getBoolean(KeyboardPreferences.KEY_CLIPBOARD_HISTORY, true)
     )
 
     fun savedDefaultMode(): DefaultKeyboardMode? =

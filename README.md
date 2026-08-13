@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 15
+# Simple Nepali Keyboard — Phase 16
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 15 keeps the Gboard-style chrome and all earlier typing engines. The focus is a compact offline suggestion engine: prefix completions, phrase prediction, mixed English/Nepali ranking, conservative typos, local learning, and high-confidence emoji suggestions. The strip still shows at most three items and never auto-replaces unknown text.
+Phase 16 keeps the Gboard-style chrome and all earlier typing engines. A compact toolbar above suggestions opens the existing emoji, number, symbol, handwriting, language, and settings surfaces, plus a local clipboard history. Suggestions still show at most three items and never auto-replace unknown text.
 
 ## Features
 
@@ -33,6 +33,8 @@ Phase 15 keeps the Gboard-style chrome and all earlier typing engines. The focus
 - Local emoji search, recent history, usage ranking, and skin-tone variants
 - Number pad with operators plus a Latin/Devanagari digit switch
 - Grouped symbol pages and a small recent-symbol history
+- A compact toolbar above suggestions for emoji, clipboard, settings, and extra tools
+- Local clipboard history with a 20-item cap, sensitive-text filtering, and no upload
 - A compact navigation row for EN, नेपाली, Roman, numbers, emoji, handwriting, and settings
 - Gboard-style rounded keys, blue Enter, language-labeled space bar, and a flat suggestion strip
 - Key-press preview for letters and long-press alternate characters

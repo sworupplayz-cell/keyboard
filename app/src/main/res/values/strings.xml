@@ -64,6 +64,15 @@
     <string name="clear_recent_emoji_description">Remove recent emoji, usage counts, and recent symbols stored on this device.</string>
     <string name="clear_recent_emoji_confirmation">Clear recent emoji and symbols? Built-in catalogs are kept.</string>
     <string name="recent_emoji_cleared">Recent emoji and symbols cleared</string>
+    <string name="clear_clipboard">Clear clipboard history</string>
+    <string name="clear_clipboard_description">Remove locally saved clipboard snippets. Nothing is uploaded.</string>
+    <string name="clear_clipboard_confirmation">Clear all locally saved clipboard snippets?</string>
+    <string name="clipboard_cleared">Clipboard history cleared</string>
+    <string name="clipboard_title">Clipboard</string>
+    <string name="clipboard_empty">Nothing copied yet</string>
+    <string name="clipboard_disabled">Clipboard history is off</string>
+    <string name="clipboard_delete">Delete</string>
+    <string name="clipboard_item_description">Insert copied text</string>
 
     <string name="app_version">Version %1$s</string>
     <string name="about_description">A lightweight English, नेपाली, and Romanized Nepali Android keyboard.</string>

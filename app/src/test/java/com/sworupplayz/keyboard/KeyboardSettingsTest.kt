@@ -23,6 +23,8 @@ class KeyboardSettingsTest {
         assertTrue(settings.doubleSpacePeriod)
         assertTrue(settings.autoCapitalization)
         assertTrue(settings.emojiRecents)
+        assertTrue(settings.toolbar)
+        assertTrue(settings.clipboardHistory)
     }
 
     @Test

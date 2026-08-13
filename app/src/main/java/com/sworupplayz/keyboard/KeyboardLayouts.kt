@@ -24,7 +24,10 @@ enum class KeyAction {
     MODE_ENGLISH,
     MODE_NEPALI,
     MODE_ROMAN,
-    SETTINGS
+    SETTINGS,
+    CLIPBOARD,
+    TOOLBAR_MORE,
+    TOOLBAR_COLLAPSE
 }
 
 data class KeySpec(

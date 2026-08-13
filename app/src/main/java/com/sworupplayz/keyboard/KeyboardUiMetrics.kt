@@ -6,6 +6,7 @@ object KeyboardUiMetrics {
     const val ROOT_HORIZONTAL_PADDING_DP = 4
     const val NAVIGATION_HEIGHT_DP = 44
     const val SUGGESTION_HEIGHT_DP = 40
+    const val TOOLBAR_HEIGHT_DP = 32
     const val EMOJI_CATEGORY_HEIGHT_DP = 44
     const val EMOJI_KEY_HEIGHT_DP = 48
     const val HANDWRITING_RESULT_HEIGHT_DP = 40
@@ -49,6 +50,19 @@ object KeyboardUiMetrics {
 
     fun keyMarginDp(screenWidthDp: Int): Int = if (screenWidthDp < 360) 1 else 2
 
+    fun toolbarHeightDp(
+        screenWidthDp: Int,
+        landscape: Boolean,
+        height: KeyboardHeight = KeyboardHeight.NORMAL
+    ): Int {
+        val normal = when {
+            landscape -> 28
+            screenWidthDp < 360 -> 28
+            else -> TOOLBAR_HEIGHT_DP
+        }
+        return adjust(normal, height, 2)
+    }
+
     fun estimatedStandardHeightDp(
         screenWidthDp: Int,
         screenHeightDp: Int,
@@ -57,9 +71,11 @@ object KeyboardUiMetrics {
         hasSuggestion: Boolean,
         includeNavigation: Boolean = true,
         height: KeyboardHeight = KeyboardHeight.NORMAL,
-        hasNumberRow: Boolean = false
+        hasNumberRow: Boolean = false,
+        hasToolbar: Boolean = false
     ): Int = ROOT_VERTICAL_PADDING_DP +
         (if (includeNavigation) NAVIGATION_HEIGHT_DP else 0) +
+        (if (hasToolbar) toolbarHeightDp(screenWidthDp, landscape, height) else 0) +
         keyHeightDp(screenWidthDp, screenHeightDp, landscape, height) * rowCount +
         (if (hasSuggestion) SUGGESTION_HEIGHT_DP else 0) +
         (if (hasNumberRow) compactNumberRowHeightDp(height) else 0)

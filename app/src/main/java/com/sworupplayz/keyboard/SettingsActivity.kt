@@ -126,6 +126,18 @@ class SettingsActivity : Activity() {
             settings.emojiRecents,
             settingsRepository::setEmojiRecents
         ))
+        content.addView(preferenceSwitch(
+            getString(R.string.toolbar_setting),
+            getString(R.string.toolbar_description),
+            settings.toolbar,
+            settingsRepository::setToolbar
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.clipboard_history_setting),
+            getString(R.string.clipboard_history_description),
+            settings.clipboardHistory,
+            settingsRepository::setClipboardHistory
+        ))
 
         content.addView(sectionHeading(getString(R.string.section_feedback)))
         content.addView(preferenceSwitch(
@@ -167,6 +179,12 @@ class SettingsActivity : Activity() {
         content.addView(actionButton(getString(R.string.clear_recent_emoji)) {
             confirmClearRecentEmoji()
         })
+        content.addView(body(getString(R.string.clear_clipboard_description)).apply {
+            setPadding(0, dp(12), 0, dp(4))
+        })
+        content.addView(actionButton(getString(R.string.clear_clipboard)) {
+            confirmClearClipboard()
+        })
 
         content.addView(sectionHeading(getString(R.string.section_about)))
         content.addView(body(getString(R.string.app_version, appVersion())).apply {
@@ -184,6 +202,18 @@ class SettingsActivity : Activity() {
             isFillViewport = true
             addView(content)
         })
+    }
+
+    private fun confirmClearClipboard() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.clear_clipboard)
+            .setMessage(R.string.clear_clipboard_confirmation)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.clear_action) { _, _ ->
+                settingsRepository.clearClipboardHistory()
+                Toast.makeText(this, R.string.clipboard_cleared, Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     private fun confirmClearRecentEmoji() {
