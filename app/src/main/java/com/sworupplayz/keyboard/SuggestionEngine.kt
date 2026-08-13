@@ -9,6 +9,7 @@ data class SuggestionQuery(
     val language: SuggestionLanguage,
     val previousWord: String? = null,
     val previousTwoWords: String? = null,
+    val previousThreeWords: String? = null,
     val learned: List<String> = emptyList(),
     val recent: List<String> = emptyList(),
     val contextPredictions: List<String> = emptyList(),
@@ -131,12 +132,22 @@ class SuggestionEngine(
         limit: Int
     ): List<String> {
         if (input.isEmpty()) return phrases.take(limit)
-        return nepali.suggestions(
+        return SuggestionRanker.rank(
             input = input,
+            prefixMatches = nepali.suggestions(
+                input = input,
+                learned = query.learned,
+                limit = limit,
+                recent = query.recent,
+                contextPredictions = phrases
+            ),
+            typoMatches = emptyList(),
             learned = query.learned,
-            limit = limit,
             recent = query.recent,
-            contextPredictions = phrases
+            frequencyOf = nepali::rankOf,
+            limit = limit,
+            contextMatches = phrases,
+            morphologyMatches = Morphology.nepaliRelatives(input).filter { nepali.contains(it) }
         )
     }
 
@@ -179,7 +190,8 @@ class SuggestionEngine(
             previous = query.previousWord,
             previousTwo = query.previousTwoWords,
             prefix = input,
-            limit = MAX_VISIBLE
+            limit = MAX_VISIBLE,
+            previousThree = query.previousThreeWords
         )
 
     private fun predictor(language: SuggestionLanguage): PhrasePredictor = when (language) {

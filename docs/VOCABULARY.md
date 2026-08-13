@@ -16,7 +16,7 @@ python3 scripts/build_vocabularies.py
 
 ## Ranking
 
-`SuggestionEngine` combines dictionary frequency, prefix matches, recent words, explicitly learned words, previous-word and two-word phrases, conservative typos, and an optional high-confidence emoji. The typed word is kept when nothing better exists. Uncertain text is never auto-replaced. The strip still shows at most three items. See [`docs/SUGGESTIONS.md`](SUGGESTIONS.md).
+`SuggestionEngine` combines dictionary frequency, prefix matches, recent words, explicitly learned words, previous one-to-three-word phrases, morphology relatives, conservative typos, and an optional high-confidence emoji. The typed word is kept when nothing better exists. Uncertain text is never auto-replaced. The strip still shows at most three items. See [`docs/SUGGESTIONS.md`](SUGGESTIONS.md) and [`docs/LANGUAGE.md`](LANGUAGE.md).
 
 ## Roman mode
 

@@ -1135,6 +1135,7 @@ class KeyboardService : InputMethodService() {
             },
             previousWord = previous,
             previousTwoWords = context.previousTwoWords,
+            previousThreeWords = context.previousThreeWords,
             learned = when (language) {
                 KeyboardLanguage.ENGLISH -> if (useLearning) learnedEnglishWords.suggestions(currentWord) else emptyList()
                 KeyboardLanguage.NEPALI -> if (useLearning) learnedNepaliWords.suggestions(currentWord) else emptyList()
@@ -1153,19 +1154,22 @@ class KeyboardService : InputMethodService() {
                     previous.orEmpty(),
                     currentWord,
                     MAX_SUGGESTIONS,
-                    context.previousTwoWords
+                    context.previousTwoWords,
+                    context.previousThreeWords
                 )
                 KeyboardLanguage.NEPALI -> nepaliContext.predictions(
                     previous.orEmpty(),
                     currentWord,
                     MAX_SUGGESTIONS,
-                    context.previousTwoWords
+                    context.previousTwoWords,
+                    context.previousThreeWords
                 )
                 KeyboardLanguage.ROMAN -> romanContext.predictions(
                     previous.orEmpty(),
                     currentWord,
                     MAX_SUGGESTIONS,
-                    context.previousTwoWords
+                    context.previousTwoWords,
+                    context.previousThreeWords
                 )
             }
         )
@@ -1375,6 +1379,15 @@ class KeyboardService : InputMethodService() {
     private fun recordContext(model: ContextModel, key: String, word: String) {
         if (lastCommittedWord.isNotEmpty()) {
             model.record(lastCommittedWord, word)
+            suggestionEngine.recordPhrase(
+                when (language) {
+                    KeyboardLanguage.ENGLISH -> SuggestionLanguage.ENGLISH
+                    KeyboardLanguage.NEPALI -> SuggestionLanguage.NEPALI
+                    KeyboardLanguage.ROMAN -> SuggestionLanguage.ROMAN
+                },
+                lastCommittedWord,
+                word
+            )
             getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putString(key, model.serialize())

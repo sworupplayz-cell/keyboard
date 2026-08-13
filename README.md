@@ -1,8 +1,8 @@
-# Simple Nepali Keyboard — Phase 21
+# Simple Nepali Keyboard — Phase 22
 
 A lightweight native Android input method (IME) built with Kotlin and `InputMethodService`. It is a real system keyboard, not an in-app keyboard simulation, and works completely offline.
 
-Phase 21 tightens the existing typing path: larger usable hitboxes without growing the visual keys, held backspace that deletes one grapheme at a time, shift/caps that stay in sync, Enter that follows the target app's IME action, faster suggestion updates without rebuilding the board on every letter, stronger conservative typos, and better Roman/mixed-language variants. Phase 20 appearance controls stay in place. Suggestions still show at most three items and never auto-replace unknown text.
+Phase 22 strengthens the offline language engine on the existing IME: larger frequency-ordered vocabularies, morphology families, 1–3 word context, bounded personal learning, and one ranking pipeline. Suggestions still show at most three items and never auto-replace unknown text. Phase 20 appearance and Phase 21 typing quality stay in place.
 
 ## Features
 
@@ -61,7 +61,7 @@ The expandable Roman vocabulary is the tab-separated file at `app/src/main/res/r
 
 English suggestions use `app/src/main/res/raw/english_vocabulary.txt`. Nepali suggestions use `app/src/main/res/raw/nepali_vocabulary.txt` plus Nepali values from the Roman dictionary. Both are prefix-indexed, retain unusual input unchanged, and only replace a word after the user taps a suggestion.
 
-See [`docs/QUALITY.md`](docs/QUALITY.md) for Phase 21 typing quality, [`docs/APPEARANCE.md`](docs/APPEARANCE.md) for themes and customization, [`docs/UX.md`](docs/UX.md) for interaction and Back behavior, [`docs/UI.md`](docs/UI.md) for the visual contract, [`docs/VOCABULARY.md`](docs/VOCABULARY.md) for the offline dictionaries, [`docs/SUGGESTIONS.md`](docs/SUGGESTIONS.md) for ranking, [`docs/TOOLBAR.md`](docs/TOOLBAR.md) and [`docs/PERSONALIZATION.md`](docs/PERSONALIZATION.md) for the tools row, [`docs/ROMAN_ENGINE.md`](docs/ROMAN_ENGINE.md) for the Roman engine, [`docs/EMOJI.md`](docs/EMOJI.md) for emoji panels, and [`docs/SMART_TYPING.md`](docs/SMART_TYPING.md) for Phase 14 behavior.
+See [`docs/LANGUAGE.md`](docs/LANGUAGE.md) for offline intelligence, [`docs/QUALITY.md`](docs/QUALITY.md) for Phase 21 typing quality, [`docs/APPEARANCE.md`](docs/APPEARANCE.md) for themes and customization, [`docs/UX.md`](docs/UX.md) for interaction and Back behavior, [`docs/UI.md`](docs/UI.md) for the visual contract, [`docs/VOCABULARY.md`](docs/VOCABULARY.md) for the offline dictionaries, [`docs/SUGGESTIONS.md`](docs/SUGGESTIONS.md) for ranking, [`docs/TOOLBAR.md`](docs/TOOLBAR.md) and [`docs/PERSONALIZATION.md`](docs/PERSONALIZATION.md) for the tools row, [`docs/ROMAN_ENGINE.md`](docs/ROMAN_ENGINE.md) for the Roman engine, [`docs/EMOJI.md`](docs/EMOJI.md) for emoji panels, and [`docs/SMART_TYPING.md`](docs/SMART_TYPING.md) for Phase 14 behavior.
 
 ## Handwriting recognition limitation
 

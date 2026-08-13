@@ -80,10 +80,7 @@ object TypoCorrector {
         if (isVowelDeletion(left, right) || isNearbySubstitution(left, right) || isAdjacentTransposition(left, right)) {
             return true
         }
-        if (isMissingLetter(left, right) && (right.length - left.length) == 1 && left.length >= 3) {
-            return true
-        }
-        if (isExtraCharacter(left, right)) {
+        if (isExtraCharacter(left, right) && left.length >= 5) {
             return true
         }
         if (left.length >= 5 && damerauDistance(left, right) == 1 && isNearbyInsertion(left, right)) {
@@ -208,6 +205,7 @@ object TypoCorrector {
         "taht" to listOf("that"),
         "adn" to listOf("and"),
         "recieve" to listOf("receive"),
+        "becuase" to listOf("because"),
         "definately" to listOf("definitely"),
         "seperate" to listOf("separate"),
         "occured" to listOf("occurred"),

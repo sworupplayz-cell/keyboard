@@ -16,6 +16,10 @@ class LocalWordSuggester private constructor(words: List<String>) {
     private val prefixIndex = linkedMapOf<String, List<String>>()
     private val deletionIndex = linkedMapOf<String, List<String>>()
     private val substitutionIndex = linkedMapOf<String, List<String>>()
+    private val suggestionCache = object : LinkedHashMap<String, List<String>>(48, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<String>>): Boolean =
+            size > PREFIX_CACHE_LIMIT
+    }
 
     init {
         val prefixBuckets = linkedMapOf<String, LinkedHashSet<String>>()
@@ -60,6 +64,12 @@ class LocalWordSuggester private constructor(words: List<String>) {
     ): List<String> {
         val normalized = normalize(input)
         if (normalized.isEmpty() || limit <= 0) return emptyList()
+        val cacheKey = if (learned.isEmpty() && recent.isEmpty() && contextPredictions.isEmpty()) {
+            "$normalized|$limit"
+        } else {
+            null
+        }
+        cacheKey?.let { key -> suggestionCache[key]?.let { return it } }
 
         val prefixMatches = prefixIndex[normalized].orEmpty()
         val typoMatches = ArrayList<String>()
@@ -79,7 +89,7 @@ class LocalWordSuggester private constructor(words: List<String>) {
             TypoCorrector.extraCandidates(normalized, ::contains).forEach(typoMatches::add)
         }
 
-        return SuggestionRanker.rank(
+        val ranked = SuggestionRanker.rank(
             input = input,
             prefixMatches = prefixMatches,
             typoMatches = typoMatches,
@@ -87,8 +97,11 @@ class LocalWordSuggester private constructor(words: List<String>) {
             recent = recent,
             frequencyOf = { word -> frequencyRank[normalize(word)] ?: Int.MAX_VALUE },
             limit = limit,
-            contextMatches = contextPredictions
+            contextMatches = contextPredictions,
+            morphologyMatches = Morphology.englishRelatives(input).filter { contains(it) }
         )
+        cacheKey?.let { suggestionCache[it] = ranked }
+        return ranked
     }
 
     companion object {
@@ -152,6 +165,10 @@ class LearnedWordStore(
         trimToLimit()
         return true
     }
+
+    fun scoreOf(word: String): Int = scores[word.trim()] ?: 0
+
+    fun size(): Int = scores.size
 
     fun suggestions(prefix: String, limit: Int = 6): List<String> {
         val normalized = prefix.lowercase(Locale.ENGLISH)
@@ -286,7 +303,9 @@ object SuggestionRanker {
         recent: List<String>,
         frequencyOf: (String) -> Int,
         limit: Int,
-        contextMatches: List<String> = emptyList()
+        contextMatches: List<String> = emptyList(),
+        morphologyMatches: List<String> = emptyList(),
+        personalFrequencyOf: (String) -> Int = { 0 }
     ): List<String> {
         val normalizedInput = input.trim().lowercase(Locale.ENGLISH)
         if (normalizedInput.isEmpty() || limit <= 0) return emptyList()
@@ -303,25 +322,31 @@ object SuggestionRanker {
 
         learned.forEachIndexed { index, word ->
             if (matchesRankedInput(word, normalizedInput)) {
-                consider(word, 8_000 - index * 20)
+                val personal = personalFrequencyOf(word).coerceAtMost(40) * 8
+                consider(word, (8_000 - index * 20 + personal).coerceAtMost(8_400))
             }
         }
         recent.forEachIndexed { index, word ->
             if (matchesRankedInput(word, normalizedInput)) {
-                consider(word, 3_000 - index * 10)
+                consider(word, (3_000 - index * 10).coerceAtLeast(2_400))
             }
         }
         contextMatches.forEachIndexed { index, word ->
             if (matchesRankedInput(word, normalizedInput)) {
-                consider(word, 2_200 - index * 15)
+                consider(word, (2_200 - index * 15).coerceAtLeast(1_600))
             }
         }
         prefixMatches.forEach { word ->
             val exact = if (word.trim().lowercase(Locale.ENGLISH) == normalizedInput) 20_000 else 0
             consider(word, exact + 1_000 - frequencyOf(word).coerceAtMost(900))
         }
+        morphologyMatches.forEachIndexed { index, word ->
+            if (matchesRankedInput(word, normalizedInput)) {
+                consider(word, (380 - index * 8).coerceAtLeast(200))
+            }
+        }
         typoMatches.forEach { word ->
-            consider(word, 120 - frequencyOf(word).coerceAtMost(50))
+            consider(word, (120 - frequencyOf(word).coerceAtMost(50)).coerceAtLeast(40))
         }
         if (scored.keys.none { it == normalizedInput }) {
             consider(input, 10)
@@ -445,6 +470,37 @@ object VocabularyLoader {
     fun english(reader: Reader): List<String> = loadWordList(reader)
 
     fun nepali(reader: Reader): List<String> = loadWordList(reader)
+
+    fun entries(reader: Reader, language: VocabularyLanguage): List<VocabularyEntry> {
+        var rank = 0
+        return reader.buffered().useLines { lines ->
+            lines.map(String::trim)
+                .filter { it.isNotEmpty() && !it.startsWith('#') }
+                .mapNotNull { line ->
+                    val columns = line.split('\t').map(String::trim)
+                    val word = columns.firstOrNull().orEmpty()
+                    if (word.isEmpty()) return@mapNotNull null
+                    val category = columns.getOrNull(1)?.let { raw ->
+                        VocabularyCategory.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
+                    } ?: VocabularyCatalog.classify(word, language)
+                    val stem = columns.getOrNull(2)?.takeIf { it.isNotEmpty() }
+                    val alternates = columns.getOrNull(3)
+                        ?.split('|')
+                        ?.map(String::trim)
+                        ?.filter { it.isNotEmpty() }
+                        .orEmpty()
+                    VocabularyEntry(
+                        word = word,
+                        rank = rank++,
+                        language = language,
+                        alternates = alternates,
+                        category = category,
+                        stem = stem
+                    )
+                }
+                .toList()
+        }
+    }
 
     fun mergeDistinct(first: List<String>, second: List<String>): List<String> {
         val words = LinkedHashSet<String>()

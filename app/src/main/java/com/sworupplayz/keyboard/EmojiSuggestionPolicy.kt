@@ -21,7 +21,17 @@ object EmojiSuggestionPolicy {
         "football" to "⚽",
         "soccer" to "⚽",
         "birthday" to "🎂",
-        "cake" to "🎂"
+        "cake" to "🎂",
+        "congratulations" to "🎉",
+        "congrats" to "🎉",
+        "thanks" to "🙏",
+        "thank" to "🙏",
+        "sorry" to "😔",
+        "party" to "🎉",
+        "food" to "🍔",
+        "music" to "🎵",
+        "sleep" to "😴",
+        "school" to "📚"
     )
 
     fun suggest(word: String, previousWord: String? = null): String? {

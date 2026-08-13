@@ -9,7 +9,8 @@ data class EditorContext(
     val previousWord: String?,
     val shouldCapitalize: Boolean,
     val endsWithSpace: Boolean,
-    val previousTwoWords: String? = null
+    val previousTwoWords: String? = null,
+    val previousThreeWords: String? = null
 ) {
     companion object {
         fun from(textBeforeCursor: String, composingWord: String = ""): EditorContext {
@@ -21,7 +22,8 @@ data class EditorContext(
                 previousWord = previous,
                 shouldCapitalize = CapitalizationPolicy.shouldCapitalize(textBeforeCursor),
                 endsWithSpace = textBeforeCursor.endsWith(' '),
-                previousTwoWords = previousTwoWords(textBeforeCursor, current, previous)
+                previousTwoWords = previousTwoWords(textBeforeCursor, current, previous),
+                previousThreeWords = previousThreeWords(textBeforeCursor, current, previous)
             )
         }
 
@@ -64,6 +66,28 @@ data class EditorContext(
             val older = textBeforeCursor.substring(start, end)
             if (older.isEmpty() || older.all { character -> character in SENTENCE_PUNCTUATION }) return null
             return "$older $last"
+        }
+
+        fun previousThreeWords(
+            textBeforeCursor: String,
+            currentWord: String = wordAtEnd(textBeforeCursor),
+            previous: String? = previousWord(textBeforeCursor, currentWord)
+        ): String? {
+            val two = previousTwoWords(textBeforeCursor, currentWord, previous) ?: return null
+            val withoutCurrent = if (currentWord.isNotEmpty() && textBeforeCursor.endsWith(currentWord)) {
+                textBeforeCursor.dropLast(currentWord.length)
+            } else {
+                textBeforeCursor
+            }
+            val trimmed = withoutCurrent.trimEnd()
+            if (!trimmed.endsWith(two)) return null
+            val beforeTwo = trimmed.dropLast(two.length).trimEnd()
+            if (beforeTwo.isEmpty()) return null
+            var start = beforeTwo.length
+            while (start > 0 && isWordChar(beforeTwo[start - 1])) start--
+            val oldest = beforeTwo.substring(start)
+            if (oldest.isEmpty() || oldest.all { character -> character in SENTENCE_PUNCTUATION }) return null
+            return "$oldest $two"
         }
 
         private fun isWordChar(character: Char): Boolean =
@@ -178,7 +202,9 @@ object CorrectionPolicy {
     fun shouldOfferTypo(typed: String, candidate: String): Boolean {
         if (typed.equals(candidate, ignoreCase = true)) return true
         if (typed.length < 3 || candidate.length < 3) return false
+        if (TypoCorrector.commonCorrections(typed).any { it.equals(candidate, ignoreCase = true) }) return true
         val distance = TypoCorrector.damerauDistance(typed.lowercase(Locale.ENGLISH), candidate.lowercase(Locale.ENGLISH))
+        if (distance == 1 && TypoCorrector.isMissingLetter(typed, candidate) && typed.length >= 4) return true
         return distance in 1..2 && TypoCorrector.isConservativeTypo(typed, candidate)
     }
 }

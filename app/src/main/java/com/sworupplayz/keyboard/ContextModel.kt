@@ -34,7 +34,8 @@ class ContextModel(
         previous: String,
         prefix: String = "",
         limit: Int = 3,
-        previousTwo: String? = null
+        previousTwo: String? = null,
+        previousThree: String? = null
     ): List<String> {
         if (limit <= 0) return emptyList()
         val normalizedPrefix = prefix.trim().lowercase(Locale.ENGLISH)
@@ -50,6 +51,7 @@ class ContextModel(
                 .filter { it.startsWith(normalizedPrefix) || normalizedPrefix.isEmpty() }
                 .forEach { results += it }
         }
+        consider(previousThree.orEmpty())
         consider(previousTwo.orEmpty())
         consider(previous)
         return results.take(limit)
@@ -84,6 +86,7 @@ class ContextModel(
             "thanks" to listOf("for", "you"),
             "how" to listOf("are", "to"),
             "how are" to listOf("you"),
+            "how are you" to listOf("doing"),
             "i" to listOf("am", "have", "will", "can"),
             "i am" to listOf("fine", "going", "घर"),
             "we" to listOf("are", "have", "will"),
@@ -102,7 +105,7 @@ class ContextModel(
             "मलाई" to listOf("मन", "नेपाली", "मन पर्छ", "थाहा"),
             "तिमीलाई" to listOf("कस्तो छ"),
             "मेरो" to listOf("घर", "नाम"),
-            "तिमी" to listOf("लाई", "कहाँ"),
+            "तिमी" to listOf("लाई", "कहाँ", "कस्तो"),
             "के" to listOf("छ", "गर्छौ"),
             "आज" to listOf("काम"),
             "घर" to listOf("जान्छु", "घरमा")

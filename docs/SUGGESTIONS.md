@@ -9,11 +9,12 @@ Phase 19 keeps the existing Gboard-style letter layout and ranks at most **three
 1. Exact typed word
 2. Explicitly learned words (suggestion taps, or the same unknown word finished twice)
 3. Recently used words
-4. Previous-word and previous-two-word phrases
+4. Previous-word, two-word, and three-word phrases
 5. Dictionary prefix matches, ordered by file frequency
-6. A few everyday stem completions that are not strict prefixes (`goo` → going)
-7. Conservative typos
-8. The typed word itself, so unknown text is never discarded
+6. Morphology relatives such as play/playing or घर/घरमा
+7. A few everyday stem completions that are not strict prefixes (`goo` → going)
+8. Conservative typos
+9. The typed word itself, so unknown text is never discarded
 
 Emoji candidates are scored separately and only occupy a strip slot when the keyword is exact and high-confidence.
 

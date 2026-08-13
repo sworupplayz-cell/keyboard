@@ -20,4 +20,7 @@ object PersonalDictionary {
         shouldAccept(word) && WordLearningPolicy.shouldLearnRepeated(word, finishCount, known)
 
     fun rankingBoost(learnedRank: Int): Int = (8_000 - learnedRank * 20).coerceAtLeast(4_000)
+
+    fun shouldLearnPhrase(previous: String, next: String): Boolean =
+        shouldAccept(previous) && shouldAccept(next)
 }

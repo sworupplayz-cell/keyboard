@@ -35,7 +35,8 @@ class PhrasePredictor(
         previous: String?,
         previousTwo: String? = null,
         prefix: String = "",
-        limit: Int = 3
+        limit: Int = 3,
+        previousThree: String? = null
     ): List<String> {
         if (limit <= 0) return emptyList()
         val normalizedPrefix = prefix.trim().lowercase(Locale.ENGLISH)
@@ -51,6 +52,7 @@ class PhrasePredictor(
                 .filter { matchesPrefix(it, normalizedPrefix) }
                 .forEach { results += it }
         }
+        consider(previousThree)
         consider(previousTwo)
         consider(previous)
         return results.take(limit)
@@ -88,6 +90,7 @@ class PhrasePredictor(
             "thanks" to listOf("for", "you"),
             "how" to listOf("are", "to"),
             "how are" to listOf("you"),
+            "how are you" to listOf("doing"),
             "i" to listOf("am", "have", "will", "can"),
             "i am" to listOf("fine", "going", "घर"),
             "see" to listOf("you"),
@@ -103,7 +106,7 @@ class PhrasePredictor(
             "तपाईंलाई" to listOf("कस्तो छ"),
             "म" to listOf("जान्छु", "घर"),
             "मेरो" to listOf("घर", "नाम"),
-            "तिमी" to listOf("कहाँ", "लाई"),
+            "तिमी" to listOf("कहाँ", "कस्तो", "लाई"),
             "घर" to listOf("जान्छु", "घरमा"),
             "के" to listOf("छ", "गर्छौ")
         )
@@ -115,6 +118,7 @@ class PhrasePredictor(
             "म school" to listOf("jaanchu", "जान्छु"),
             "i am" to listOf("fine", "going", "घर"),
             "malai" to listOf("मन पर्छ"),
+            "timi" to listOf("kaha", "kasto", "lai"),
             "timilai" to listOf("कस्तो छ"),
             "ghar" to listOf("jaanchu", "जान्छु"),
             "mero" to listOf("ghar", "घर")
