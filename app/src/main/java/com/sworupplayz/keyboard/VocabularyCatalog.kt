@@ -62,7 +62,8 @@ object VocabularyCatalog {
     private val SLANG = setOf(
         "lol", "lmao", "rofl", "omg", "btw", "idk", "imo", "brb", "tbh", "smh",
         "gonna", "wanna", "gotta", "kinda", "sorta", "yup", "nope", "nah", "pls",
-        "plz", "thx", "nvm", "fyi", "bro", "okay"
+        "plz", "thx", "nvm", "fyi", "bro", "okay", "idc", "ikr", "lmk", "hmu",
+        "afaik", "tyvm", "rn"
     )
     private val TECH = setOf(
         "google", "youtube", "facebook", "instagram", "whatsapp", "wifi", "email",
@@ -70,10 +71,13 @@ object VocabularyCatalog {
     )
     private val PLACES = setOf(
         "nepal", "kathmandu", "pokhara", "lalitpur", "bhaktapur", "chitwan",
-        "lumbini", "everest", "himalaya"
+        "lumbini", "everest", "himalaya", "biratnagar", "butwal", "dharan",
+        "janakpur", "hetauda", "itahari", "nepalgunj", "india", "china",
+        "america", "japan", "bhutan", "tibet"
     )
     private val NAMES = setOf(
         "ram", "sita", "hari", "gita", "krishna", "suman", "bikash", "prakash",
-        "john", "mary", "david", "sarah", "alex", "sam"
+        "john", "mary", "david", "sarah", "alex", "sam", "anisha", "bina",
+        "deepak", "nabin", "priya", "ramesh", "sunita", "michael", "emma", "james"
     )
 }

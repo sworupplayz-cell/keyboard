@@ -15,7 +15,8 @@ data class SuggestionQuery(
     val contextPredictions: List<String> = emptyList(),
     val learnedRoman: String? = null,
     val includeEmoji: Boolean = true,
-    val includeTypos: Boolean = true
+    val includeTypos: Boolean = true,
+    val personalFrequency: Map<String, Int> = emptyMap()
 )
 
 data class SuggestionResult(
@@ -48,10 +49,14 @@ class SuggestionEngine(
     private val english: LocalWordSuggester,
     private val nepali: LocalWordSuggester,
     private val roman: RomanNepaliConverter,
-    private val englishPhrases: PhrasePredictor = PhrasePredictor(seed = PhrasePredictor.ENGLISH_PHRASES),
-    private val nepaliPhrases: PhrasePredictor = PhrasePredictor(seed = PhrasePredictor.NEPALI_PHRASES),
-    private val romanPhrases: PhrasePredictor = PhrasePredictor(seed = PhrasePredictor.ROMAN_PHRASES)
+    englishPhrases: PhrasePredictor = PhrasePredictor(seed = PhrasePredictor.ENGLISH_PHRASES),
+    nepaliPhrases: PhrasePredictor = PhrasePredictor(seed = PhrasePredictor.NEPALI_PHRASES),
+    romanPhrases: PhrasePredictor = PhrasePredictor(seed = PhrasePredictor.ROMAN_PHRASES)
 ) {
+    private var englishPhrases = englishPhrases
+    private var nepaliPhrases = nepaliPhrases
+    private var romanPhrases = romanPhrases
+
     fun suggest(query: SuggestionQuery, limit: Int = MAX_VISIBLE): SuggestionResult {
         val capped = limit.coerceAtMost(MAX_VISIBLE)
         if (capped <= 0) return SuggestionResult(emptyList())
@@ -60,68 +65,108 @@ class SuggestionEngine(
             return SuggestionResult(listOf(input).take(capped))
         }
 
-        val phrases = (phrasesFor(query, input) + query.contextPredictions).distinct()
+        val phrases = PredictionPipeline.filter(
+            phrasesFor(query, input) + query.contextPredictions
+        )
+        val trigrams = phrasesForKey(query, query.previousThreeWords, input)
+        val bigrams = (
+            phrasesForKey(query, query.previousTwoWords, input) +
+                phrasesForKey(query, query.previousWord, input)
+            ).distinct()
         val words = when (query.language) {
-            SuggestionLanguage.ENGLISH -> englishWords(query, input, phrases, capped)
-            SuggestionLanguage.NEPALI -> nepaliWords(query, input, phrases, capped)
-            SuggestionLanguage.ROMAN -> romanWords(query, input, phrases, capped)
+            SuggestionLanguage.ENGLISH -> englishWords(query, input, phrases, bigrams, trigrams, capped)
+            SuggestionLanguage.NEPALI -> nepaliWords(query, input, phrases, bigrams, trigrams, capped)
+            SuggestionLanguage.ROMAN -> romanWords(query, input, phrases, bigrams, trigrams, capped)
         }
         val emoji = if (query.includeEmoji) {
-            EmojiSuggestionPolicy.suggest(input, query.previousWord)
+            EmojiSuggestionPolicy.suggest(input, query.previousWord, query.previousTwoWords)
         } else {
             null
         }
-        return SuggestionResult(words, emoji)
+        return SuggestionResult(PredictionPipeline.diversify(words, capped), emoji)
     }
 
-    fun recordPhrase(language: SuggestionLanguage, previous: String, next: String): Boolean =
-        predictor(language).record(previous, next)
+    fun recordPhrase(
+        language: SuggestionLanguage,
+        previous: String,
+        next: String,
+        previousTwo: String? = null
+    ): Boolean {
+        if (!PersonalDictionary.shouldLearnPhrase(previous, next)) return false
+        return predictor(language).record(previous, next, previousTwo)
+    }
+
+    fun serializePhrases(language: SuggestionLanguage): String = predictor(language).serialize()
+
+    fun restorePhrases(language: SuggestionLanguage, serialized: String?) {
+        val seed = when (language) {
+            SuggestionLanguage.ENGLISH -> PhrasePredictor.ENGLISH_PHRASES
+            SuggestionLanguage.NEPALI -> PhrasePredictor.NEPALI_PHRASES
+            SuggestionLanguage.ROMAN -> PhrasePredictor.ROMAN_PHRASES
+        }
+        val loaded = PhrasePredictor.fromSerialized(serialized, seed)
+        when (language) {
+            SuggestionLanguage.ENGLISH -> englishPhrases = loaded
+            SuggestionLanguage.NEPALI -> nepaliPhrases = loaded
+            SuggestionLanguage.ROMAN -> romanPhrases = loaded
+        }
+    }
 
     private fun englishWords(
         query: SuggestionQuery,
         input: String,
         phrases: List<String>,
+        bigrams: List<String>,
+        trigrams: List<String>,
         limit: Int
     ): List<String> {
-        if (input.isEmpty()) return phrases.take(limit)
+        if (input.isEmpty()) return PredictionPipeline.diversify(phrases, limit)
+        val extras = PredictionPipeline.extras(input)
+        val contractions = PredictionPipeline.contractions(input)
         val ranked = english.suggestions(
             input = input,
             learned = query.learned,
             limit = limit,
             recent = query.recent,
-            contextPredictions = phrases + CommonCompletions.extras(input)
+            contextPredictions = phrases + extras
         )
-        val merged = LinkedHashSet<String>()
-        CommonCompletions.extras(input).forEach { extra ->
-            if (english.contains(extra) || extra.contains('\'')) merged += extra
+        val prefixMatches = PredictionPipeline.filter(ranked + extras + contractions)
+        val onlyTypedFallback = prefixMatches.isEmpty() ||
+            (prefixMatches.size == 1 && prefixMatches.first().equals(input, ignoreCase = true))
+        val typos = if (query.includeTypos) typoCandidates(input, prefixMatches) else emptyList()
+        if (!onlyTypedFallback && typos.isEmpty() && contractions.isEmpty() && extras.isEmpty()) {
+            return SuggestionRanker.rank(
+                input = input,
+                prefixMatches = prefixMatches,
+                typoMatches = emptyList(),
+                learned = query.learned,
+                recent = query.recent,
+                frequencyOf = english::rankOf,
+                limit = limit,
+                contextMatches = phrases,
+                morphologyMatches = PredictionPipeline.morphology(input, SuggestionLanguage.ENGLISH, english::contains),
+                personalFrequencyOf = { word -> query.personalFrequency.scoreOf(word) },
+                trigramMatches = trigrams,
+                bigramMatches = bigrams,
+                contractionMatches = contractions,
+                categoryOf = { VocabularyCatalog.classify(it, VocabularyLanguage.ENGLISH) }
+            )
         }
-        ranked.forEach { merged += it }
-        val compact = merged.take(limit)
-        val onlyTypedFallback = compact.isEmpty() ||
-            (compact.size == 1 && compact.first().equals(input, ignoreCase = true))
-        if (!query.includeTypos) return compact
-        val extras = (
-            TypoCorrector.missingLetterCandidates(input, english::contains) +
-                TypoCorrector.extraCandidates(input, english::contains) +
-                TypoCorrector.commonCorrections(input, english::contains) +
-                TypoCorrector.commonCorrections(input) { true }
-            ).distinct()
-            .filter { candidate ->
-                compact.none { it.equals(candidate, ignoreCase = true) } &&
-                    (CorrectionPolicy.shouldOfferTypo(input, candidate) ||
-                        TypoCorrector.commonCorrections(input).any { it.equals(candidate, ignoreCase = true) })
-            }
-        if (extras.isEmpty()) return compact
-        if (!onlyTypedFallback && compact.size >= limit) return compact
         return SuggestionRanker.rank(
             input = input,
-            prefixMatches = if (onlyTypedFallback) ranked else compact,
-            typoMatches = extras,
+            prefixMatches = if (onlyTypedFallback) ranked else prefixMatches,
+            typoMatches = typos,
             learned = query.learned,
             recent = query.recent,
             frequencyOf = english::rankOf,
             limit = limit,
-            contextMatches = phrases
+            contextMatches = phrases + extras,
+            morphologyMatches = PredictionPipeline.morphology(input, SuggestionLanguage.ENGLISH, english::contains),
+            personalFrequencyOf = { word -> query.personalFrequency.scoreOf(word) },
+            trigramMatches = trigrams,
+            bigramMatches = bigrams,
+            contractionMatches = contractions,
+            categoryOf = { VocabularyCatalog.classify(it, VocabularyLanguage.ENGLISH) }
         )
     }
 
@@ -129,9 +174,11 @@ class SuggestionEngine(
         query: SuggestionQuery,
         input: String,
         phrases: List<String>,
+        bigrams: List<String>,
+        trigrams: List<String>,
         limit: Int
     ): List<String> {
-        if (input.isEmpty()) return phrases.take(limit)
+        if (input.isEmpty()) return PredictionPipeline.diversify(phrases, limit)
         return SuggestionRanker.rank(
             input = input,
             prefixMatches = nepali.suggestions(
@@ -147,7 +194,11 @@ class SuggestionEngine(
             frequencyOf = nepali::rankOf,
             limit = limit,
             contextMatches = phrases,
-            morphologyMatches = Morphology.nepaliRelatives(input).filter { nepali.contains(it) }
+            morphologyMatches = PredictionPipeline.morphology(input, SuggestionLanguage.NEPALI, nepali::contains),
+            personalFrequencyOf = { word -> query.personalFrequency.scoreOf(word) },
+            trigramMatches = trigrams,
+            bigramMatches = bigrams,
+            categoryOf = { VocabularyCatalog.classify(it, VocabularyLanguage.NEPALI) }
         )
     }
 
@@ -155,12 +206,15 @@ class SuggestionEngine(
         query: SuggestionQuery,
         input: String,
         phrases: List<String>,
+        bigrams: List<String>,
+        trigrams: List<String>,
         limit: Int
     ): List<String> {
         if (input.isEmpty()) {
-            return phrases.map { prediction ->
-                roman.exactConversion(prediction) ?: prediction
-            }.distinct().take(limit)
+            return PredictionPipeline.diversify(
+                phrases.map { prediction -> roman.exactConversion(prediction) ?: prediction },
+                limit
+            )
         }
         val converted = roman.suggestions(
             romanWord = input,
@@ -168,7 +222,7 @@ class SuggestionEngine(
             limit = limit,
             recent = query.recent,
             previousWord = query.previousWord,
-            contextPredictions = phrases
+            contextPredictions = phrases + bigrams + trigrams
         )
         val nepaliOnly = roman.suggestions(
             romanWord = input,
@@ -177,12 +231,21 @@ class SuggestionEngine(
             includeRoman = false,
             recent = query.recent,
             previousWord = query.previousWord,
-            contextPredictions = phrases
+            contextPredictions = phrases + bigrams + trigrams
         )
+        val stem = roman.exactConversion(input) ?: nepaliOnly.firstOrNull()
+        val relatives = if (stem != null && RomanNepaliConverter.isNepali(stem)) {
+            Morphology.nepaliRelatives(stem).filter { relative ->
+                relative.startsWith(stem) || stem.startsWith(relative.take(2))
+            }
+        } else {
+            emptyList()
+        }
         val merged = LinkedHashSet<String>()
         nepaliOnly.forEach { merged += it }
+        relatives.forEach { merged += it }
         converted.forEach { merged += it }
-        return merged.take(limit)
+        return PredictionPipeline.diversify(merged.toList(), limit)
     }
 
     private fun phrasesFor(query: SuggestionQuery, input: String): List<String> =
@@ -193,6 +256,37 @@ class SuggestionEngine(
             limit = MAX_VISIBLE,
             previousThree = query.previousThreeWords
         )
+
+    private fun phrasesForKey(query: SuggestionQuery, key: String?, input: String): List<String> {
+        if (key.isNullOrBlank()) return emptyList()
+        return predictor(query.language).predict(
+            previous = key,
+            prefix = input,
+            limit = MAX_VISIBLE
+        )
+    }
+
+    private fun typoCandidates(input: String, compact: List<String>): List<String> =
+        (
+            TypoCorrector.missingLetterCandidates(input, english::contains) +
+                TypoCorrector.extraCandidates(input, english::contains) +
+                TypoCorrector.commonCorrections(input, english::contains) +
+                TypoCorrector.commonCorrections(input) { true }
+            ).distinct()
+            .filter { candidate ->
+                compact.none { it.equals(candidate, ignoreCase = true) } &&
+                    (CorrectionPolicy.shouldOfferTypo(input, candidate) ||
+                        TypoCorrector.commonCorrections(input).any { it.equals(candidate, ignoreCase = true) })
+            }
+
+    private fun Map<String, Int>.scoreOf(word: String): Int {
+        this[word]?.let { return it }
+        val lower = word.lowercase()
+        entries.forEach { (key, value) ->
+            if (key.equals(lower, ignoreCase = true)) return value
+        }
+        return 0
+    }
 
     private fun predictor(language: SuggestionLanguage): PhrasePredictor = when (language) {
         SuggestionLanguage.ENGLISH -> englishPhrases

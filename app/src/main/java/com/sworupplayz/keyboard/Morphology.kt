@@ -65,7 +65,17 @@ object Morphology {
         "start" to listOf("start", "starts", "started", "starting"),
         "stop" to listOf("stop", "stops", "stopped", "stopping"),
         "wait" to listOf("wait", "waits", "waited", "waiting"),
-        "help" to listOf("help", "helps", "helped", "helping")
+        "help" to listOf("help", "helps", "helped", "helping"),
+        "get" to listOf("get", "gets", "getting", "got"),
+        "give" to listOf("give", "gives", "giving", "gave", "given"),
+        "take" to listOf("take", "takes", "taking", "took", "taken"),
+        "come" to listOf("come", "comes", "coming", "came"),
+        "see" to listOf("see", "sees", "seeing", "saw", "seen"),
+        "know" to listOf("know", "knows", "knowing", "knew", "known"),
+        "think" to listOf("think", "thinks", "thinking", "thought"),
+        "want" to listOf("want", "wants", "wanted", "wanting"),
+        "say" to listOf("say", "says", "saying", "said"),
+        "tell" to listOf("tell", "tells", "telling", "told")
     ).let { families ->
         val expanded = linkedMapOf<String, List<String>>()
         families.forEach { (_, forms) ->
@@ -76,8 +86,10 @@ object Morphology {
 
     private val NEPALI_FAMILIES = mapOf(
         "घर" to listOf("घर", "घरमा", "घरको", "घरबाट", "घरलाई"),
-        "जानु" to listOf("जानु", "जान", "जान्छ", "जान्छु", "जान्छन्", "गयो", "गए", "जाने"),
+        "जानु" to listOf("जानु", "जान", "जान्छ", "जान्छु", "जान्छन्", "जान्छौ", "गयो", "गए", "जाने"),
         "मन" to listOf("मन", "मनपर्छ", "मनपर्ने", "मनमा"),
+        "मलाई" to listOf("मलाई", "मलाईको", "मलाईले"),
+        "तिमी" to listOf("तिमी", "तिम्रो", "तिमीलाई", "तिमीले"),
         "गर्नु" to listOf("गर्नु", "गर्न", "गर्छु", "गर्छ", "गर्छन्", "गरेको", "गर्दै"),
         "आउनु" to listOf("आउनु", "आउँछु", "आउँछ", "आयो", "आएँ"),
         "खानु" to listOf("खानु", "खाना", "खान्छु", "खायो", "खाएँ")

@@ -197,7 +197,12 @@ object TypoCorrector {
         "wich" to listOf("which"),
         "becuase" to listOf("because"),
         "nepai" to listOf("nepali"),
-        "neplai" to listOf("nepali")
+        "neplai" to listOf("nepali"),
+        "tommorow" to listOf("tomorrow"),
+        "adress" to listOf("address"),
+        "enviroment" to listOf("environment"),
+        "goverment" to listOf("government"),
+        "langauge" to listOf("language")
     )
 
     private val COMMON_CORRECTIONS = mapOf(
@@ -210,6 +215,11 @@ object TypoCorrector {
         "seperate" to listOf("separate"),
         "occured" to listOf("occurred"),
         "nepai" to listOf("nepali"),
-        "neplai" to listOf("nepali")
+        "neplai" to listOf("nepali"),
+        "tommorow" to listOf("tomorrow"),
+        "adress" to listOf("address"),
+        "enviroment" to listOf("environment"),
+        "goverment" to listOf("government"),
+        "langauge" to listOf("language")
     )
 }

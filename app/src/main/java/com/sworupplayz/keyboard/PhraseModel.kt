@@ -31,6 +31,17 @@ class PhrasePredictor(
         return true
     }
 
+    fun record(previous: String, next: String, previousTwo: String?): Boolean {
+        val first = record(previous, next)
+        val second = if (!previousTwo.isNullOrBlank()) record(previousTwo, next) else false
+        return first || second
+    }
+
+    fun strength(previous: String, next: String): Int {
+        val key = normalize(previous) to next.trim()
+        return counts[key] ?: 0
+    }
+
     fun predict(
         previous: String?,
         previousTwo: String? = null,
@@ -86,42 +97,51 @@ class PhrasePredictor(
 
         val ENGLISH_PHRASES = mapOf(
             "good" to listOf("morning", "night", "luck", "job"),
+            "good morning" to listOf("everyone", "guys"),
             "thank" to listOf("you"),
             "thanks" to listOf("for", "you"),
             "how" to listOf("are", "to"),
             "how are" to listOf("you"),
             "how are you" to listOf("doing"),
             "i" to listOf("am", "have", "will", "can"),
-            "i am" to listOf("fine", "going", "घर"),
+            "i am" to listOf("going", "here", "fine"),
             "see" to listOf("you"),
             "let" to listOf("me"),
             "going" to listOf("to"),
             "want" to listOf("to"),
-            "nice" to listOf("to", "day")
+            "nice" to listOf("to", "day"),
+            "happy" to listOf("birthday"),
+            "see you" to listOf("later", "soon", "tomorrow")
         )
 
         val NEPALI_PHRASES = mapOf(
-            "मलाई" to listOf("मन", "नेपाली", "मन पर्छ", "थाहा"),
+            "मलाई" to listOf("मन", "नेपाली", "थाहा"),
+            "मलाई मन" to listOf("पर्छ"),
             "तिमीलाई" to listOf("कस्तो छ", "मन पर्छ"),
             "तपाईंलाई" to listOf("कस्तो छ"),
             "म" to listOf("जान्छु", "घर"),
             "मेरो" to listOf("घर", "नाम"),
-            "तिमी" to listOf("कहाँ", "कस्तो", "लाई"),
-            "घर" to listOf("जान्छु", "घरमा"),
+            "तिमी" to listOf("कहाँ", "कस्तो", "कहिले"),
+            "तिमी कहाँ" to listOf("छौ", "जान्छौ"),
+            "घर" to listOf("मा", "को", "बाट"),
+            "जान" to listOf("जान्छु", "जान्छ", "जानु"),
             "के" to listOf("छ", "गर्छौ")
         )
 
         val ROMAN_PHRASES = mapOf(
             "ma" to listOf("घर", "जान्छु", "school"),
             "म" to listOf("घर", "जान्छु", "school"),
-            "ma school" to listOf("jaanchu", "जान्छु"),
-            "म school" to listOf("jaanchu", "जान्छु"),
+            "ma school" to listOf("jaanchu", "gaye", "janchu"),
+            "म school" to listOf("jaanchu", "gaye", "janchu"),
+            "ma ghar" to listOf("jaanchu", "janchu"),
+            "mero phone" to listOf("ramro", "bigryo", "cha"),
+            "today ma" to listOf("school", "ghar", "jaanchu"),
             "i am" to listOf("fine", "going", "घर"),
-            "malai" to listOf("मन पर्छ"),
+            "malai" to listOf("मन", "man"),
             "timi" to listOf("kaha", "kasto", "lai"),
             "timilai" to listOf("कस्तो छ"),
             "ghar" to listOf("jaanchu", "जान्छु"),
-            "mero" to listOf("ghar", "घर")
+            "mero" to listOf("ghar", "घर", "phone")
         )
 
         private fun normalize(value: String): String = value.trim().lowercase(Locale.ENGLISH)

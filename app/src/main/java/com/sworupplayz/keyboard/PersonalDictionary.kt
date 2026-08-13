@@ -22,5 +22,24 @@ object PersonalDictionary {
     fun rankingBoost(learnedRank: Int): Int = (8_000 - learnedRank * 20).coerceAtLeast(4_000)
 
     fun shouldLearnPhrase(previous: String, next: String): Boolean =
-        shouldAccept(previous) && shouldAccept(next)
+        isLearnablePhraseToken(previous) && isLearnablePhraseToken(next)
+
+    fun isLearnablePhraseToken(word: String): Boolean {
+        val clean = word.trim()
+        if (clean.isEmpty() || '\n' in clean || '\t' in clean || clean.length > 48) return false
+        if (ClipboardPolicy.looksSensitive(clean)) return false
+        if (SpecialTokenPolicy.looksLikeUrl(clean) || SpecialTokenPolicy.looksLikeEmail(clean)) return false
+        if (SpecialTokenPolicy.looksLikeMentionOrHashtag(clean) || SpecialTokenPolicy.looksLikeNumber(clean)) {
+            return false
+        }
+        if (' ' in clean) return clean.split(' ').all { isLearnablePhraseToken(it) }
+        if (shouldAccept(clean)) return true
+        if (clean.length in 1..2 &&
+            clean.any { it.isLetter() || it.code in 0x0900..0x097F } &&
+            !clean.all { it == clean.first() }
+        ) {
+            return true
+        }
+        return false
+    }
 }

@@ -11,6 +11,7 @@ object EmojiSuggestionPolicy {
         "heart" to "❤",
         "love" to "❤",
         "happy" to "😊",
+        "smile" to "🙂",
         "sad" to "😢",
         "cry" to "😢",
         "laugh" to "😂",
@@ -31,13 +32,19 @@ object EmojiSuggestionPolicy {
         "food" to "🍔",
         "music" to "🎵",
         "sleep" to "😴",
-        "school" to "📚"
+        "school" to "📚",
+        "coffee" to "☕",
+        "tea" to "🍵",
+        "rain" to "🌧️",
+        "sun" to "☀️"
     )
 
-    fun suggest(word: String, previousWord: String? = null): String? {
+    fun suggest(word: String, previousWord: String? = null, previousTwo: String? = null): String? {
         exact(word)?.let { return it }
         if (word.trim().isNotEmpty()) return null
-        return exact(previousWord.orEmpty())
+        exact(previousWord.orEmpty())?.let { return it }
+        val older = previousTwo.orEmpty().trim().substringAfterLast(' ', missingDelimiterValue = "")
+        return exact(older)
     }
 
     private fun exact(word: String): String? {

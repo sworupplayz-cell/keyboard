@@ -38,6 +38,17 @@ Tap cycles **EN → नेपाली → Roman**. Long-press opens a picker wi
 
 One-handed mode is padding-only. Suggestion, toolbar, and letter rows share the same width. Reset layout restores one-handed mode and the toolbar. Reset all settings does not delete learned words or clipboard history.
 
+## Prediction personalization
+
+Phase 23 keeps learning on-device and bounded.
+
+- Unigrams live in `LearnedWordStore` (usage count + recency). Frequent words such as `help` can outrank `hello` for `hel` without hiding the other useful completions.
+- Accepted suggestions also write a previous-word and previous-two-word pair into `ContextModel` / `PhrasePredictor`.
+- Recency decays ranking of old learned words. Generic vocabulary is never deleted just because it has not been used lately.
+- Score caps prevent personalization from erasing dictionary frequency or exact matches.
+
+Short function words such as `I` and `ma` may participate in phrase pairs, but they are still not stored as standalone learned vocabulary.
+
 ## Privacy
 
-Still offline. The personal dictionary learns selected or twice-finished words only. Passwords, tokens, URLs, and garbage are rejected. `clearLocalData` removes learned words, recents, context pairs, clipboard history, and emoji usage. Built-in dictionaries stay.
+Still offline. The personal dictionary learns selected or twice-finished words only. Passwords, tokens, URLs, credit-card-like numbers, and garbage are rejected. Typed text is never written to Logcat. `clearLocalData` removes learned words, recents, context pairs, learned phrases, clipboard history, and emoji usage. Built-in dictionaries stay.

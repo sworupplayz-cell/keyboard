@@ -141,9 +141,12 @@ class LocalWordSuggester private constructor(words: List<String>) {
             'l' to "opk", 'z' to "asx", 'x' to "zsdc", 'c' to "xdfv",
             'v' to "cfgb", 'b' to "vghn", 'n' to "bhjm", 'm' to "njk"
         )
+        const val PREFIX_CACHE_LIMIT = 64
         private const val INDEX_CANDIDATE_LIMIT = 8
         private const val MIN_TYPO_LENGTH = 3
     }
+
+    fun cacheSize(): Int = suggestionCache.size
 }
 
 class LearnedWordStore(
@@ -169,6 +172,25 @@ class LearnedWordStore(
     fun scoreOf(word: String): Int = scores[word.trim()] ?: 0
 
     fun size(): Int = scores.size
+
+    fun recencyRank(word: String): Int {
+        val clean = word.trim()
+        if (clean.isEmpty()) return Int.MAX_VALUE
+        val keys = scores.keys.toList()
+        val index = keys.indexOfLast { it.equals(clean, ignoreCase = true) }
+        if (index < 0) return Int.MAX_VALUE
+        return keys.lastIndex - index
+    }
+
+    fun decayedScore(word: String): Int {
+        val usage = scoreOf(word)
+        if (usage <= 0) return 0
+        val recencyBonus = (24 - recencyRank(word)).coerceAtLeast(0)
+        return (usage + recencyBonus / 4).coerceAtMost(PredictionScores.PERSONAL_USAGE_CAP)
+    }
+
+    fun frequencyMap(prefix: String, limit: Int = 6): Map<String, Int> =
+        suggestions(prefix, limit).associateWith { decayedScore(it) }
 
     fun suggestions(prefix: String, limit: Int = 6): List<String> {
         val normalized = prefix.lowercase(Locale.ENGLISH)
@@ -305,61 +327,125 @@ object SuggestionRanker {
         limit: Int,
         contextMatches: List<String> = emptyList(),
         morphologyMatches: List<String> = emptyList(),
-        personalFrequencyOf: (String) -> Int = { 0 }
+        personalFrequencyOf: (String) -> Int = { 0 },
+        trigramMatches: List<String> = emptyList(),
+        bigramMatches: List<String> = emptyList(),
+        contractionMatches: List<String> = emptyList(),
+        phoneticMatches: List<String> = emptyList(),
+        categoryOf: (String) -> VocabularyCategory = { VocabularyCategory.CORE }
     ): List<String> {
         val normalizedInput = input.trim().lowercase(Locale.ENGLISH)
         if (normalizedInput.isEmpty() || limit <= 0) return emptyList()
 
         val scored = linkedMapOf<String, Pair<String, Int>>()
         fun consider(display: String, score: Int) {
-            val normalized = display.trim().lowercase(Locale.ENGLISH)
-            if (normalized.isEmpty()) return
+            val trimmed = display.trim()
+            if (trimmed.isEmpty() || PredictionPipeline.isBlocked(trimmed)) return
+            val normalized = trimmed.lowercase(Locale.ENGLISH)
             val existing = scored[normalized]
             if (existing == null || score > existing.second) {
-                scored[normalized] = display to score
+                scored[normalized] = trimmed to score
             }
         }
 
         learned.forEachIndexed { index, word ->
             if (matchesRankedInput(word, normalizedInput)) {
-                val personal = personalFrequencyOf(word).coerceAtMost(40) * 8
-                consider(word, (8_000 - index * 20 + personal).coerceAtMost(8_400))
+                val personal = personalFrequencyOf(word)
+                    .coerceAtMost(PredictionScores.PERSONAL_USAGE_CAP) * 8
+                consider(
+                    word,
+                    (PredictionScores.LEARNED - index * 20 + personal)
+                        .coerceAtMost(PredictionScores.LEARNED_CAP)
+                )
+            }
+        }
+        trigramMatches.forEachIndexed { index, word ->
+            if (matchesRankedInput(word, normalizedInput)) {
+                consider(
+                    word,
+                    (PredictionScores.TRIGRAM - index * 20).coerceAtLeast(PredictionScores.TRIGRAM_FLOOR)
+                )
             }
         }
         recent.forEachIndexed { index, word ->
             if (matchesRankedInput(word, normalizedInput)) {
-                consider(word, (3_000 - index * 10).coerceAtLeast(2_400))
+                consider(
+                    word,
+                    (PredictionScores.RECENT - index * 10).coerceAtLeast(PredictionScores.RECENT_FLOOR)
+                )
+            }
+        }
+        bigramMatches.forEachIndexed { index, word ->
+            if (matchesRankedInput(word, normalizedInput)) {
+                consider(
+                    word,
+                    (PredictionScores.BIGRAM - index * 15).coerceAtLeast(PredictionScores.BIGRAM_FLOOR)
+                )
             }
         }
         contextMatches.forEachIndexed { index, word ->
             if (matchesRankedInput(word, normalizedInput)) {
-                consider(word, (2_200 - index * 15).coerceAtLeast(1_600))
+                consider(
+                    word,
+                    (PredictionScores.CONTEXT - index * 15).coerceAtLeast(PredictionScores.CONTEXT_FLOOR)
+                )
+            }
+        }
+        contractionMatches.forEach { word ->
+            if (matchesRankedInput(word.replace("'", ""), normalizedInput) ||
+                matchesRankedInput(word, normalizedInput)
+            ) {
+                consider(word, PredictionScores.CONTRACTION)
             }
         }
         prefixMatches.forEach { word ->
-            val exact = if (word.trim().lowercase(Locale.ENGLISH) == normalizedInput) 20_000 else 0
-            consider(word, exact + 1_000 - frequencyOf(word).coerceAtMost(900))
+            val exact = if (word.trim().lowercase(Locale.ENGLISH) == normalizedInput) {
+                PredictionScores.EXACT
+            } else {
+                0
+            }
+            val penalty = if (VocabularyCatalog.shouldStayBehindCore(categoryOf(word))) {
+                PredictionScores.CATEGORY_PENALTY
+            } else {
+                0
+            }
+            consider(
+                word,
+                exact + PredictionScores.PREFIX - frequencyOf(word).coerceAtMost(PredictionScores.PREFIX_FREQ_CAP) - penalty
+            )
         }
         morphologyMatches.forEachIndexed { index, word ->
             if (matchesRankedInput(word, normalizedInput)) {
-                consider(word, (380 - index * 8).coerceAtLeast(200))
+                consider(
+                    word,
+                    (PredictionScores.MORPHOLOGY - index * 8).coerceAtLeast(PredictionScores.MORPHOLOGY_FLOOR)
+                )
             }
         }
         typoMatches.forEach { word ->
-            consider(word, (120 - frequencyOf(word).coerceAtMost(50)).coerceAtLeast(40))
+            val common = if (TypoCorrector.commonCorrections(input).any { it.equals(word, ignoreCase = true) }) {
+                PredictionScores.COMMON_TYPO
+            } else {
+                PredictionScores.TYPO
+            }
+            consider(word, (common - frequencyOf(word).coerceAtMost(50)).coerceAtLeast(PredictionScores.TYPO_FLOOR))
+        }
+        phoneticMatches.forEach { word ->
+            consider(word, PredictionScores.PHONETIC)
         }
         if (scored.keys.none { it == normalizedInput }) {
-            consider(input, 10)
+            consider(input, PredictionScores.TYPED)
         }
 
-        return scored.values
-            .sortedWith(
-                compareByDescending<Pair<String, Int>> { it.second }
-                    .thenBy { frequencyOf(it.first) }
-            )
-            .map { formatLikeInput(input, it.first) }
-            .distinct()
-            .take(limit)
+        return PredictionPipeline.diversify(
+            scored.values
+                .sortedWith(
+                    compareByDescending<Pair<String, Int>> { it.second }
+                        .thenBy { frequencyOf(it.first) }
+                )
+                .map { formatLikeInput(input, it.first) },
+            limit
+        )
     }
 
     private fun formatLikeInput(input: String, candidate: String): String {
@@ -451,6 +537,7 @@ object WordLearningPolicy {
         if (SpecialTokenPolicy.looksLikeNumber(clean)) return true
         if (ClipboardPolicy.looksSensitive(clean)) return true
         if (looksLikeRandomToken(clean)) return true
+        if (looksLikeCreditCard(clean)) return true
         if (clean.takeLastWhile { it.isDigit() }.length >= 3) return true
         return false
     }
@@ -463,6 +550,12 @@ object WordLearningPolicy {
         if (letters == 0 || digits < 4) return false
         val vowels = word.count { it.lowercaseChar() in "aeiou" }
         return vowels <= word.length / 8
+    }
+
+    private fun looksLikeCreditCard(word: String): Boolean {
+        val digits = word.filter { it.isDigit() }
+        if (digits.length !in 13..19) return false
+        return word.none { it.isLetter() }
     }
 }
 

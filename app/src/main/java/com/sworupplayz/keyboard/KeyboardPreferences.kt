@@ -51,6 +51,9 @@ object KeyboardPreferences {
     const val KEY_CONTEXT_ENGLISH = "context_english_pairs"
     const val KEY_CONTEXT_NEPALI = "context_nepali_pairs"
     const val KEY_CONTEXT_ROMAN = "context_roman_pairs"
+    const val KEY_PHRASE_ENGLISH = "phrase_english_pairs"
+    const val KEY_PHRASE_NEPALI = "phrase_nepali_pairs"
+    const val KEY_PHRASE_ROMAN = "phrase_roman_pairs"
 
     val LEARNED_WORD_KEYS = setOf(
         KEY_LEARNED_ROMAN,
@@ -68,6 +71,9 @@ object KeyboardPreferences {
         KEY_CONTEXT_ENGLISH,
         KEY_CONTEXT_NEPALI,
         KEY_CONTEXT_ROMAN,
+        KEY_PHRASE_ENGLISH,
+        KEY_PHRASE_NEPALI,
+        KEY_PHRASE_ROMAN,
         KEY_CLIPBOARD_ITEMS
     )
 

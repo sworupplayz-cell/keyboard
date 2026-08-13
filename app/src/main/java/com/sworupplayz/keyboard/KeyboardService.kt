@@ -77,6 +77,7 @@ class KeyboardService : InputMethodService() {
     private var nepaliContext = ContextModel(seed = ContextModel.NEPALI_SEED)
     private var romanContext = ContextModel(seed = ContextModel.ROMAN_SEED)
     private var lastCommittedWord: String = ""
+    private var lastTwoCommittedWords: String? = null
     private val englishVocabulary: List<String> by lazy {
         resources.openRawResource(R.raw.english_vocabulary).bufferedReader().use {
             VocabularyLoader.english(it)
@@ -106,16 +107,27 @@ class KeyboardService : InputMethodService() {
         }
     }
     private val romanComposer: RomanInputComposer get() = romanComposerDelegate.value
-    private val suggestionEngine: SuggestionEngine by lazy {
+    private val suggestionEngineDelegate = lazy {
+        val preferences = getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
         SuggestionEngine(
             english = englishSuggester,
             nepali = nepaliSuggester,
             roman = romanConverter,
-            englishPhrases = PhrasePredictor(seed = PhrasePredictor.ENGLISH_PHRASES),
-            nepaliPhrases = PhrasePredictor(seed = PhrasePredictor.NEPALI_PHRASES),
-            romanPhrases = PhrasePredictor(seed = PhrasePredictor.ROMAN_PHRASES)
+            englishPhrases = PhrasePredictor.fromSerialized(
+                preferences.getString(KeyboardPreferences.KEY_PHRASE_ENGLISH, null),
+                PhrasePredictor.ENGLISH_PHRASES
+            ),
+            nepaliPhrases = PhrasePredictor.fromSerialized(
+                preferences.getString(KeyboardPreferences.KEY_PHRASE_NEPALI, null),
+                PhrasePredictor.NEPALI_PHRASES
+            ),
+            romanPhrases = PhrasePredictor.fromSerialized(
+                preferences.getString(KeyboardPreferences.KEY_PHRASE_ROMAN, null),
+                PhrasePredictor.ROMAN_PHRASES
+            )
         )
     }
+    private val suggestionEngine: SuggestionEngine get() = suggestionEngineDelegate.value
     private var repeatFinishes = RepeatFinishStore()
     private var language = KeyboardLanguage.ENGLISH
     private var layoutMode = LayoutMode.LETTERS
@@ -203,6 +215,7 @@ class KeyboardService : InputMethodService() {
             defaultMode?.let { language = it.toKeyboardLanguage() }
             layoutMode = LayoutMode.LETTERS
             lastCommittedWord = ""
+            lastTwoCommittedWords = null
         }
         if (romanComposerDelegate.isInitialized() && romanComposer.currentWord.isNotEmpty()) {
             currentInputConnection?.finishComposingText()
@@ -419,6 +432,20 @@ class KeyboardService : InputMethodService() {
             preferences.getString(KeyboardPreferences.KEY_CONTEXT_ROMAN, null),
             ContextModel.ROMAN_SEED
         )
+        if (suggestionEngineDelegate.isInitialized()) {
+            suggestionEngine.restorePhrases(
+                SuggestionLanguage.ENGLISH,
+                preferences.getString(KeyboardPreferences.KEY_PHRASE_ENGLISH, null)
+            )
+            suggestionEngine.restorePhrases(
+                SuggestionLanguage.NEPALI,
+                preferences.getString(KeyboardPreferences.KEY_PHRASE_NEPALI, null)
+            )
+            suggestionEngine.restorePhrases(
+                SuggestionLanguage.ROMAN,
+                preferences.getString(KeyboardPreferences.KEY_PHRASE_ROMAN, null)
+            )
+        }
         emojiUsage = EmojiUsageStore.fromSerialized(
             preferences.getString(KeyboardPreferences.KEY_EMOJI_USAGE, null)
         )
@@ -1171,6 +1198,13 @@ class KeyboardService : InputMethodService() {
                     context.previousTwoWords,
                     context.previousThreeWords
                 )
+            },
+            personalFrequency = when (language) {
+                KeyboardLanguage.ENGLISH ->
+                    if (useLearning) learnedEnglishWords.frequencyMap(currentWord) else emptyMap()
+                KeyboardLanguage.NEPALI ->
+                    if (useLearning) learnedNepaliWords.frequencyMap(currentWord) else emptyMap()
+                KeyboardLanguage.ROMAN -> emptyMap()
             }
         )
         val engineResult = suggestionEngine.suggest(query, MAX_SUGGESTIONS)
@@ -1271,11 +1305,16 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun acceptSuggestion(suggestion: String, colors: KeyboardPalette) {
+        val context = editorContext(
+            if (language == KeyboardLanguage.ROMAN) romanComposer.currentWord else directTypingState.currentWord
+        )
+        val previous = context.previousWord ?: lastCommittedWord.ifEmpty { null }
+        val previousTwo = context.previousTwoWords ?: lastTwoCommittedWords
         if (language == KeyboardLanguage.ROMAN) {
             val romanWord = romanComposer.currentWord
             if (romanWord.isEmpty()) {
                 applyRomanEdit(RomanEdit.Commit(suggestion))
-                lastCommittedWord = suggestion
+                rememberAcceptedContext(suggestion, previous, previousTwo)
                 updateSuggestionRow(colors)
                 return
             }
@@ -1286,8 +1325,9 @@ class KeyboardService : InputMethodService() {
                     .apply()
             }
             applyRomanEdit(romanComposer.acceptSuggestion(suggestion))
-            recentRomanWords.record(romanWord)
+            recentRomanWords.record(suggestion)
             persistRecentWords(KeyboardPreferences.KEY_RECENT_ROMAN, recentRomanWords)
+            rememberAcceptedContext(suggestion, previous, previousTwo)
             updateSuggestionRow(colors)
             return
         }
@@ -1322,6 +1362,7 @@ class KeyboardService : InputMethodService() {
         }
         directTypingState.replaceWith(suggestion)
         if (useLearning && PersonalDictionary.shouldAccept(suggestion)) persistLearnedWord(suggestion)
+        rememberAcceptedContext(suggestion, previous, previousTwo)
         updateSuggestionRow(colors)
     }
 
@@ -1377,22 +1418,78 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun recordContext(model: ContextModel, key: String, word: String) {
-        if (lastCommittedWord.isNotEmpty()) {
-            model.record(lastCommittedWord, word)
-            suggestionEngine.recordPhrase(
-                when (language) {
-                    KeyboardLanguage.ENGLISH -> SuggestionLanguage.ENGLISH
-                    KeyboardLanguage.NEPALI -> SuggestionLanguage.NEPALI
-                    KeyboardLanguage.ROMAN -> SuggestionLanguage.ROMAN
-                },
-                lastCommittedWord,
-                word
-            )
-            getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
-                .edit()
-                .putString(key, model.serialize())
-                .apply()
+        if (lastCommittedWord.isNotEmpty() &&
+            PersonalDictionary.shouldLearnPhrase(lastCommittedWord, word)
+        ) {
+            model.record(lastCommittedWord, word, lastTwoCommittedWords)
+            val suggestionLanguage = when (language) {
+                KeyboardLanguage.ENGLISH -> SuggestionLanguage.ENGLISH
+                KeyboardLanguage.NEPALI -> SuggestionLanguage.NEPALI
+                KeyboardLanguage.ROMAN -> SuggestionLanguage.ROMAN
+            }
+            suggestionEngine.recordPhrase(suggestionLanguage, lastCommittedWord, word, lastTwoCommittedWords)
+            persistContextAndPhrases(model, key, suggestionLanguage)
         }
+        lastTwoCommittedWords = if (lastCommittedWord.isNotEmpty()) {
+            "$lastCommittedWord $word"
+        } else {
+            word
+        }
+    }
+
+    private fun rememberAcceptedContext(word: String, previous: String?, previousTwo: String?) {
+        if (!useLearning || word.isBlank()) return
+        val suggestionLanguage = when (language) {
+            KeyboardLanguage.ENGLISH -> SuggestionLanguage.ENGLISH
+            KeyboardLanguage.NEPALI -> SuggestionLanguage.NEPALI
+            KeyboardLanguage.ROMAN -> SuggestionLanguage.ROMAN
+        }
+        val model = when (language) {
+            KeyboardLanguage.ENGLISH -> englishContext
+            KeyboardLanguage.NEPALI -> nepaliContext
+            KeyboardLanguage.ROMAN -> romanContext
+        }
+        val key = when (language) {
+            KeyboardLanguage.ENGLISH -> KeyboardPreferences.KEY_CONTEXT_ENGLISH
+            KeyboardLanguage.NEPALI -> KeyboardPreferences.KEY_CONTEXT_NEPALI
+            KeyboardLanguage.ROMAN -> KeyboardPreferences.KEY_CONTEXT_ROMAN
+        }
+        if (!previous.isNullOrBlank() && PersonalDictionary.shouldLearnPhrase(previous, word)) {
+            model.record(previous, word, previousTwo)
+            suggestionEngine.recordPhrase(suggestionLanguage, previous, word, previousTwo)
+            persistContextAndPhrases(model, key, suggestionLanguage)
+        }
+        when (language) {
+            KeyboardLanguage.ENGLISH -> {
+                recentEnglishWords.record(word)
+                persistRecentWords(KeyboardPreferences.KEY_RECENT_ENGLISH, recentEnglishWords)
+            }
+            KeyboardLanguage.NEPALI -> {
+                recentNepaliWords.record(word)
+                persistRecentWords(KeyboardPreferences.KEY_RECENT_NEPALI, recentNepaliWords)
+            }
+            KeyboardLanguage.ROMAN -> {
+                recentRomanWords.record(word)
+                persistRecentWords(KeyboardPreferences.KEY_RECENT_ROMAN, recentRomanWords)
+            }
+        }
+    }
+
+    private fun persistContextAndPhrases(
+        model: ContextModel,
+        key: String,
+        suggestionLanguage: SuggestionLanguage
+    ) {
+        val phraseKey = when (suggestionLanguage) {
+            SuggestionLanguage.ENGLISH -> KeyboardPreferences.KEY_PHRASE_ENGLISH
+            SuggestionLanguage.NEPALI -> KeyboardPreferences.KEY_PHRASE_NEPALI
+            SuggestionLanguage.ROMAN -> KeyboardPreferences.KEY_PHRASE_ROMAN
+        }
+        getSharedPreferences(KeyboardPreferences.FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(key, model.serialize())
+            .putString(phraseKey, suggestionEngine.serializePhrases(suggestionLanguage))
+            .apply()
     }
 
     private fun editorContext(composingWord: String = ""): EditorContext =

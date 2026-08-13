@@ -30,6 +30,19 @@ class ContextModel(
         return true
     }
 
+    fun record(previous: String, next: String, previousTwo: String?): Boolean {
+        val first = record(previous, next)
+        val second = if (!previousTwo.isNullOrBlank()) record(previousTwo, next) else false
+        return first || second
+    }
+
+    fun strength(previous: String, next: String): Int {
+        val key = normalize(previous) to normalize(next)
+        return counts[key] ?: 0
+    }
+
+    fun size(): Int = counts.size
+
     fun predictions(
         previous: String,
         prefix: String = "",
