@@ -54,7 +54,7 @@ class SettingsActivity : Activity() {
             preview.bind(settings, systemUsesDarkTheme())
         }
 
-        content.addView(heading(getString(R.string.settings_title), 26f))
+        content.addView(heading(GorkheyBranding.APP_NAME, 26f))
         content.addView(body(getString(R.string.setup_description)))
         content.addView(actionButton(getString(R.string.enable_keyboard)) {
             startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
@@ -194,6 +194,8 @@ class SettingsActivity : Activity() {
         }
         val handwritingModels = HandwritingModelManager(handwritingNames, handwritingSizes)
         content.addView(sectionHeading(getString(R.string.section_handwriting)))
+        content.addView(body(getString(R.string.handwriting_coming_soon_title)))
+        content.addView(body(getString(R.string.handwriting_coming_soon_body)))
         content.addView(body(getString(R.string.handwriting_language_auto)))
         content.addView(body(getString(R.string.handwriting_english_model, handwritingModels.englishDetailStatus())))
         content.addView(body(getString(R.string.handwriting_nepali_model, handwritingModels.nepaliDetailStatus())))
@@ -369,7 +371,16 @@ class SettingsActivity : Activity() {
         })
 
         content.addView(sectionHeading(getString(R.string.section_about)))
-        content.addView(body(getString(R.string.app_version, appVersion())).apply {
+        content.addView(heading(GorkheyBranding.APP_NAME, 22f).apply {
+            setPadding(0, dp(4), 0, dp(8))
+        })
+        content.addView(body(getString(R.string.about_app)).apply {
+            setPadding(0, 0, 0, dp(2))
+        })
+        content.addView(body(getString(R.string.about_made_by)).apply {
+            setPadding(0, 0, 0, dp(2))
+        })
+        content.addView(body(getString(R.string.about_brand_version)).apply {
             setPadding(0, 0, 0, dp(8))
         })
         content.addView(body(getString(R.string.about_description)).apply {

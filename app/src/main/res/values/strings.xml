@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Simple Nepali Keyboard</string>
-    <string name="ime_name">Simple Nepali Keyboard</string>
-    <string name="settings_title">Keyboard settings</string>
+    <string name="app_name">GORKHEY KEYBOARD</string>
+    <string name="ime_name">GORKHEY KEYBOARD</string>
+    <string name="settings_title">GORKHEY KEYBOARD</string>
     <string name="subtype_english">English</string>
     <string name="subtype_nepali">नेपाली</string>
 
-    <string name="setup_description">Enable the keyboard in Android settings, then select it from the keyboard picker.</string>
+    <string name="setup_description">Enable GORKHEY KEYBOARD in Android settings, then select it from the keyboard picker. Everything stays offline.</string>
     <string name="enable_keyboard">Enable keyboard</string>
     <string name="choose_keyboard">Choose keyboard</string>
 
@@ -172,7 +172,12 @@
     <string name="clipboard_item_description">Insert copied text</string>
 
     <string name="app_version">Version %1$s</string>
-    <string name="about_description">A lightweight English, नेपाली, and Romanized Nepali Android keyboard.</string>
+    <string name="about_app">App: GORKHEY KEYBOARD</string>
+    <string name="about_made_by">Made by: Sworup Karki</string>
+    <string name="about_brand_version">Version: 1.0.0</string>
+    <string name="about_description">An offline English, नेपाली, and Romanized Nepali Android keyboard. Made by Sworup Karki.</string>
+    <string name="handwriting_coming_soon_title">Handwriting Recognition — Coming Soon</string>
+    <string name="handwriting_coming_soon_body">Write-to-text is not included in GORKHEY KEYBOARD v1.0. English, नेपाली, and Roman typing stay fully offline.</string>
     <string name="privacy_note">Everything works locally. There is no internet permission, account, cloud sync, analytics, advertising, or text collection.</string>
 
     <string name="english_suggestion_hint">English suggestions</string>
