@@ -1,14 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="keyboard_light_background">#E7E9ED</color>
+    <color name="keyboard_light_background">#E6EAEE</color>
     <color name="keyboard_light_key">#FFFFFF</color>
-    <color name="keyboard_light_special">#C9CDD4</color>
-    <color name="keyboard_light_text">#17181A</color>
-    <color name="keyboard_light_border">#B7BCC5</color>
-    <color name="keyboard_dark_background">#17191D</color>
-    <color name="keyboard_dark_key">#30343A</color>
-    <color name="keyboard_dark_special">#464B53</color>
-    <color name="keyboard_dark_text">#F5F6F7</color>
-    <color name="keyboard_dark_border">#5A606A</color>
-    <color name="accent">#3568D4</color>
+    <color name="keyboard_light_special">#D2D8DE</color>
+    <color name="keyboard_light_text">#1B1F24</color>
+    <color name="keyboard_light_hint">#5A6169</color>
+    <color name="keyboard_light_divider">#D5DBE1</color>
+    <color name="keyboard_light_popup">#FFFFFF</color>
+    <color name="keyboard_light_shadow">#33000000</color>
+
+    <color name="keyboard_dark_background">#14191F</color>
+    <color name="keyboard_dark_key">#2A333C</color>
+    <color name="keyboard_dark_special">#1E252C</color>
+    <color name="keyboard_dark_text">#E8EAED</color>
+    <color name="keyboard_dark_hint">#9AA0A6</color>
+    <color name="keyboard_dark_divider">#3C4043</color>
+    <color name="keyboard_dark_popup">#2A333C</color>
+    <color name="keyboard_dark_shadow">#66000000</color>
+
+    <color name="accent">#B42318</color>
+    <color name="accent_dark">#E8B86D</color>
+    <color name="enter_text">#FFFFFF</color>
 </resources>

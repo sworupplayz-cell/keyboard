@@ -54,6 +54,10 @@ class InputConnectionCommitterTest {
     fun missingConnectionOrEmptyTextDoesNotInsert() {
         assertFalse(InputConnectionCommitter.commit(null, "😊"))
         assertFalse(InputConnectionCommitter.commit(null, ""))
+        assertFalse(InputConnectionCommitter.finishComposing(null))
+        assertFalse(InputConnectionCommitter.setComposing(null, "ma"))
+        assertEquals("", InputConnectionCommitter.textBeforeCursor(null, 16))
+        assertNull(InputConnectionCommitter.selectedText(null))
     }
 
     private fun defaultValue(type: Class<*>): Any? = when (type) {

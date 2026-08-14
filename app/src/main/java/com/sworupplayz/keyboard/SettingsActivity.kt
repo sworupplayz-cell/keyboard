@@ -38,7 +38,7 @@ class SettingsActivity : Activity() {
         })
         super.onCreate(savedInstanceState)
 
-        val settings = settingsRepository.load()
+        var settings = settingsRepository.load()
         if (settingsRepository.savedDefaultMode() == null) {
             settingsRepository.setDefaultMode(settings.defaultMode)
         }
@@ -46,8 +46,15 @@ class SettingsActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(24), dp(20), dp(24), dp(32))
         }
+        val preview = KeyboardPreviewView(this)
 
-        content.addView(heading(getString(R.string.settings_title), 26f))
+        fun persist(block: KeyboardSettingsRepository.() -> Unit) {
+            settingsRepository.block()
+            settings = settingsRepository.load()
+            preview.bind(settings, systemUsesDarkTheme())
+        }
+
+        content.addView(heading(GorkheyBranding.APP_NAME, 26f))
         content.addView(body(getString(R.string.setup_description)))
         content.addView(actionButton(getString(R.string.enable_keyboard)) {
             startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
@@ -56,17 +63,26 @@ class SettingsActivity : Activity() {
             (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
         })
 
-        content.addView(sectionHeading(getString(R.string.section_general)))
+        content.addView(sectionHeading(getString(R.string.section_appearance)))
+        content.addView(preview, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, dp(4), 0, dp(12)) })
+        preview.bind(settings, systemUsesDarkTheme())
         content.addView(choiceSetting(
-            label = getString(R.string.default_mode_setting),
-            description = getString(R.string.default_mode_description),
+            label = getString(R.string.theme_setting),
+            description = getString(R.string.theme_description),
             choices = listOf(
-                DefaultKeyboardMode.ENGLISH to getString(R.string.mode_english),
-                DefaultKeyboardMode.NEPALI to getString(R.string.mode_nepali),
-                DefaultKeyboardMode.ROMAN to getString(R.string.mode_roman)
+                KeyboardVisualTheme.FOLLOW_APPEARANCE to getString(R.string.theme_follow),
+                KeyboardVisualTheme.DEFAULT_LIGHT to getString(R.string.theme_light),
+                KeyboardVisualTheme.DEFAULT_DARK to getString(R.string.theme_dark),
+                KeyboardVisualTheme.BLUE to getString(R.string.theme_blue),
+                KeyboardVisualTheme.GREEN to getString(R.string.theme_green),
+                KeyboardVisualTheme.PURPLE to getString(R.string.theme_purple),
+                KeyboardVisualTheme.HIGH_CONTRAST to getString(R.string.theme_high_contrast)
             ),
-            selected = settings.defaultMode,
-            onSelected = settingsRepository::setDefaultMode
+            selected = settings.visualTheme,
+            onSelected = { persist { setVisualTheme(it) } }
         ))
         content.addView(choiceSetting(
             label = getString(R.string.appearance_setting),
@@ -82,42 +98,18 @@ class SettingsActivity : Activity() {
                 recreate()
             }
         ))
-
-        content.addView(sectionHeading(getString(R.string.section_typing)))
-        content.addView(preferenceSwitch(
-            getString(R.string.suggestions_setting),
-            getString(R.string.suggestions_description),
-            settings.suggestions,
-            settingsRepository::setSuggestions
+        content.addView(choiceSetting(
+            label = getString(R.string.color_preset_setting),
+            description = getString(R.string.color_preset_description),
+            choices = listOf(
+                ColorPreset.THEME to getString(R.string.color_preset_theme),
+                ColorPreset.PAPER to getString(R.string.color_preset_paper),
+                ColorPreset.INK to getString(R.string.color_preset_ink),
+                ColorPreset.MIDNIGHT to getString(R.string.color_preset_midnight)
+            ),
+            selected = settings.colorPreset,
+            onSelected = { persist { setColorPreset(it) } }
         ))
-        content.addView(preferenceSwitch(
-            getString(R.string.learning_setting),
-            getString(R.string.learning_description),
-            settings.learnedWords,
-            settingsRepository::setLearnedWords
-        ))
-        content.addView(preferenceSwitch(
-            getString(R.string.number_row_setting),
-            getString(R.string.number_row_description),
-            settings.numberRow,
-            settingsRepository::setNumberRow
-        ))
-
-        content.addView(sectionHeading(getString(R.string.section_feedback)))
-        content.addView(preferenceSwitch(
-            getString(R.string.vibration_setting),
-            getString(R.string.vibration_description),
-            settings.keyVibration,
-            settingsRepository::setKeyVibration
-        ))
-        content.addView(preferenceSwitch(
-            getString(R.string.sound_setting),
-            getString(R.string.sound_description),
-            settings.keySound,
-            settingsRepository::setKeySound
-        ))
-
-        content.addView(sectionHeading(getString(R.string.section_size)))
         content.addView(choiceSetting(
             label = getString(R.string.keyboard_height_setting),
             description = getString(R.string.keyboard_height_description),
@@ -127,19 +119,268 @@ class SettingsActivity : Activity() {
                 KeyboardHeight.LARGE to getString(R.string.height_large)
             ),
             selected = settings.height,
-            onSelected = settingsRepository::setHeight
+            onSelected = { persist { setHeight(it) } }
+        ))
+        content.addView(choiceSetting(
+            label = getString(R.string.key_size_setting),
+            description = getString(R.string.key_size_description),
+            choices = listOf(
+                KeyDensity.COMPACT to getString(R.string.density_compact),
+                KeyDensity.NORMAL to getString(R.string.density_normal),
+                KeyDensity.COMFORTABLE to getString(R.string.density_comfortable)
+            ),
+            selected = settings.keyDensity,
+            onSelected = { persist { setKeyDensity(it) } }
+        ))
+        content.addView(choiceSetting(
+            label = getString(R.string.key_spacing_setting),
+            description = getString(R.string.key_spacing_description),
+            choices = listOf(
+                KeySpacing.COMPACT to getString(R.string.density_compact),
+                KeySpacing.NORMAL to getString(R.string.density_normal),
+                KeySpacing.COMFORTABLE to getString(R.string.density_comfortable)
+            ),
+            selected = settings.keySpacing,
+            onSelected = { persist { setKeySpacing(it) } }
+        ))
+        content.addView(choiceSetting(
+            label = getString(R.string.key_corner_setting),
+            description = getString(R.string.key_corner_description),
+            choices = listOf(
+                KeyCornerStyle.TIGHT to getString(R.string.corner_tight),
+                KeyCornerStyle.NORMAL to getString(R.string.corner_normal),
+                KeyCornerStyle.ROUND to getString(R.string.corner_round)
+            ),
+            selected = settings.keyCorner,
+            onSelected = { persist { setKeyCorner(it) } }
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.number_row_setting),
+            getString(R.string.number_row_description),
+            settings.numberRow
+        ) { persist { setNumberRow(it) } })
+        content.addView(preferenceSwitch(
+            getString(R.string.key_borders_setting),
+            getString(R.string.key_borders_description),
+            settings.keyBorders
+        ) { persist { setKeyBorders(it) } })
+        content.addView(preferenceSwitch(
+            getString(R.string.key_shadows_setting),
+            getString(R.string.key_shadows_description),
+            settings.keyShadows
+        ) { persist { setKeyShadows(it) } })
+        content.addView(preferenceSwitch(
+            getString(R.string.pressed_highlight_setting),
+            getString(R.string.pressed_highlight_description),
+            settings.pressedHighlight
+        ) { persist { setPressedHighlight(it) } })
+        content.addView(actionButton(getString(R.string.reset_appearance)) {
+            confirmReset(R.string.reset_appearance, R.string.reset_appearance_confirmation) {
+                settingsRepository.resetAppearance()
+                recreate()
+            }
+        })
+
+        val handwritingNames = runCatching {
+            assets.list("handwriting")?.toList().orEmpty()
+        }.getOrDefault(emptyList())
+        val handwritingSizes = handwritingNames.associateWith { name ->
+            runCatching {
+                assets.openFd("handwriting/$name").use { descriptor ->
+                    val length = descriptor.length
+                    if (length > 0L) length else 0L
+                }
+            }.getOrDefault(0L)
+        }
+        val handwritingModels = HandwritingModelManager(handwritingNames, handwritingSizes)
+        content.addView(sectionHeading(getString(R.string.section_handwriting)))
+        content.addView(body(getString(R.string.handwriting_coming_soon_title)))
+        content.addView(body(getString(R.string.handwriting_coming_soon_body)))
+        content.addView(body(getString(R.string.handwriting_language_auto)))
+        content.addView(body(getString(R.string.handwriting_english_model, handwritingModels.englishDetailStatus())))
+        content.addView(body(getString(R.string.handwriting_nepali_model, handwritingModels.nepaliDetailStatus())))
+
+        content.addView(sectionHeading(getString(R.string.section_sound)))
+        content.addView(preferenceSwitch(
+            getString(R.string.sound_setting),
+            getString(R.string.sound_description),
+            settings.keySound
+        ) { persist { setKeySound(it) } })
+        content.addView(choiceSetting(
+            label = getString(R.string.sound_volume_setting),
+            description = getString(R.string.sound_volume_description),
+            choices = listOf(
+                SoundVolume.LOW to getString(R.string.volume_low),
+                SoundVolume.MEDIUM to getString(R.string.volume_medium),
+                SoundVolume.HIGH to getString(R.string.volume_high)
+            ),
+            selected = settings.soundVolume,
+            onSelected = { persist { setSoundVolume(it) } }
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.vibration_setting),
+            getString(R.string.vibration_description),
+            settings.keyVibration
+        ) { persist { setKeyVibration(it) } })
+        content.addView(choiceSetting(
+            label = getString(R.string.haptic_strength_setting),
+            description = getString(R.string.haptic_strength_description),
+            choices = listOf(
+                HapticStrength.LIGHT to getString(R.string.haptic_light),
+                HapticStrength.MEDIUM to getString(R.string.haptic_medium),
+                HapticStrength.STRONG to getString(R.string.haptic_strong)
+            ),
+            selected = settings.hapticStrength,
+            onSelected = { persist { setHapticStrength(it) } }
         ))
 
-        content.addView(sectionHeading(getString(R.string.section_data)))
-        content.addView(body(getString(R.string.clear_learned_description)).apply {
-            setPadding(0, 0, 0, dp(4))
+        content.addView(sectionHeading(getString(R.string.section_layout)))
+        content.addView(choiceSetting(
+            label = getString(R.string.one_handed_setting),
+            description = getString(R.string.one_handed_description),
+            choices = listOf(
+                OneHandedAlignment.OFF to getString(R.string.one_handed_off),
+                OneHandedAlignment.LEFT to getString(R.string.one_handed_left),
+                OneHandedAlignment.CENTER to getString(R.string.one_handed_center),
+                OneHandedAlignment.RIGHT to getString(R.string.one_handed_right)
+            ),
+            selected = settings.oneHanded,
+            onSelected = { persist { setOneHanded(it) } }
+        ))
+        content.addView(body(getString(R.string.floating_unavailable)))
+        content.addView(preferenceSwitch(
+            getString(R.string.toolbar_setting),
+            getString(R.string.toolbar_description),
+            settings.toolbar
+        ) { persist { setToolbar(it) } })
+        content.addView(preferenceSwitch(
+            getString(R.string.toolbar_auto_collapse_setting),
+            getString(R.string.toolbar_auto_collapse_description),
+            settings.toolbarAutoCollapse
+        ) { persist { setToolbarAutoCollapse(it) } })
+        content.addView(actionButton(getString(R.string.customize_toolbar)) {
+            showToolbarEditor()
+        })
+        content.addView(actionButton(getString(R.string.restore_toolbar)) {
+            settingsRepository.restoreDefaultToolbar()
+            Toast.makeText(this, R.string.toolbar_restored, Toast.LENGTH_SHORT).show()
+        })
+        content.addView(actionButton(getString(R.string.reset_layout)) {
+            confirmReset(R.string.reset_layout, R.string.reset_layout_confirmation) {
+                settingsRepository.resetLayout()
+                recreate()
+            }
+        })
+
+        content.addView(sectionHeading(getString(R.string.section_languages)))
+        content.addView(choiceSetting(
+            label = getString(R.string.default_mode_setting),
+            description = getString(R.string.default_mode_description),
+            choices = listOf(
+                DefaultKeyboardMode.ENGLISH to getString(R.string.mode_english),
+                DefaultKeyboardMode.NEPALI to getString(R.string.mode_nepali),
+                DefaultKeyboardMode.ROMAN to getString(R.string.mode_roman)
+            ),
+            selected = settings.defaultMode,
+            onSelected = settingsRepository::setDefaultMode
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.language_button_setting),
+            getString(R.string.language_button_description),
+            settings.languageButton,
+            settingsRepository::setLanguageButton
+        ))
+
+        content.addView(sectionHeading(getString(R.string.section_typing)))
+        content.addView(preferenceSwitch(
+            getString(R.string.smart_punctuation_setting),
+            getString(R.string.smart_punctuation_description),
+            settings.smartPunctuation,
+            settingsRepository::setSmartPunctuation
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.double_space_setting),
+            getString(R.string.double_space_description),
+            settings.doubleSpacePeriod,
+            settingsRepository::setDoubleSpacePeriod
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.auto_caps_setting),
+            getString(R.string.auto_caps_description),
+            settings.autoCapitalization,
+            settingsRepository::setAutoCapitalization
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.learning_setting),
+            getString(R.string.learning_description),
+            settings.learnedWords,
+            settingsRepository::setLearnedWords
+        ))
+
+        content.addView(sectionHeading(getString(R.string.section_suggestions)))
+        content.addView(preferenceSwitch(
+            getString(R.string.suggestions_setting),
+            getString(R.string.suggestions_description),
+            settings.suggestions,
+            settingsRepository::setSuggestions
+        ))
+        content.addView(preferenceSwitch(
+            getString(R.string.typo_suggestions_setting),
+            getString(R.string.typo_suggestions_description),
+            settings.typoSuggestions,
+            settingsRepository::setTypoSuggestions
+        ))
+
+        content.addView(sectionHeading(getString(R.string.section_emoji)))
+        content.addView(preferenceSwitch(
+            getString(R.string.emoji_recents_setting),
+            getString(R.string.emoji_recents_description),
+            settings.emojiRecents,
+            settingsRepository::setEmojiRecents
+        ))
+        content.addView(actionButton(getString(R.string.clear_recent_emoji)) {
+            confirmClearRecentEmoji()
+        })
+
+        content.addView(sectionHeading(getString(R.string.section_clipboard)))
+        content.addView(preferenceSwitch(
+            getString(R.string.clipboard_history_setting),
+            getString(R.string.clipboard_history_description),
+            settings.clipboardHistory,
+            settingsRepository::setClipboardHistory
+        ))
+        content.addView(actionButton(getString(R.string.clear_clipboard)) {
+            confirmClearClipboard()
+        })
+
+        content.addView(sectionHeading(getString(R.string.section_privacy)))
+        content.addView(body(getString(R.string.offline_status)).apply {
+            setPadding(0, 0, 0, dp(8))
         })
         content.addView(actionButton(getString(R.string.clear_learned_words)) {
             confirmClearLearnedWords()
         })
+        content.addView(actionButton(getString(R.string.clear_local_data)) {
+            confirmClearLocalData()
+        })
+        content.addView(actionButton(getString(R.string.reset_all_settings)) {
+            confirmReset(R.string.reset_all_settings, R.string.reset_all_settings_confirmation) {
+                settingsRepository.resetAllSettings()
+                recreate()
+            }
+        })
 
         content.addView(sectionHeading(getString(R.string.section_about)))
-        content.addView(body(getString(R.string.app_version, appVersion())).apply {
+        content.addView(heading(GorkheyBranding.APP_NAME, 22f).apply {
+            setPadding(0, dp(4), 0, dp(8))
+        })
+        content.addView(body(getString(R.string.about_app)).apply {
+            setPadding(0, 0, 0, dp(2))
+        })
+        content.addView(body(getString(R.string.about_made_by)).apply {
+            setPadding(0, 0, 0, dp(2))
+        })
+        content.addView(body(getString(R.string.about_brand_version)).apply {
             setPadding(0, 0, 0, dp(8))
         })
         content.addView(body(getString(R.string.about_description)).apply {
@@ -154,6 +395,110 @@ class SettingsActivity : Activity() {
             isFillViewport = true
             addView(content)
         })
+    }
+
+    private fun confirmClearLocalData() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.clear_local_data)
+            .setMessage(R.string.clear_local_data_confirmation)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.clear_action) { _, _ ->
+                settingsRepository.clearLocalData()
+                Toast.makeText(this, R.string.local_data_cleared, Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
+    private fun showToolbarEditor() {
+        var config = settingsRepository.toolbarConfiguration()
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(20), dp(20), dp(28))
+        }
+        fun persist(next: ToolbarConfiguration) {
+            config = next
+            settingsRepository.saveToolbarConfiguration(config)
+        }
+        fun redraw() {
+            content.removeAllViews()
+            content.addView(heading(getString(R.string.customize_toolbar), 22f))
+            content.addView(body(getString(R.string.customize_toolbar_description)))
+            config.order.forEach { action ->
+                content.addView(preferenceSwitch(
+                    action.name.lowercase().replaceFirstChar { it.titlecase() },
+                    action.name,
+                    config.isEnabled(action)
+                ) { enabled ->
+                    if (enabled != config.isEnabled(action)) persist(config.toggle(action))
+                })
+                val movers = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.END
+                }
+                movers.addView(actionButton(getString(R.string.move_up)) {
+                    persist(config.move(action, -1))
+                    redraw()
+                }.apply {
+                    layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f)
+                    textSize = 13f
+                })
+                movers.addView(actionButton(getString(R.string.move_down)) {
+                    persist(config.move(action, 1))
+                    redraw()
+                }.apply {
+                    layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f)
+                    textSize = 13f
+                })
+                content.addView(movers)
+            }
+            content.addView(actionButton(getString(R.string.restore_toolbar)) {
+                settingsRepository.restoreDefaultToolbar()
+                config = settingsRepository.toolbarConfiguration()
+                Toast.makeText(this, R.string.toolbar_restored, Toast.LENGTH_SHORT).show()
+                redraw()
+            })
+            content.addView(actionButton(getString(R.string.done_action)) {
+                recreate()
+            })
+        }
+        redraw()
+        setContentView(ScrollView(this).apply {
+            isFillViewport = true
+            addView(content)
+        })
+    }
+
+    private fun confirmClearClipboard() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.clear_clipboard)
+            .setMessage(R.string.clear_clipboard_confirmation)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.clear_action) { _, _ ->
+                settingsRepository.clearClipboardHistory()
+                Toast.makeText(this, R.string.clipboard_cleared, Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
+    private fun confirmClearRecentEmoji() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.clear_recent_emoji)
+            .setMessage(R.string.clear_recent_emoji_confirmation)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.clear_action) { _, _ ->
+                settingsRepository.clearRecentEmojiAndSymbols()
+                Toast.makeText(this, R.string.recent_emoji_cleared, Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
+    private fun confirmReset(title: Int, message: Int, onConfirm: () -> Unit) {
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.reset_action) { _, _ -> onConfirm() }
+            .show()
     }
 
     private fun confirmClearLearnedWords() {

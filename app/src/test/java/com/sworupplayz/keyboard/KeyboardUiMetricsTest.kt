@@ -74,6 +74,23 @@ class KeyboardUiMetricsTest {
     }
 
     @Test
+    fun toolbarDoesNotDominateTheKeyboardHeight() {
+        assertTrue(KeyboardUiMetrics.toolbarHeightDp(320, false) <= 32)
+        assertTrue(KeyboardUiMetrics.toolbarHeightDp(360, false) <= 34)
+        val withToolbar = KeyboardUiMetrics.estimatedStandardHeightDp(
+            360, 800, landscape = false, rowCount = 4, hasSuggestion = true, hasToolbar = true
+        )
+        val withoutToolbar = KeyboardUiMetrics.estimatedStandardHeightDp(
+            360, 800, landscape = false, rowCount = 4, hasSuggestion = true, hasToolbar = false
+        )
+        assertTrue(withToolbar > withoutToolbar)
+        assertTrue(withToolbar - withoutToolbar <= 36)
+        assertEquals(4, KeyboardUiMetrics.maxToolbarItems(320))
+        assertEquals(5, KeyboardUiMetrics.maxToolbarItems(360))
+        assertEquals(6, KeyboardUiMetrics.maxToolbarItems(412))
+    }
+
+    @Test
     fun handwritingCanvasAdaptsWithoutBecomingTiny() {
         assertEquals(140, KeyboardUiMetrics.handwritingCanvasHeightDp(568, landscape = false))
         assertEquals(160, KeyboardUiMetrics.handwritingCanvasHeightDp(800, landscape = false))
@@ -85,5 +102,19 @@ class KeyboardUiMetricsTest {
         val labels = KeyboardLayouts.navigationControls().map { it.label }
         assertEquals(listOf("EN", "नेपाली", "Roman", "123", "😊", "✍"), labels)
         assertEquals("#+=", KeyboardLayouts.navigationControls("#+=")[3].label)
+    }
+
+    @Test
+    fun heightAndWidthHelpersCoverPanelsAndPreviews() {
+        assertEquals(40, KeyboardUiMetrics.suggestionHeightDp())
+        assertEquals(38, KeyboardUiMetrics.suggestionHeightDp(landscape = false, KeyboardHeight.SMALL))
+        assertEquals(42, KeyboardUiMetrics.suggestionHeightDp(landscape = false, KeyboardHeight.LARGE))
+        assertEquals(36, KeyboardUiMetrics.suggestionHeightDp(landscape = true))
+        assertEquals(160, KeyboardUiMetrics.clipboardPanelHeightDp(800, landscape = false))
+        assertEquals(112, KeyboardUiMetrics.clipboardPanelHeightDp(360, landscape = true))
+        assertEquals(7, KeyboardUiMetrics.emojiColumns(320))
+        assertEquals(8, KeyboardUiMetrics.emojiColumns(400))
+        assertTrue(KeyboardUiMetrics.previewWidthDp(320, false) >= 44)
+        assertTrue(KeyboardUiMetrics.previewHeightDp(360, true) <= 54)
     }
 }

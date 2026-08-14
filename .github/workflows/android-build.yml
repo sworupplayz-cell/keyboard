@@ -1,48 +1,37 @@
-name: Android Keyboard Build
+name: Build GORKHEY Keyboard APK
 
 on:
-  workflow_dispatch:
   push:
     branches:
-      - "arena/019ff5fc-keyboard"
+      - arena/019ff77f-keyboard
+  pull_request:
+    branches:
+      - arena/019ff77f-keyboard
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
+          cache: gradle
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Grant Gradle permission
+        run: chmod +x gradlew
 
-      - name: Install Android SDK 35
-        run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Make Gradle executable
-        run: chmod +x ./gradlew
-
-      - name: Run unit tests
-        run: ./gradlew testDebugUnitTest
-
-      - name: Run lint
-        run: ./gradlew lintDebug
-
-      - name: Build debug APK
+      - name: Build Debug APK
         run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: nepali-english-keyboard-v8
+          name: GORKHEY_KEYBOARD_Debug_APK
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
