@@ -31,8 +31,8 @@ data class KeyboardPalette(
 )
 
 object KeyboardTheme {
-    const val KEY_CORNER_RADIUS_DP = 6
-    const val PREVIEW_CORNER_RADIUS_DP = 8
+    const val KEY_CORNER_RADIUS_DP = 8
+    const val PREVIEW_CORNER_RADIUS_DP = 10
     const val KEY_HORIZONTAL_GAP_DP = 3
     const val KEY_VERTICAL_GAP_DP = 5
     const val COMPACT_HORIZONTAL_GAP_DP = 2
@@ -46,8 +46,8 @@ object KeyboardTheme {
     const val MODIFIER_TEXT_SP = 14f
     const val MINIMUM_CONTRAST = 4.5
     const val WHITE = -1
-    const val PRESS_FADE_MS = 50
-    const val RELEASE_FADE_MS = 70
+    const val PRESS_FADE_MS = 60
+    const val RELEASE_FADE_MS = 80
 
     fun palette(dark: Boolean, color: (Int) -> Int): KeyboardPalette = if (dark) {
         KeyboardPalette(

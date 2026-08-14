@@ -5,8 +5,8 @@ package com.sworupplayz.keyboard
  * key should preview or offer alternates; it does not animate the whole board.
  */
 object KeyInteractionPolicy {
-    const val PRESS_FADE_MS = 50
-    const val RELEASE_FADE_MS = 70
+    const val PRESS_FADE_MS = 60
+    const val RELEASE_FADE_MS = 80
     const val DOUBLE_TAP_GUARD_MS = 220L
 
     fun showsPreview(key: KeySpec): Boolean {

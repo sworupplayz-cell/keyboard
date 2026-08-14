@@ -93,21 +93,21 @@ data class ThemeStyle(
  * need Android resources. KeyboardService still uses the same [KeyboardPalette].
  */
 object AppearanceCatalog {
-    const val LIGHT_BACKGROUND = 0xFFE8EAED.toInt()
+    const val LIGHT_BACKGROUND = 0xFFE6EAEE.toInt()
     const val LIGHT_KEY = 0xFFFFFFFF.toInt()
-    const val LIGHT_SPECIAL = 0xFFD3D7DE.toInt()
-    const val LIGHT_TEXT = 0xFF202124.toInt()
-    const val LIGHT_HINT = 0xFF5F6368.toInt()
-    const val LIGHT_DIVIDER = 0xFFDADCE0.toInt()
-    const val LIGHT_ACCENT = 0xFF1A73E8.toInt()
+    const val LIGHT_SPECIAL = 0xFFD2D8DE.toInt()
+    const val LIGHT_TEXT = 0xFF1B1F24.toInt()
+    const val LIGHT_HINT = 0xFF5A6169.toInt()
+    const val LIGHT_DIVIDER = 0xFFD5DBE1.toInt()
+    const val LIGHT_ACCENT = 0xFFB42318.toInt()
     const val LIGHT_SHADOW = 0x33000000
-    const val DARK_BACKGROUND = 0xFF1F1F1F.toInt()
-    const val DARK_KEY = 0xFF3C4043.toInt()
-    const val DARK_SPECIAL = 0xFF2D2E31.toInt()
+    const val DARK_BACKGROUND = 0xFF14191F.toInt()
+    const val DARK_KEY = 0xFF2A333C.toInt()
+    const val DARK_SPECIAL = 0xFF1E252C.toInt()
     const val DARK_TEXT = 0xFFE8EAED.toInt()
     const val DARK_HINT = 0xFF9AA0A6.toInt()
     const val DARK_DIVIDER = 0xFF3C4043.toInt()
-    const val DARK_ACCENT = 0xFF8AB4F8.toInt()
+    const val DARK_ACCENT = 0xFFE8B86D.toInt()
     const val DARK_SHADOW = 0x66000000
 
     fun resolve(
