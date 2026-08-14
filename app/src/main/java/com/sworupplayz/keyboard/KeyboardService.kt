@@ -933,7 +933,7 @@ class KeyboardService : InputMethodService() {
                         dp(KeyboardTheme.KEY_CORNER_RADIUS_DP).toFloat()
                     )
                 }
-                row.minHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
+                row.minimumHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
                 row.addView(TextView(this).apply {
                     text = ClipboardPolicy.preview(entry.text)
                     contentDescription = getString(R.string.clipboard_item_description)
