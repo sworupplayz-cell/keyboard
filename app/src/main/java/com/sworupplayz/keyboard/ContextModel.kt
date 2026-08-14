@@ -74,6 +74,10 @@ class ContextModel(
         "${pair.first}\t${pair.second}\t$score"
     }
 
+    private fun trimToLimit() {
+        while (counts.size > limit) counts.remove(counts.keys.first())
+    }
+
     companion object {
         const val DEFAULT_LIMIT = 400
 

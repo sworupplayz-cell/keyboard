@@ -209,6 +209,11 @@ object PredictionPipeline {
     const val MAX_VISIBLE = SuggestionEngine.MAX_VISIBLE
     const val MAX_GENERATED = 16
 
+    fun effectivePrevious(previous: String?): String? {
+        val cleaned = previous?.trim().orEmpty()
+        return cleaned.ifEmpty { null }
+    }
+
     fun contractions(input: String): List<String> = ContractionExpander.expand(input)
 
     fun extras(input: String): List<String> = CommonCompletions.extras(input)

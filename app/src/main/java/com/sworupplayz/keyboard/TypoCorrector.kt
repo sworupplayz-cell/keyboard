@@ -64,9 +64,12 @@ object TypoCorrector {
 
     fun isAdjacentTransposition(typed: String, candidate: String): Boolean {
         if (typed.length != candidate.length || typed.length < 2) return false
-        typed.indices.dropLast(1).forEach { index ->
+        for (index in 0 until typed.lastIndex) {
             if (typed[index] != candidate[index]) {
-                val swapped = typed.substring(0, index) + typed[index + 1] + typed[index] + typed.substring(index + 2)
+                val swapped = typed.substring(0, index) +
+                    typed[index + 1].toString() +
+                    typed[index].toString() +
+                    typed.substring(index + 2)
                 return swapped == candidate
             }
         }
@@ -103,10 +106,10 @@ object TypoCorrector {
         val normalized = input.lowercase(Locale.ENGLISH)
         if (normalized.length < 3) return emptyList()
         val results = LinkedHashSet<String>()
-        normalized.indices.dropLast(1).forEach { index ->
+        for (index in 0 until normalized.lastIndex) {
             val swapped = normalized.substring(0, index) +
-                normalized[index + 1] +
-                normalized[index] +
+                normalized[index + 1].toString() +
+                normalized[index].toString() +
                 normalized.substring(index + 2)
             if (swapped != normalized && known(swapped)) results += swapped
         }
