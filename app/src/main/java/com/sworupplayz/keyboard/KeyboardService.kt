@@ -169,6 +169,7 @@ class KeyboardService : InputMethodService() {
     private var lastSuggestionWords: List<String> = emptyList()
     private val suggestionQueryCache = SuggestionQueryCache()
     private var overlayDismissView: View? = null
+    private var handwritingComingSoonView: View? = null
     private var clipboardHistory = ClipboardRepository()
     private var lastSpaceUptime = 0L
     private var showNumberRow = false
@@ -741,9 +742,8 @@ class KeyboardService : InputMethodService() {
                 openPanel(LayoutMode.SYMBOLS)
             }
             ToolbarAction.HANDWRITING -> {
-                if (layoutMode == LayoutMode.HANDWRITING) return
                 toolbar.collapse()
-                openHandwriting()
+                requestHandwritingEntry()
             }
             ToolbarAction.SETTINGS -> openSettings()
             ToolbarAction.LANGUAGE -> {
@@ -2167,7 +2167,7 @@ class KeyboardService : InputMethodService() {
                 layoutMode = LayoutMode.LETTERS
                 renderKeyboard()
             }
-            KeyAction.HANDWRITING -> openHandwriting()
+            KeyAction.HANDWRITING -> requestHandwritingEntry()
             KeyAction.HANDWRITING_UNDO -> {
                 handwritingJobs.cancel()
                 handwritingSession.undo()
@@ -2363,6 +2363,79 @@ class KeyboardService : InputMethodService() {
             emojiQuery = ""
         }
         renderKeyboard()
+    }
+
+    private fun requestHandwritingEntry() {
+        if (HandwritingReleasePolicy.showsComingSoon()) {
+            showHandwritingComingSoon()
+            return
+        }
+        openHandwriting()
+    }
+
+    private fun showHandwritingComingSoon() {
+        if (!::overlayHost.isInitialized) return
+        hideOverlays()
+        val colors = keyboardColors()
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(20), dp(18), dp(20), dp(16))
+            background = KeyboardTheme.roundedRect(
+                colors.popupBackground,
+                dp(KeyboardTheme.PREVIEW_CORNER_RADIUS_DP).toFloat()
+            )
+            addView(TextView(this@KeyboardService).apply {
+                text = HandwritingReleasePolicy.TITLE
+                contentDescription = HandwritingReleasePolicy.TITLE
+                gravity = Gravity.CENTER
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTextColor(colors.popupText)
+                textSize = 16f
+            })
+            addView(TextView(this@KeyboardService).apply {
+                text = HandwritingReleasePolicy.MESSAGE
+                gravity = Gravity.CENTER
+                setTextColor(colors.secondaryText)
+                textSize = 13f
+                setPadding(0, dp(8), 0, dp(12))
+            })
+            addView(TextView(this@KeyboardService).apply {
+                text = getString(android.R.string.ok)
+                gravity = Gravity.CENTER
+                setTextColor(colors.enterText)
+                background = KeyboardTheme.roundedRect(
+                    colors.enterKey,
+                    dp(KeyboardUiMetrics.cornerRadiusDp(keyCorner)).toFloat()
+                )
+                setPadding(dp(18), dp(10), dp(18), dp(10))
+                isClickable = true
+                isFocusable = true
+                minHeight = dp(AccessibilityLabels.MIN_TOUCH_DP)
+                setOnClickListener { hideOverlays() }
+            })
+        }
+        val host = FrameLayout(this).apply {
+            setBackgroundColor(0x66000000)
+            isClickable = true
+            setOnClickListener { hideOverlays() }
+            addView(
+                card,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER
+                ).apply { setMargins(dp(24), dp(24), dp(24), dp(24)) }
+            )
+        }
+        overlayHost.addView(
+            host,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+        handwritingComingSoonView = host
     }
 
     private fun openHandwriting() {
